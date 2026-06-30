@@ -232,6 +232,29 @@ Typical deployment flow:
 
 If you already have old question assets locally, copy `data/` and `uploads/` into the mounted Fly volume before first production use.
 
+## Deploy On Render
+
+This repo can deploy on Render as a single Docker web service.
+
+Render notes:
+
+- choose `Web Service`, not `Static Site`
+- use a paid plan because the app needs a persistent disk
+- mount the persistent disk at `/data` so SQLite and uploads survive restarts
+- keep the service at one instance because the app uses SQLite on a single attached disk
+
+The repo root now includes `render.yaml` for a Blueprint-based setup.
+
+Typical deployment flow:
+
+1. In Render, choose `New` -> `Blueprint` and select this repo.
+2. Review the generated web service settings from `render.yaml`.
+3. Provide secret values when prompted for `TELEGRAM_BOT_TOKEN` and `ADMIN_PASSWORD`.
+4. Keep `ABQOOR_STORAGE_DIR=/data`, `ABQOOR_PORT=10000`, and `ABQOOR_HOST=0.0.0.0`.
+5. Deploy and wait for the health check on `/healthz` to pass.
+
+If you prefer the manual form instead of Blueprints, create a Docker-based web service with the same disk mount and environment values.
+
 ## Frontend
 
 - The admin website is plain HTML, CSS, and TypeScript.

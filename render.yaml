@@ -1,0 +1,30 @@
+services:
+  - type: web
+    runtime: docker
+    name: abqoor
+    repo: https://github.com/NightDHero/Abqoor
+    region: frankfurt
+    plan: starter
+    numInstances: 1
+    autoDeployTrigger: commit
+    healthCheckPath: /healthz
+    dockerfilePath: ./Dockerfile
+    disk:
+      name: abqoor-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: ABQOOR_HOST
+        value: 0.0.0.0
+      - key: ABQOOR_PORT
+        value: 10000
+      - key: ABQOOR_STORAGE_DIR
+        value: /data
+      - key: ABQOOR_TIMEZONE
+        value: Asia/Riyadh
+      - key: ABQOOR_ENABLE_TELEGRAM
+        value: 1
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
