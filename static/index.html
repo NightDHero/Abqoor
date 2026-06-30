@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>منصة عبقور</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="page-shell">
+        <div class="ambient ambient-left"></div>
+        <div class="ambient ambient-right"></div>
+
+        <main class="layout">
+            <section class="panel auth-panel" id="auth-panel">
+                <div class="section-heading">
+                    <p class="section-kicker">دخول المشرف</p>
+                    <h2>تسجيل الدخول</h2>
+                </div>
+
+                <form id="login-form" class="stacked-form">
+                    <label class="field">
+                        <span>كلمة مرور المشرف</span>
+                        <input id="password" name="password" type="password" autocomplete="current-password" placeholder="أدخل كلمة المرور">
+                    </label>
+                    <button class="primary-button" type="submit">دخول المنصة</button>
+                </form>
+            </section>
+
+            <section class="dashboard hidden" id="dashboard">
+                <div class="dashboard-toolbar">
+                    <button class="ghost-button" id="logout-button" type="button">تسجيل الخروج</button>
+                </div>
+
+                <section class="panel method-panel method-panel-single" aria-labelledby="single-upload-title">
+                    <div class="method-panel-top">
+                        <h3 id="single-upload-title">رفع صورة سؤال واحدة</h3>
+                    </div>
+
+                    <form id="publish-form" class="composer-grid">
+                        <div class="upload-column">
+                            <label class="upload-tile" for="image-input">
+                                <input id="image-input" name="image" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+                                <img id="image-preview" class="preview-image hidden" alt="معاينة السؤال">
+                                <div id="upload-placeholder" class="upload-copy">
+                                    <strong>ضع صورة السؤال هنا</strong>
+                                    <span>PNG أو JPG أو WEBP</span>
+                                </div>
+                            </label>
+                            <button class="paste-upload-button" id="paste-image-button" type="button">ألصق صورة من الحافظة</button>
+                        </div>
+
+                        <div class="composer-fields">
+                            <label class="field">
+                                <span>رقم السؤال</span>
+                                <input id="question-number" name="question_number" type="text" inputmode="numeric" placeholder="مثال: 250" required>
+                            </label>
+
+                            <label class="field">
+                                <span>الوصف أو التلميح</span>
+                                <textarea id="caption" name="caption" rows="5" placeholder="اختياري، مثل: ركز على المعطيات أو أضف تلميحا قصيرا."></textarea>
+                            </label>
+
+                            <fieldset class="answer-picker">
+                                <legend>الإجابة الصحيحة</legend>
+                                <div class="answer-options">
+                                    <label class="answer-card">
+                                        <input type="radio" name="correct_option" value="A" checked>
+                                        <span>أ</span>
+                                    </label>
+                                    <label class="answer-card">
+                                        <input type="radio" name="correct_option" value="B">
+                                        <span>ب</span>
+                                    </label>
+                                    <label class="answer-card">
+                                        <input type="radio" name="correct_option" value="C">
+                                        <span>ج</span>
+                                    </label>
+                                    <label class="answer-card">
+                                        <input type="radio" name="correct_option" value="D">
+                                        <span>د</span>
+                                    </label>
+                                </div>
+                            </fieldset>
+
+                            <button class="primary-button" id="publish-button" type="submit">احفظ السؤال</button>
+                        </div>
+                    </form>
+                </section>
+
+                <section class="panel method-panel method-panel-bulk" aria-labelledby="pdf-import-title">
+                    <div class="method-panel-top">
+                        <h3 id="pdf-import-title">استيراد PDF مع Excel</h3>
+                    </div>
+
+                    <section class="pdf-import-panel">
+                        <label class="pdf-upload-button" for="pdf-input">
+                            <input id="pdf-input" type="file" accept="application/pdf" hidden>
+                            <strong>استورد ملف PDF</strong>
+                            <span>سيتم تحويل كل صفحة إلى صورة سؤال ويمكن التعامل مع تعارض الأرقام قبل الحفظ.</span>
+                        </label>
+                        <p id="pdf-file-name" class="field-hint pdf-file-name">لم يتم اختيار ملف PDF بعد.</p>
+                        <label class="pdf-upload-button" for="answer-sheet-input">
+                            <input id="answer-sheet-input" type="file" accept=".xlsx,.xlsm,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" hidden>
+                            <strong>أرفق ملف Excel للإجابات</strong>
+                            <span>اختياري: يجب أن يحتوي على عمود رقم السؤال وعمود الإجابة الصحيحة</span>
+                        </label>
+                        <p id="answer-sheet-file-name" class="field-hint pdf-file-name">لم يتم اختيار ملف Excel بعد.</p>
+                        <label class="field">
+                            <span>رقم أول سؤال في ملف PDF</span>
+                            <input id="pdf-start-question-number" type="text" inputmode="numeric" placeholder="مثال: 1">
+                        </label>
+                        <p class="field-hint">سنطابق الصفحة الأولى مع هذا الرقم ثم نكمل بالترتيب في بقية الصفحات.</p>
+                        <button class="ghost-button" id="pdf-import-button" type="button">استورد صفحات PDF</button>
+                    </section>
+                </section>
+
+                <div class="panel recent-panel">
+                    <div class="section-heading between">
+                        <div>
+                            <p class="section-kicker">المحفوظات</p>
+                            <h2>الأسئلة الأخيرة</h2>
+                        </div>
+                        <div class="inline-actions">
+                            <button class="ghost-button compact-button hidden" id="undo-delete-button" type="button">تراجع</button>
+                            <button class="ghost-button compact-button delete-button" id="delete-all-button" type="button">حذف الكل</button>
+                        </div>
+                    </div>
+
+                    <p id="feedback" class="feedback" aria-live="polite"></p>
+                    <div id="questions-list" class="question-feed"></div>
+                </div>
+            </section>
+
+            <section class="modal-shell hidden" id="pdf-conflict-modal" aria-modal="true" role="dialog" aria-labelledby="pdf-conflict-title">
+                <div class="modal-card panel">
+                    <div class="section-heading between">
+                        <div>
+                            <p class="section-kicker">تعارض أرقام الأسئلة</p>
+                            <h2 id="pdf-conflict-title">هناك أرقام موجودة بالفعل</h2>
+                        </div>
+                        <button class="ghost-button compact-button" id="pdf-conflict-cancel-button" type="button">إغلاق</button>
+                    </div>
+
+                    <p id="pdf-conflict-message" class="panel-note"></p>
+
+                    <div id="pdf-conflict-single-preview" class="conflict-preview hidden">
+                        <img id="pdf-conflict-image" class="conflict-image" alt="السؤال الحالي">
+                        <div class="conflict-preview-copy">
+                            <strong id="pdf-conflict-number"></strong>
+                            <span id="pdf-conflict-status" class="field-hint"></span>
+                            <span id="pdf-conflict-created-at" class="field-hint"></span>
+                        </div>
+                    </div>
+
+                    <label id="pdf-conflict-clipboard-wrapper" class="field hidden">
+                        <span>أرقام الأسئلة المتعارضة</span>
+                        <textarea id="pdf-conflict-clipboard-text" rows="5" readonly></textarea>
+                    </label>
+
+                    <p id="pdf-conflict-note" class="field-hint"></p>
+
+                    <div class="inline-actions">
+                        <button class="ghost-button" id="pdf-conflict-skip-button" type="button">تخطَّ الموجود</button>
+                        <button class="primary-button" id="pdf-conflict-replace-button" type="button">استبدل الموجود</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script type="module" src="/static/admin.js"></script>
+</body>
+</html>

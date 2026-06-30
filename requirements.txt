@@ -1,0 +1,8 @@
+fastapi>=0.115,<1.0
+openpyxl>=3.1,<4.0
+PyMuPDF>=1.24,<2.0
+python-dotenv>=1.0,<2.0
+python-multipart>=0.0.20,<1.0
+python-telegram-bot>=22.0,<23.0
+tzdata>=2024.1,<2026.0
+uvicorn[standard]>=0.34,<1.0

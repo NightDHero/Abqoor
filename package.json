@@ -1,0 +1,10 @@
+{
+  "name": "abqoor-admin",
+  "private": true,
+  "scripts": {
+    "build": "tsc static/admin.ts --target ES2022 --module ES2022 --strict --outDir static"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
