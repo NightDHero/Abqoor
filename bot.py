@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import uvicorn
 import fitz
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from openpyxl import load_workbook
@@ -50,6 +50,7 @@ SCHEDULER_INTERVAL_SECONDS = 30
 MIN_QUESTION_COUNT = 1
 MAX_QUESTION_COUNT = 100
 CHANNEL_START_PAYLOAD = "from_channel"
+TELEGRAM_WEBHOOK_PATH = "/telegram/webhook"
 MANUAL_REVIEW_SESSION_MARKER = ":mistakebank:"
 TODAY_START_LABEL = "ابدأ جلسة اليوم"
 TODAY_REDO_LABEL = "أعد جلسة اليوم"
@@ -103,6 +104,8 @@ class Settings:
     storage_dir: Path = BASE_DIR
     timezone_name: str = "Asia/Riyadh"
     telegram_enabled: bool = True
+    public_base_url: str = ""
+    telegram_webhook_secret: str = ""
 
     @property
     def data_dir(self) -> Path:
@@ -123,6 +126,16 @@ class Settings:
     @property
     def timezone(self) -> ZoneInfo:
         return ZoneInfo(self.timezone_name)
+
+    @property
+    def telegram_webhook_url(self) -> str | None:
+        if not self.telegram_enabled or not self.public_base_url:
+            return None
+        return f"{self.public_base_url.rstrip('/')}{TELEGRAM_WEBHOOK_PATH}"
+
+    @property
+    def uses_telegram_webhook(self) -> bool:
+        return self.telegram_webhook_url is not None
 
 
 class StudyRepository:
@@ -166,6 +179,7 @@ class StudyRepository:
                     last_name TEXT,
                     display_name TEXT NOT NULL,
                     language_code TEXT,
+                    active_prompt_message_id INTEGER,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
@@ -251,6 +265,7 @@ class StudyRepository:
             )
 
     def _apply_migrations(self) -> None:
+        self._ensure_column("users", "active_prompt_message_id INTEGER")
         self._ensure_column("questions", "question_number INTEGER")
         self._ensure_column("study_plans", "review_weekday INTEGER")
         self._ensure_column("study_sessions", "session_kind TEXT NOT NULL DEFAULT 'study'")
@@ -493,6 +508,22 @@ class StudyRepository:
             )
 
         return self.get_plan_by_telegram_id(telegram_user_id)
+
+    def get_active_prompt_message_id(self, telegram_user_id: int) -> int | None:
+        row = self.connection.execute(
+            "SELECT active_prompt_message_id FROM users WHERE telegram_user_id = ?",
+            (telegram_user_id,),
+        ).fetchone()
+        if row is None or row["active_prompt_message_id"] is None:
+            return None
+        return int(row["active_prompt_message_id"])
+
+    def set_active_prompt_message_id(self, telegram_user_id: int, message_id: int | None) -> None:
+        with self._lock, self.connection:
+            self.connection.execute(
+                "UPDATE users SET active_prompt_message_id = ?, updated_at = ? WHERE telegram_user_id = ?",
+                (message_id, utc_now_iso(), telegram_user_id),
+            )
 
     def reset_user(self, telegram_user_id: int) -> bool:
         row = self.connection.execute(
@@ -2064,6 +2095,13 @@ def _normalize_port_env(value: str, *, fallback: str) -> str:
     raise RuntimeError("ABQOOR_PORT must be a valid integer.")
 
 
+def _normalize_public_base_url(value: str) -> str:
+    normalized = _collapse_repeated_env_value(value).strip()
+    if not normalized:
+        return ""
+    return normalized.rstrip("/")
+
+
 def _parse_boolean_env(value: str, *, default: bool) -> bool:
     normalized = _collapse_repeated_env_value(value).strip().lower()
     if not normalized:
@@ -2090,6 +2128,10 @@ def load_settings() -> Settings:
     timezone_name = _collapse_repeated_env_value(os.getenv("ABQOOR_TIMEZONE", "Asia/Riyadh")) or "Asia/Riyadh"
     telegram_enabled_value = os.getenv("ABQOOR_ENABLE_TELEGRAM", "1").strip().lower()
     telegram_enabled = _parse_boolean_env(telegram_enabled_value, default=True)
+    public_base_url = _normalize_public_base_url(
+        os.getenv("ABQOOR_PUBLIC_BASE_URL", os.getenv("RENDER_EXTERNAL_URL", ""))
+    )
+    telegram_webhook_secret = _collapse_repeated_env_value(os.getenv("ABQOOR_TELEGRAM_WEBHOOK_SECRET", ""))
 
     missing = []
     if telegram_enabled and not telegram_bot_token:
@@ -2114,6 +2156,8 @@ def load_settings() -> Settings:
         storage_dir=Path(storage_dir_value).expanduser().resolve(),
         timezone_name=timezone_name,
         telegram_enabled=telegram_enabled,
+        public_base_url=public_base_url,
+        telegram_webhook_secret=telegram_webhook_secret,
     )
 
 
@@ -2930,7 +2974,12 @@ def ensure_private_chat(update: Update) -> bool:
     return bool(update.effective_chat and update.effective_chat.type == "private")
 
 
-async def begin_plan_setup(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def begin_plan_setup(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    intro_text: str | None = None,
+) -> None:
     user = update.effective_user
     if user is None:
         return
@@ -2951,36 +3000,38 @@ async def begin_plan_setup(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         "step": "days",
     }
 
-    if existing_plan is not None:
-        plan_setup_state = context.user_data["plan_setup"]
-        if update.callback_query is not None:
-            await update.callback_query.answer()
-            await update.effective_chat.send_message(
-                build_plan_setup_summary(plan_setup_state),
-                reply_markup=build_plan_edit_keyboard(plan_setup_state),
-            )
-            return
-
-        if update.effective_message is not None:
-            await update.effective_message.reply_text(
-                build_plan_setup_summary(plan_setup_state),
-                reply_markup=build_plan_edit_keyboard(plan_setup_state),
-            )
-        return
-
     if update.callback_query is not None:
         await update.callback_query.answer()
-        await update.effective_chat.send_message(
-            "اختر أيام الدراسة التي تناسبك. يمكنك اختيار أكثر من يوم، ثم اضغط تم.",
-            reply_markup=build_days_keyboard(selected_days),
+
+    preferred_message_id = None
+    if update.callback_query is not None and update.callback_query.message is not None:
+        preferred_message_id = int(update.callback_query.message.message_id)
+    source_message_id = None
+    if preferred_message_id is None and update.effective_message is not None:
+        source_message_id = int(update.effective_message.message_id)
+
+    intro_prefix = f"{intro_text}\n\n" if intro_text else ""
+
+    if existing_plan is not None:
+        plan_setup_state = context.user_data["plan_setup"]
+        await show_or_update_prompt_message(
+            context.application,
+            int(user.id),
+            intro_prefix + build_plan_setup_summary(plan_setup_state),
+            reply_markup=build_plan_edit_keyboard(plan_setup_state),
+            source_message_id=source_message_id,
+            preferred_message_id=preferred_message_id,
         )
         return
 
-    if update.effective_message is not None:
-        await update.effective_message.reply_text(
-            "اختر أيام الدراسة التي تناسبك. يمكنك اختيار أكثر من يوم، ثم اضغط تم.",
-            reply_markup=build_days_keyboard(selected_days),
-        )
+    await show_or_update_prompt_message(
+        context.application,
+        int(user.id),
+        intro_prefix + "اختر أيام الدراسة التي تناسبك. يمكنك اختيار أكثر من يوم، ثم اضغط تم.",
+        reply_markup=build_days_keyboard(selected_days),
+        source_message_id=source_message_id,
+        preferred_message_id=preferred_message_id,
+    )
 
 
 async def finish_plan_setup_for_user(
@@ -3021,7 +3072,6 @@ async def handle_plan_text_input(update: Update, context: ContextTypes.DEFAULT_T
         plan = repository.get_plan_by_telegram_id(user.id)
         if plan is None or not plan["onboarding_completed"]:
             repository.upsert_telegram_user(user)
-            await message.reply_text("سأبدأ معك الإعداد الآن بدون الحاجة إلى /start.")
             await begin_plan_setup(update, context)
         return
 
@@ -3029,14 +3079,35 @@ async def handle_plan_text_input(update: Update, context: ContextTypes.DEFAULT_T
     mode = str(state.get("mode") or "create")
 
     if step in {"time_hour", "time_minute"}:
-        await message.reply_text("اختر وقت التذكير من الأزرار الظاهرة فوق بدل كتابة الوقت يدويًا.")
+        selected_hour = state.get("selected_hour")
+        reminder_time = state.get("reminder_time")
+        if not isinstance(selected_hour, int) and isinstance(reminder_time, str) and ":" in reminder_time:
+            hour_raw, _, _ = reminder_time.partition(":")
+            if hour_raw.isdigit():
+                selected_hour = int(hour_raw)
+        reply_markup = (
+            build_time_minute_keyboard(selected_hour)
+            if step == "time_minute" and isinstance(selected_hour, int)
+            else build_time_hour_keyboard(selected_hour if isinstance(selected_hour, int) else None)
+        )
+        await show_or_update_prompt_message(
+            context.application,
+            int(user.id),
+            "اختر وقت التذكير من الأزرار الظاهرة فوق بدل كتابة الوقت يدويًا.",
+            reply_markup=reply_markup,
+            source_message_id=int(message.message_id),
+        )
         return
 
     if step == "count":
         question_count = parse_question_count_input(message.text)
         if question_count is None:
-            await message.reply_text(
+            await show_or_update_prompt_message(
+                context.application,
+                int(user.id),
                 f"أرسل رقمًا صحيحًا بين {MIN_QUESTION_COUNT} و {MAX_QUESTION_COUNT}.",
+                reply_markup=build_question_count_keyboard(state.get("question_count")),
+                source_message_id=int(message.message_id),
             )
             return
         state["question_count"] = question_count
@@ -3045,12 +3116,12 @@ async def handle_plan_text_input(update: Update, context: ContextTypes.DEFAULT_T
             if len(selected_days) <= 1:
                 state["review_weekday"] = None
             state["step"] = "menu"
-            await message.reply_text(
-                "تم تحديث عدد الأسئلة اليومي. يمكنك متابعة تعديل بقية العناصر أو حفظ الخطة الآن.",
-            )
-            await message.reply_text(
+            await show_or_update_prompt_message(
+                context.application,
+                int(user.id),
                 build_plan_setup_summary(state),
                 reply_markup=build_plan_edit_keyboard(state),
+                source_message_id=int(message.message_id),
             )
             return
         if len(selected_days) <= 1:
@@ -3061,19 +3132,25 @@ async def handle_plan_text_input(update: Update, context: ContextTypes.DEFAULT_T
                 state=state,
             )
             context.user_data.pop("plan_setup", None)
-            await message.reply_text(
+            await show_or_update_prompt_message(
+                context.application,
+                int(user.id),
                 "تم حفظ خطتك ✅\n\n"
                 f"{build_plan_summary(plan)}\n\n"
                 "من الآن فصاعدًا سأرسل لك جلسة خاصة بك في الأيام التي اخترتها.",
                 reply_markup=build_user_menu_keyboard(context.application, plan),
+                source_message_id=int(message.message_id),
             )
             return
 
         state["step"] = "review_day"
-        await message.reply_text(
+        await show_or_update_prompt_message(
+            context.application,
+            int(user.id),
             "اختر يوم مراجعة الأخطاء من بين أيامك. في هذا اليوم سأعطيك نفس عددك اليومي لكن من بنك أخطائك."
             " إذا لم ترد يومًا مخصصًا، اختر بدون يوم مراجعة.",
             reply_markup=build_review_day_keyboard(selected_days, state.get("review_weekday")),
+            source_message_id=int(message.message_id),
         )
 
 
@@ -3085,7 +3162,11 @@ async def mistakes_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     message = update.effective_message
     if user is None or message is None:
         return
-    await send_mistake_bank_summary(context.application, user.id, reply_method=message.reply_text)
+    await send_mistake_bank_summary(
+        context.application,
+        user.id,
+        source_message_id=int(message.message_id),
+    )
 
 
 async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -3102,13 +3183,19 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     context.user_data.clear()
 
     if not was_reset:
-        await message.reply_text(
+        await show_or_update_prompt_message(
+            context.application,
+            int(user.id),
             "لا توجد خطة محفوظة أو جلسات سابقة لهذا الحساب الآن. أرسل أي رسالة وسأبدأ الإعداد من جديد.",
+            source_message_id=int(message.message_id),
         )
         return
 
-    await message.reply_text(
+    await show_or_update_prompt_message(
+        context.application,
+        int(user.id),
         "تمت إعادة ضبط محادثتك وخطتك وسجل الأخطاء لهذا الحساب. أرسل أي رسالة وسأبدأ معك من الصفر.",
+        source_message_id=int(message.message_id),
     )
 
 
@@ -3131,17 +3218,19 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         welcome_text = "أهلا بك في عبقور. سأجهز لك خطة خفيفة تناسب أيامك، ولن أرسل لك إلا ما تحتاجه أنت فقط."
         if start_payload == CHANNEL_START_PAYLOAD:
             welcome_text = "أهلا بك. وصلت من القناة، ومن هنا سنكمل إعداد خطتك الشخصية الخاصة بك فقط."
-        await update.effective_message.reply_text(welcome_text)
-        await begin_plan_setup(update, context)
+        await begin_plan_setup(update, context, intro_text=welcome_text)
         return
 
     intro_prefix = ""
     if start_payload == CHANNEL_START_PAYLOAD:
         intro_prefix = "تم تحويلك من القناة إلى خطتك الخاصة.\n\n"
 
-    await update.effective_message.reply_text(
+    await show_or_update_prompt_message(
+        context.application,
+        int(user.id),
         f"{intro_prefix}أهلا {plan['display_name']}\n\n{build_plan_summary(plan)}",
         reply_markup=build_user_menu_keyboard(context.application, plan),
+        source_message_id=int(update.effective_message.message_id),
     )
 
 
@@ -3158,12 +3247,20 @@ async def pause_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     repository = get_repository(context.application)
     plan = repository.set_plan_active(user.id, False)
     if plan is None:
-        await update.effective_message.reply_text("لم أجد خطة مفعلة بعد. ابدأ بالأمر /start.")
+        await show_or_update_prompt_message(
+            context.application,
+            int(user.id),
+            "لم أجد خطة مفعلة بعد. ابدأ بالأمر /start.",
+            source_message_id=int(update.effective_message.message_id),
+        )
         return
-    await update.effective_message.reply_text(
+    await show_or_update_prompt_message(
+        context.application,
+        int(user.id),
         "تم إيقاف التذكير. يمكنك تفعيله لاحقًا متى شئت.\n\n"
         f"{build_plan_summary(plan)}",
         reply_markup=build_user_menu_keyboard(context.application, plan),
+        source_message_id=int(update.effective_message.message_id),
     )
 
 
@@ -3174,12 +3271,20 @@ async def resume_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     repository = get_repository(context.application)
     plan = repository.set_plan_active(user.id, True)
     if plan is None:
-        await update.effective_message.reply_text("لم أجد خطة محفوظة بعد. ابدأ بالأمر /start.")
+        await show_or_update_prompt_message(
+            context.application,
+            int(user.id),
+            "لم أجد خطة محفوظة بعد. ابدأ بالأمر /start.",
+            source_message_id=int(update.effective_message.message_id),
+        )
         return
-    await update.effective_message.reply_text(
+    await show_or_update_prompt_message(
+        context.application,
+        int(user.id),
         "تم تفعيل التذكير من جديد ✅\n\n"
         f"{build_plan_summary(plan)}",
         reply_markup=build_user_menu_keyboard(context.application, plan),
+        source_message_id=int(update.effective_message.message_id),
     )
 
 
@@ -3189,14 +3294,30 @@ async def today_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     user = update.effective_user
     if user is None:
         return
-    await start_or_resume_today_session(context.application, user.id, manual_trigger=True)
+    source_message_id = int(update.effective_message.message_id) if update.effective_message is not None else None
+    await start_or_resume_today_session(
+        context.application,
+        user.id,
+        manual_trigger=True,
+        source_message_id=source_message_id,
+    )
 
 
-async def send_mistake_bank_summary(application: Application, telegram_user_id: int, *, reply_method: Any) -> None:
+async def send_mistake_bank_summary(
+    application: Application,
+    telegram_user_id: int,
+    *,
+    source_message_id: int | None = None,
+) -> None:
     repository = get_repository(application)
     summary = repository.get_mistake_bank_summary(telegram_user_id)
     if summary is None:
-        await reply_method("ابدأ أولًا عبر /start حتى أجهز لك خطة شخصية.")
+        await show_or_update_prompt_message(
+            application,
+            telegram_user_id,
+            "ابدأ أولًا عبر /start حتى أجهز لك خطة شخصية.",
+            source_message_id=source_message_id,
+        )
         return
 
     open_review_session = repository.get_latest_open_manual_review_session(telegram_user_id)
@@ -3204,9 +3325,12 @@ async def send_mistake_bank_summary(application: Application, telegram_user_id: 
         summary,
         has_open_session=open_review_session is not None,
     )
-    await reply_method(
+    await show_or_update_prompt_message(
+        application,
+        telegram_user_id,
         text,
         reply_markup=reply_markup,
+        source_message_id=source_message_id,
     )
 
 
@@ -3222,9 +3346,10 @@ async def edit_mistake_bank_summary_message(
         if query.message is not None:
             await query.edit_message_text("ابدأ أولًا عبر /start حتى أجهز لك خطة شخصية.")
         else:
-            await application.bot.send_message(
-                chat_id=telegram_user_id,
-                text="ابدأ أولًا عبر /start حتى أجهز لك خطة شخصية.",
+            await show_or_update_prompt_message(
+                application,
+                telegram_user_id,
+                "ابدأ أولًا عبر /start حتى أجهز لك خطة شخصية.",
             )
         return
 
@@ -3236,9 +3361,10 @@ async def edit_mistake_bank_summary_message(
     if query.message is not None:
         await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        await application.bot.send_message(
-            chat_id=telegram_user_id,
-            text=text,
+        await show_or_update_prompt_message(
+            application,
+            telegram_user_id,
+            text,
             reply_markup=reply_markup,
         )
 
@@ -3271,9 +3397,10 @@ async def show_mistake_review_count_picker(
     if query.message is not None:
         await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        await application.bot.send_message(
-            chat_id=telegram_user_id,
-            text=text,
+        await show_or_update_prompt_message(
+            application,
+            telegram_user_id,
+            text,
             reply_markup=reply_markup,
         )
 
@@ -3314,9 +3441,10 @@ async def show_mistake_review_exact_count_picker(
     if query.message is not None:
         await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        await application.bot.send_message(
-            chat_id=telegram_user_id,
-            text=text,
+        await show_or_update_prompt_message(
+            application,
+            telegram_user_id,
+            text,
             reply_markup=reply_markup,
         )
 
@@ -3338,9 +3466,11 @@ async def start_or_resume_mistake_review_session(
         if source_query is not None and source_query.message is not None:
             await source_query.edit_message_text("ابدأ أولًا عبر /start حتى أجهز لك خطة شخصية.")
         else:
-            await application.bot.send_message(
-                chat_id=telegram_user_id,
-                text="ابدأ أولًا عبر /start حتى أجهز لك خطة شخصية.",
+            await show_or_update_prompt_message(
+                application,
+                telegram_user_id,
+                "ابدأ أولًا عبر /start حتى أجهز لك خطة شخصية.",
+                source_message_id=source_message_id,
             )
         return
 
@@ -3348,13 +3478,9 @@ async def start_or_resume_mistake_review_session(
     if existing_session is not None:
         if manual_trigger:
             await cleanup_session_messages(application, existing_session)
+            await clear_active_prompt_message(application, telegram_user_id)
             if source_message_id is not None:
                 await delete_message_safely(application, telegram_user_id, source_message_id)
-            notice_message = await application.bot.send_message(
-                chat_id=telegram_user_id,
-                text="نكمل مراجعة الأخطاء من حيث توقفت 👌",
-            )
-            repository.set_session_notice_message_id(existing_session["session_id"], int(notice_message.message_id))
         await render_session_view(application, existing_session["session_id"], chat_id=telegram_user_id)
         return
 
@@ -3368,24 +3494,18 @@ async def start_or_resume_mistake_review_session(
         if source_query is not None:
             await edit_mistake_bank_summary_message(application, telegram_user_id, query=source_query)
         else:
-            await application.bot.send_message(
-                chat_id=telegram_user_id,
-                text="لا توجد أسئلة نشطة في بنك الأخطاء الآن. عندما تخطئ في سؤال سأضيفه هنا لتراجعه لاحقًا.",
+            await show_or_update_prompt_message(
+                application,
+                telegram_user_id,
+                "لا توجد أسئلة نشطة في بنك الأخطاء الآن. عندما تخطئ في سؤال سأضيفه هنا لتراجعه لاحقًا.",
+                source_message_id=source_message_id,
             )
         return
 
+    await clear_active_prompt_message(application, telegram_user_id)
     if source_message_id is not None:
         await delete_message_safely(application, telegram_user_id, source_message_id)
 
-    notice_message = await application.bot.send_message(
-        chat_id=telegram_user_id,
-        text=(
-            f"مراجعة الأخطاء جاهزة ✨\n"
-            f"عدد الأسئلة في هذه الجلسة: {session['question_count']}\n"
-            "هذه جلسة اختيارية من بنك الأخطاء، ويمكنك التنقل بين الأسئلة وفتح الخريطة في أي وقت."
-        ),
-    )
-    repository.set_session_notice_message_id(session["session_id"], int(notice_message.message_id))
     repository.mark_session_delivered(session["session_id"])
     await render_session_view(application, session["session_id"], chat_id=telegram_user_id)
 
@@ -3418,8 +3538,6 @@ async def handle_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     action_name = action_parts[0]
 
     if action == "plan":
-        if query.message is not None:
-            await delete_message_safely(context.application, int(user.id), int(query.message.message_id))
         await begin_plan_setup(update, context)
         return
 
@@ -3493,30 +3611,26 @@ async def handle_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     if action_name == "pause":
         plan = repository.set_plan_active(user.id, False)
         if plan is not None:
-            if query.message is not None:
-                await delete_message_safely(context.application, int(user.id), int(query.message.message_id))
-            await context.application.bot.send_message(
-                chat_id=int(user.id),
-                text=(
-                    "تم إيقاف التذكير. جلساتك لن تصلك تلقائيًا حتى تعيد تفعيله.\n\n"
-                    f"{build_plan_summary(plan)}"
-                ),
+            await show_or_update_prompt_message(
+                context.application,
+                int(user.id),
+                "تم إيقاف التذكير. جلساتك لن تصلك تلقائيًا حتى تعيد تفعيله.\n\n"
+                f"{build_plan_summary(plan)}",
                 reply_markup=build_user_menu_keyboard(context.application, plan),
+                preferred_message_id=int(query.message.message_id) if query.message is not None else None,
             )
         return
 
     if action == "resume":
         plan = repository.set_plan_active(user.id, True)
         if plan is not None:
-            if query.message is not None:
-                await delete_message_safely(context.application, int(user.id), int(query.message.message_id))
-            await context.application.bot.send_message(
-                chat_id=int(user.id),
-                text=(
-                    "تم تفعيل التذكير ✅\n\n"
-                    f"{build_plan_summary(plan)}"
-                ),
+            await show_or_update_prompt_message(
+                context.application,
+                int(user.id),
+                "تم تفعيل التذكير ✅\n\n"
+                f"{build_plan_summary(plan)}",
                 reply_markup=build_user_menu_keyboard(context.application, plan),
+                preferred_message_id=int(query.message.message_id) if query.message is not None else None,
             )
 
 
@@ -3809,13 +3923,14 @@ async def complete_session(application: Application, session_id: int, telegram_u
             extra_lines.append("بنك الأخطاء أصبح فارغًا الآن. كل ما راجعته بشكل صحيح خرج منه.")
         else:
             extra_lines.append(f"المتبقي الآن في بنك الأخطاء: {active_remaining} سؤال.")
-    await application.bot.send_message(
-        chat_id=telegram_user_id,
-        text=(
+    await show_or_update_prompt_message(
+        application,
+        telegram_user_id,
+        (
             f"لقد أنهيت {session_title} ✨\n"
             f"الإجابات الصحيحة: {result['correct']} من {result['total']}\n"
             + ("\n".join(extra_lines) + "\n" if extra_lines else "")
-            ).rstrip(),
+        ).rstrip(),
         reply_markup=build_user_menu_keyboard(application, plan) if plan is not None else None,
     )
 
@@ -3827,6 +3942,64 @@ async def delete_message_safely(application: Application, chat_id: int, message_
         await application.bot.delete_message(chat_id=chat_id, message_id=int(message_id))
     except TelegramError:
         pass
+
+
+async def clear_active_prompt_message(application: Application, telegram_user_id: int) -> None:
+    repository = get_repository(application)
+    prompt_message_id = repository.get_active_prompt_message_id(telegram_user_id)
+    await delete_message_safely(application, telegram_user_id, prompt_message_id)
+    repository.set_active_prompt_message_id(telegram_user_id, None)
+
+
+async def show_or_update_prompt_message(
+    application: Application,
+    telegram_user_id: int,
+    text: str,
+    *,
+    reply_markup: InlineKeyboardMarkup | None = None,
+    source_message_id: int | None = None,
+    preferred_message_id: int | None = None,
+) -> int:
+    repository = get_repository(application)
+    stored_message_id = repository.get_active_prompt_message_id(telegram_user_id)
+    target_message_id = preferred_message_id or stored_message_id
+    stale_message_ids = {
+        message_id
+        for message_id in (stored_message_id, preferred_message_id)
+        if message_id is not None and message_id != target_message_id
+    }
+
+    final_message_id: int | None = None
+    if target_message_id is not None:
+        try:
+            await application.bot.edit_message_text(
+                chat_id=telegram_user_id,
+                message_id=int(target_message_id),
+                text=text,
+                reply_markup=reply_markup,
+            )
+            final_message_id = int(target_message_id)
+        except TelegramError as exc:
+            if "message is not modified" in str(exc).lower():
+                final_message_id = int(target_message_id)
+            else:
+                stale_message_ids.add(int(target_message_id))
+
+    for stale_message_id in stale_message_ids:
+        await delete_message_safely(application, telegram_user_id, stale_message_id)
+
+    if final_message_id is None:
+        sent_message = await application.bot.send_message(
+            chat_id=telegram_user_id,
+            text=text,
+            reply_markup=reply_markup,
+        )
+        final_message_id = int(sent_message.message_id)
+
+    repository.set_active_prompt_message_id(telegram_user_id, final_message_id)
+    if source_message_id is not None and source_message_id != final_message_id:
+        await delete_message_safely(application, telegram_user_id, source_message_id)
+    return final_message_id
 
 
 async def clear_active_poll_message(application: Application, session_payload: dict[str, Any]) -> None:
@@ -3941,6 +4114,7 @@ async def start_or_resume_today_session(
     telegram_user_id: int,
     *,
     manual_trigger: bool,
+    source_message_id: int | None = None,
 ) -> None:
     repository = get_repository(application)
     settings = get_settings(application)
@@ -3948,9 +4122,11 @@ async def start_or_resume_today_session(
 
     plan = repository.get_plan_by_telegram_id(telegram_user_id)
     if plan is None:
-        await application.bot.send_message(
-            chat_id=telegram_user_id,
-            text="ابدأ أولًا عبر /start حتى أجهز لك خطة شخصية.",
+        await show_or_update_prompt_message(
+            application,
+            telegram_user_id,
+            "ابدأ أولًا عبر /start حتى أجهز لك خطة شخصية.",
+            source_message_id=source_message_id,
         )
         return
 
@@ -3958,8 +4134,9 @@ async def start_or_resume_today_session(
     if existing_session is not None and existing_session["scheduled_for"] == current_date.isoformat():
         if manual_trigger and existing_session.get("started_at") is not None:
             await cleanup_session_messages(application, existing_session)
-            notice_message = await application.bot.send_message(chat_id=telegram_user_id, text="نكمل من حيث توقفت 👌")
-            repository.set_session_notice_message_id(existing_session["session_id"], int(notice_message.message_id))
+        await clear_active_prompt_message(application, telegram_user_id)
+        if source_message_id is not None:
+            await delete_message_safely(application, telegram_user_id, source_message_id)
         await render_session_view(application, existing_session["session_id"], chat_id=telegram_user_id)
         return
 
@@ -3970,9 +4147,11 @@ async def start_or_resume_today_session(
         session = repository.reset_completed_session_for_date(telegram_user_id, current_date)
 
     if session is None:
-        await application.bot.send_message(
-            chat_id=telegram_user_id,
-            text="لا توجد أسئلة كافية في بنك الأسئلة الآن. سأرسل لك جلسة جديدة حالما تجهز أسئلة إضافية.",
+        await show_or_update_prompt_message(
+            application,
+            telegram_user_id,
+            "لا توجد أسئلة كافية في بنك الأسئلة الآن. سأرسل لك جلسة جديدة حالما تجهز أسئلة إضافية.",
+            source_message_id=source_message_id,
         )
         return
 
@@ -3980,19 +4159,12 @@ async def start_or_resume_today_session(
         await complete_session(application, session["session_id"], telegram_user_id)
         return
 
+    await clear_active_prompt_message(application, telegram_user_id)
+    if source_message_id is not None:
+        await delete_message_safely(application, telegram_user_id, source_message_id)
+
     if session["delivered_at"] is None:
-        session_title = "مراجعة الأخطاء" if session["session_kind"] == "review" else "جلسة اليوم"
-        intro_text = (
-            f"{session_title} جاهزة ✨\n"
-            f"عدد الأسئلة اليوم: {session['question_count']}\n"
-            "ستصلك صورة السؤال ومعها استطلاع للإجابة، ويمكنك التنقل بين الأسئلة وفتح الخريطة في أي وقت."
-        )
-        notice_message = await application.bot.send_message(chat_id=telegram_user_id, text=intro_text)
-        repository.set_session_notice_message_id(session["session_id"], int(notice_message.message_id))
         repository.mark_session_delivered(session["session_id"])
-    elif manual_trigger:
-        notice_message = await application.bot.send_message(chat_id=telegram_user_id, text="نكمل من حيث توقفت 👌")
-        repository.set_session_notice_message_id(session["session_id"], int(notice_message.message_id))
 
     await render_session_view(application, session["session_id"], chat_id=telegram_user_id)
 
@@ -4012,15 +4184,13 @@ async def schedule_due_sessions(application: Application) -> None:
 
         try:
             session_title = "مراجعة الأخطاء" if session["session_kind"] == "review" else "جلسة اليوم"
-            notice_message = await application.bot.send_message(
-                chat_id=plan["telegram_user_id"],
-                text=(
-                    f"{session_title} جاهزة ✨\n"
-                    f"عدد الأسئلة اليوم: {session['question_count']}"
-                ),
+            prompt_message_id = await show_or_update_prompt_message(
+                application,
+                int(plan["telegram_user_id"]),
+                f"{session_title} جاهزة ✨\nعدد الأسئلة اليوم: {session['question_count']}",
                 reply_markup=build_session_start_keyboard(),
             )
-            repository.set_session_notice_message_id(session["session_id"], int(notice_message.message_id))
+            repository.set_session_notice_message_id(session["session_id"], int(prompt_message_id))
             repository.mark_session_delivered(session["session_id"])
         except Forbidden:
             repository.set_plan_active(plan["telegram_user_id"], False)
@@ -4206,9 +4376,19 @@ def build_application(settings: Settings | None = None) -> FastAPI:
         app.state.bot_username = bot_profile.username or ""
 
         if telegram_app.updater is None:
-            raise RuntimeError("تعذر تشغيل محدث تيليجرام.")
+            if not active_settings.uses_telegram_webhook:
+                raise RuntimeError("تعذر تشغيل محدث تيليجرام.")
 
-        await telegram_app.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+        if active_settings.uses_telegram_webhook:
+            await telegram_app.bot.set_webhook(
+                url=active_settings.telegram_webhook_url,
+                allowed_updates=Update.ALL_TYPES,
+                secret_token=active_settings.telegram_webhook_secret or None,
+            )
+        else:
+            await telegram_app.bot.delete_webhook(drop_pending_updates=False)
+            await telegram_app.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+
         app.state.scheduler_task = asyncio.create_task(scheduler_loop(telegram_app))
 
     @app.on_event("shutdown")
@@ -4225,7 +4405,7 @@ def build_application(settings: Settings | None = None) -> FastAPI:
             repository.close()
             return
 
-        if telegram_app.updater is not None:
+        if telegram_app.updater is not None and not active_settings.uses_telegram_webhook:
             await telegram_app.updater.stop()
         await telegram_app.stop()
         await telegram_app.shutdown()
@@ -4242,8 +4422,26 @@ def build_application(settings: Settings | None = None) -> FastAPI:
             "database_exists": repository.database_path.exists(),
             "uploads_dir_exists": active_settings.uploads_dir.exists(),
             "telegram_enabled": active_settings.telegram_enabled,
+            "telegram_delivery_mode": "webhook" if active_settings.uses_telegram_webhook else "polling",
             "timezone_name": active_settings.timezone_name,
         }
+
+    @app.post(TELEGRAM_WEBHOOK_PATH)
+    async def telegram_webhook(
+        request: Request,
+        x_telegram_bot_api_secret_token: str | None = Header(default=None, alias="X-Telegram-Bot-Api-Secret-Token"),
+    ) -> dict[str, bool]:
+        if not active_settings.telegram_enabled or not active_settings.uses_telegram_webhook:
+            raise HTTPException(status_code=404, detail="Webhook is not enabled.")
+
+        if active_settings.telegram_webhook_secret and x_telegram_bot_api_secret_token != active_settings.telegram_webhook_secret:
+            raise HTTPException(status_code=401, detail="Invalid webhook token.")
+
+        payload = await request.json()
+        update = Update.de_json(payload, telegram_app.bot)
+        if update is not None:
+            await telegram_app.process_update(update)
+        return {"ok": True}
 
     @app.post("/api/login")
     async def login(payload: dict[str, str]) -> dict[str, bool]:
