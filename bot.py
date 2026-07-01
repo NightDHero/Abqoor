@@ -1994,17 +1994,45 @@ def utc_now_iso() -> str:
     return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
 
 
+def _collapse_repeated_env_value(value: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        return normalized
+
+    length = len(normalized)
+    for part_length in range(1, (length // 2) + 1):
+        if length % part_length != 0:
+            continue
+        part = normalized[:part_length]
+        if part * (length // part_length) == normalized:
+            return part
+    return normalized
+
+
+def _parse_boolean_env(value: str, *, default: bool) -> bool:
+    normalized = _collapse_repeated_env_value(value).strip().lower()
+    if not normalized:
+        return default
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    if set(normalized) <= {"0", "1"}:
+        return normalized[-1] == "1"
+    return default
+
+
 def load_settings() -> Settings:
     load_dotenv()
 
     telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
     admin_password = os.getenv("ADMIN_PASSWORD", "").strip()
-    host = os.getenv("ABQOOR_HOST", os.getenv("HOST", "127.0.0.1")).strip() or "127.0.0.1"
-    port_value = os.getenv("ABQOOR_PORT", os.getenv("PORT", "8000")).strip() or "8000"
-    storage_dir_value = os.getenv("ABQOOR_STORAGE_DIR", str(BASE_DIR)).strip() or str(BASE_DIR)
-    timezone_name = os.getenv("ABQOOR_TIMEZONE", "Asia/Riyadh").strip() or "Asia/Riyadh"
+    host = _collapse_repeated_env_value(os.getenv("ABQOOR_HOST", os.getenv("HOST", "127.0.0.1"))) or "127.0.0.1"
+    port_value = _collapse_repeated_env_value(os.getenv("ABQOOR_PORT", os.getenv("PORT", "8000"))) or "8000"
+    storage_dir_value = _collapse_repeated_env_value(os.getenv("ABQOOR_STORAGE_DIR", str(BASE_DIR))) or str(BASE_DIR)
+    timezone_name = _collapse_repeated_env_value(os.getenv("ABQOOR_TIMEZONE", "Asia/Riyadh")) or "Asia/Riyadh"
     telegram_enabled_value = os.getenv("ABQOOR_ENABLE_TELEGRAM", "1").strip().lower()
-    telegram_enabled = telegram_enabled_value not in {"0", "false", "no", "off"}
+    telegram_enabled = _parse_boolean_env(telegram_enabled_value, default=True)
 
     missing = []
     if telegram_enabled and not telegram_bot_token:
