@@ -2009,6 +2009,61 @@ def _collapse_repeated_env_value(value: str) -> str:
     return normalized
 
 
+def _normalize_host_env(value: str, *, default: str) -> str:
+    normalized = _collapse_repeated_env_value(value).strip()
+    if not normalized:
+        return default
+
+    if re.fullmatch(r"\d{1,3}(?:\.\d{1,3}){3}", normalized):
+        return normalized
+
+    overlap_matches = re.finditer(r"(?=(\d{1,3}(?:\.\d{1,3}){3}))", normalized)
+    valid_matches = []
+    for match in overlap_matches:
+        candidate = match.group(1)
+        octets = candidate.split(".")
+        if all(0 <= int(octet) <= 255 for octet in octets):
+            valid_matches.append(candidate)
+    if valid_matches:
+        return valid_matches[-1]
+
+    return normalized
+
+
+def _normalize_port_env(value: str, *, fallback: str) -> str:
+    normalized = _collapse_repeated_env_value(value).strip()
+    if not normalized:
+        return fallback
+
+    if normalized.isdigit():
+        try:
+            port_value = int(normalized)
+        except ValueError:
+            port_value = -1
+        if 0 < port_value <= 65535:
+            return normalized
+
+    candidate_values = [fallback.strip()]
+    if fallback.strip().isdigit() and fallback.strip() in normalized:
+        candidate_values.insert(0, fallback.strip())
+
+    for candidate in candidate_values:
+        if candidate.isdigit() and 0 < int(candidate) <= 65535:
+            return candidate
+
+    for suffix_length in range(5, 0, -1):
+        if len(normalized) < suffix_length:
+            continue
+        candidate = normalized[-suffix_length:]
+        if not candidate.isdigit():
+            continue
+        port_value = int(candidate)
+        if 0 < port_value <= 65535:
+            return candidate
+
+    raise RuntimeError("ABQOOR_PORT must be a valid integer.")
+
+
 def _parse_boolean_env(value: str, *, default: bool) -> bool:
     normalized = _collapse_repeated_env_value(value).strip().lower()
     if not normalized:
@@ -2027,8 +2082,10 @@ def load_settings() -> Settings:
 
     telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
     admin_password = os.getenv("ADMIN_PASSWORD", "").strip()
-    host = _collapse_repeated_env_value(os.getenv("ABQOOR_HOST", os.getenv("HOST", "127.0.0.1"))) or "127.0.0.1"
-    port_value = _collapse_repeated_env_value(os.getenv("ABQOOR_PORT", os.getenv("PORT", "8000"))) or "8000"
+    host_default = os.getenv("HOST", "127.0.0.1")
+    port_default = os.getenv("PORT", "8000")
+    host = _normalize_host_env(os.getenv("ABQOOR_HOST", host_default), default=host_default.strip() or "127.0.0.1")
+    port_value = _normalize_port_env(os.getenv("ABQOOR_PORT", port_default), fallback=port_default.strip() or "8000")
     storage_dir_value = _collapse_repeated_env_value(os.getenv("ABQOOR_STORAGE_DIR", str(BASE_DIR))) or str(BASE_DIR)
     timezone_name = _collapse_repeated_env_value(os.getenv("ABQOOR_TIMEZONE", "Asia/Riyadh")) or "Asia/Riyadh"
     telegram_enabled_value = os.getenv("ABQOOR_ENABLE_TELEGRAM", "1").strip().lower()
@@ -2042,10 +2099,7 @@ def load_settings() -> Settings:
     if missing:
         raise RuntimeError("Missing required environment variables: " + ", ".join(missing))
 
-    try:
-        port = int(port_value)
-    except ValueError as exc:
-        raise RuntimeError("ABQOOR_PORT must be a valid integer.") from exc
+    port = int(port_value)
 
     try:
         ZoneInfo(timezone_name)
