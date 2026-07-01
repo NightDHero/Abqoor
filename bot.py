@@ -3073,6 +3073,14 @@ async def handle_plan_text_input(update: Update, context: ContextTypes.DEFAULT_T
         if plan is None or not plan["onboarding_completed"]:
             repository.upsert_telegram_user(user)
             await begin_plan_setup(update, context)
+        elif message is not None:
+            await show_or_update_prompt_message(
+                context.application,
+                int(user.id),
+                f"أهلا {plan['display_name']}\n\n{build_plan_summary(plan)}",
+                reply_markup=build_user_menu_keyboard(context.application, plan),
+                source_message_id=int(message.message_id),
+            )
         return
 
     step = state.get("step")
@@ -3543,9 +3551,12 @@ async def handle_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
     await query.answer()
     if action_name == "today":
-        if query.message is not None:
-            await delete_message_safely(context.application, int(user.id), int(query.message.message_id))
-        await start_or_resume_today_session(context.application, user.id, manual_trigger=True)
+        await start_or_resume_today_session(
+            context.application,
+            user.id,
+            manual_trigger=True,
+            source_message_id=int(query.message.message_id) if query.message is not None else None,
+        )
         return
 
     if action == "mistakes_review":
