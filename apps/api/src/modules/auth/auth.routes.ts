@@ -1,7 +1,7 @@
 import type { CookieOptions, Request, Response } from "express";
 import { Router } from "express";
 import { env } from "../../config/env.js";
-import { isStudentProfileCompleted } from "../profile/profile.repository.js";
+import { getStudentProfileIdentity } from "../profile/profile.repository.js";
 import { requireAuth } from "./auth.middleware.js";
 import {
   AuthError,
@@ -26,8 +26,14 @@ const setSessionCookie = (response: Response, user: { id: string; email: string 
   response.cookie(env.sessionCookieName, token, sessionCookieOptions);
 };
 
-const toAuthResponseUser = (user: UserRecord) =>
-  toPublicUser(user, isStudentProfileCompleted(user.id));
+const toAuthResponseUser = (user: UserRecord) => {
+  const profileIdentity = getStudentProfileIdentity(user.id);
+  return toPublicUser(
+    user,
+    profileIdentity.profileCompleted,
+    profileIdentity.username
+  );
+};
 
 const getCredentials = (request: Request) => {
   const { email, password } = request.body as {

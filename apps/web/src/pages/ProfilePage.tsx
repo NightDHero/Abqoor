@@ -135,7 +135,8 @@ export function ProfilePage({
       const response = await profileService.saveProfile(toProfileInput(form));
       onProfileSaved({
         ...user,
-        profileCompleted: response.profile.profileCompleted
+        profileCompleted: response.profile.profileCompleted,
+        username: response.profile.username
       });
       setMessage("تم حفظ التغييرات.");
     } catch (caughtError) {
@@ -193,6 +194,21 @@ export function ProfilePage({
         <section className="profile-section" aria-labelledby="account-section">
           <h2 id="account-section">الحساب</h2>
           <div className="profile-field-grid">
+            <label className="form-field profile-username-field">
+              اسم المستخدم
+              <input
+                autoComplete="username"
+                dir="ltr"
+                maxLength={24}
+                minLength={3}
+                type="text"
+                value={form.username}
+                onChange={(event) =>
+                  updateForm({ username: event.target.value })
+                }
+              />
+              <small>هويتك العامة داخل أبقور.</small>
+            </label>
             <div>
               <span>البريد الإلكتروني</span>
               <strong dir="ltr">{user.email}</strong>

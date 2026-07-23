@@ -19,6 +19,7 @@ export type StudyStrategyPreference =
 
 export type StudentProfile = {
   userId: string;
+  username: string | null;
   profileCompleted: boolean;
   targetScore: number | null;
   hasExamDate: boolean;
@@ -35,6 +36,7 @@ export type StudentProfile = {
 };
 
 export type StudentProfileInput = {
+  username: string;
   targetScore: number;
   hasExamDate: boolean;
   examDate: string | null;

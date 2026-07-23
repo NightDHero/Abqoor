@@ -8,6 +8,7 @@ import type {
 } from "../../types/profile";
 
 export type ProfileFormState = {
+  username: string;
   targetScore: number;
   hasExamDate: boolean;
   examDate: string;
@@ -34,6 +35,7 @@ export const createDefaultProfileForm = (
   studyStrategyPreference: profile?.studyStrategyPreference ?? "",
   studyStylePreference: profile?.studyStylePreference ?? "",
   targetScore: profile?.targetScore ?? 90,
+  username: profile?.username ?? "",
   weakerSection: profile?.weakerSection ?? "",
   weeklyStudyHours: profile?.weeklyStudyHours ?? ""
 });
@@ -50,11 +52,19 @@ export const toProfileInput = (
     state.studyStrategyPreference as StudyStrategyPreference,
   studyStylePreference: state.studyStylePreference as StudyStylePreference,
   targetScore: state.targetScore,
+  username: state.username.trim(),
   weakerSection: state.weakerSection as WeakerSection,
   weeklyStudyHours: state.weeklyStudyHours as WeeklyStudyHours
 });
 
 export const validateProfileForm = (state: ProfileFormState) => {
+  const usernamePattern =
+    /^[\p{L}\p{N}](?:[\p{L}\p{N}_-]{1,22}[\p{L}\p{N}])$/u;
+
+  if (!usernamePattern.test(state.username.trim())) {
+    return "اختر اسم مستخدم من ٣ إلى ٢٤ حرفاً أو رقماً، ويمكن استخدام _ أو - في الوسط.";
+  }
+
   if (state.targetScore < 50 || state.targetScore > 100) {
     return "اختر درجة مستهدفة بين ٥٠ و١٠٠.";
   }

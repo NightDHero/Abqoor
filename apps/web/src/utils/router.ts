@@ -86,7 +86,7 @@ export const getBrowseRouteValue = (path: string) => {
 };
 
 export const getTopicRouteValue = (path: string) => {
-  const match = /^\/topic\/([^/]+)\/([a-z0-9-]+)$/.exec(path);
+  const match = /^\/topic\/([^/]+)(?:\/([a-z0-9-]+))?$/.exec(path);
 
   if (!match || !isRouteSubject(match[1])) {
     return null;
@@ -94,6 +94,6 @@ export const getTopicRouteValue = (path: string) => {
 
   return {
     subject: match[1],
-    topic: match[2]
+    topic: match[2] ?? null
   };
 };

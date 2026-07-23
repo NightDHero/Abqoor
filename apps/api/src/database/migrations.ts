@@ -121,6 +121,16 @@ const migrateQuestionLearningFields = (db: Database.Database) => {
   `);
 };
 
+const migrateStudentProfileIdentity = (db: Database.Database) => {
+  addColumnIfMissing(db, "student_profiles", "username", "TEXT COLLATE NOCASE");
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_student_profiles_username
+    ON student_profiles(username COLLATE NOCASE)
+    WHERE username IS NOT NULL
+  `);
+};
+
 export const runDatabaseMigrations = (db: Database.Database) => {
+  migrateStudentProfileIdentity(db);
   migrateQuestionLearningFields(db);
 };

@@ -3,10 +3,12 @@ import { navigateTo } from "../../utils/router";
 
 export function HubAvatar({
   email,
-  onLogout
+  onLogout,
+  username
 }: {
   email?: string;
-  onLogout: () => void;
+  onLogout: () => void | Promise<void>;
+  username?: string | null;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -59,7 +61,15 @@ export function HubAvatar({
 
       {isOpen ? (
         <div className="hub-profile-menu" role="menu">
-          {email ? <p dir="ltr">{email}</p> : null}
+          <header className="hub-profile-menu-identity">
+            <span className="hub-profile-menu-avatar">
+              <img alt="" src="/assets/hub/avatar.png" />
+            </span>
+            <div>
+              <strong>{username ?? "مستخدم عبقور"}</strong>
+              {email ? <p dir="ltr">{email}</p> : null}
+            </div>
+          </header>
           <button
             role="menuitem"
             type="button"
@@ -87,7 +97,7 @@ export function HubAvatar({
             type="button"
             onClick={() => {
               setIsOpen(false);
-              onLogout();
+              void onLogout();
             }}
           >
             تسجيل الخروج

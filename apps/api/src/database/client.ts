@@ -24,6 +24,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS student_profiles (
     user_id TEXT PRIMARY KEY,
+    username TEXT COLLATE NOCASE,
     profile_completed INTEGER NOT NULL DEFAULT 0 CHECK (profile_completed IN (0, 1)),
     target_score INTEGER CHECK (target_score IS NULL OR (target_score BETWEEN 50 AND 100)),
     has_exam_date INTEGER NOT NULL DEFAULT 0 CHECK (has_exam_date IN (0, 1)),

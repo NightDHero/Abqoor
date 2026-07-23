@@ -5,21 +5,19 @@ import { HubAvatar } from "./HubAvatar";
 
 const worldEntrances = [
   {
-    asset: "/assets/hub/arabic.png",
     className: "verbal",
     label: "اللفظي",
-    route: "/topic/arabic/verbal-analogy"
+    route: "/topic/arabic"
   },
   {
-    asset: "/assets/hub/math.png",
     className: "math",
     label: "الكمي",
-    route: "/topic/math/arithmetic"
+    route: "/topic/math"
   }
 ] as const;
 
 const hubDestinations = [
-  { label: "الرئيسية", route: "/" },
+  { label: "بنك الأخطاء", route: "/review" },
   { label: "حصة", route: "/study" },
   { label: "اختبار محاكي", route: "/exam" },
   { label: "ملفي", route: "/profile" }
@@ -35,7 +33,24 @@ const particles = [
   [81, 27, 3, 6],
   [93, 77, 4, 2],
   [47, 48, 3, 7],
-  [72, 42, 2, 1]
+  [72, 42, 2, 1],
+  [21, 54, 2, 5],
+  [33, 13, 3, 7],
+  [44, 66, 2, 3],
+  [58, 35, 4, 6],
+  [63, 81, 2, 0],
+  [76, 11, 3, 4],
+  [86, 56, 2, 8],
+  [51, 24, 2, 2]
+] as const;
+
+const energyStreaks = [
+  [18, 31, -9, 0],
+  [32, 61, -5, 3],
+  [45, 37, -2, 6],
+  [56, 58, 2, 2],
+  [69, 28, 6, 5],
+  [82, 67, 10, 1]
 ] as const;
 
 export function CareerDashboard({
@@ -69,9 +84,27 @@ export function CareerDashboard({
             }
           />
         ))}
+        {energyStreaks.map(([x, y, angle, delay], index) => (
+          <i
+            className="hub-world-energy-streak"
+            key={`streak-${index}`}
+            style={
+              {
+                "--hub-streak-angle": `${angle}deg`,
+                "--hub-streak-delay": `${delay}s`,
+                "--hub-streak-x": `${x}%`,
+                "--hub-streak-y": `${y}%`
+              } as CSSProperties
+            }
+          />
+        ))}
       </div>
 
-      <HubAvatar email={user?.email} onLogout={onLogout} />
+      <HubAvatar
+        email={user?.email}
+        onLogout={onLogout}
+        username={user?.username}
+      />
 
       <div className="hub-world-composition">
         <div className="hub-world-entrances" aria-label="عوالم التعلم">
@@ -83,10 +116,6 @@ export function CareerDashboard({
               type="button"
               onClick={() => navigateTo(entrance.route)}
             >
-              <span className="hub-world-icon-shell">
-                <span className="hub-world-icon-glow" />
-                <img alt="" src={entrance.asset} />
-              </span>
               <strong>{entrance.label}</strong>
             </button>
           ))}

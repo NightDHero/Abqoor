@@ -33,6 +33,7 @@ export type StudyStrategyPreference =
 
 export type StudentProfileRecord = {
   user_id: string;
+  username: string | null;
   profile_completed: 0 | 1;
   target_score: number | null;
   has_exam_date: 0 | 1;
@@ -50,6 +51,7 @@ export type StudentProfileRecord = {
 
 export type StudentProfile = {
   userId: string;
+  username: string | null;
   profileCompleted: boolean;
   targetScore: number | null;
   hasExamDate: boolean;
@@ -66,6 +68,7 @@ export type StudentProfile = {
 };
 
 export type UpdateStudentProfileInput = {
+  username: unknown;
   targetScore: unknown;
   hasExamDate: unknown;
   examDate?: unknown;
@@ -96,6 +99,7 @@ export const toStudentProfile = (
       targetScore: null,
       updatedAt: null,
       userId,
+      username: null,
       weakerSection: null,
       weeklyStudyHours: null
     };
@@ -115,6 +119,7 @@ export const toStudentProfile = (
     targetScore: record.target_score,
     updatedAt: record.updated_at,
     userId: record.user_id,
+    username: record.username,
     weakerSection: record.weaker_section,
     weeklyStudyHours: record.weekly_study_hours
   };

@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { env } from "../../config/env.js";
-import { isStudentProfileCompleted } from "../profile/profile.repository.js";
+import { getStudentProfileIdentity } from "../profile/profile.repository.js";
 import { getUserFromToken } from "./auth.service.js";
 import type { PublicUser } from "./auth.types.js";
 import { toPublicUser } from "./auth.types.js";
@@ -33,7 +33,12 @@ export const requireAuth = (
       return;
     }
 
-    request.user = toPublicUser(user, isStudentProfileCompleted(user.id));
+    const profileIdentity = getStudentProfileIdentity(user.id);
+    request.user = toPublicUser(
+      user,
+      profileIdentity.profileCompleted,
+      profileIdentity.username
+    );
     next();
   } catch {
     response.status(401).json({ message: "Authentication required." });

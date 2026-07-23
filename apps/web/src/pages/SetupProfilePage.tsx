@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { profileService } from "../services/profileService";
 import { HttpError } from "../services/http";
 import type { User } from "../types/auth";
@@ -67,8 +67,47 @@ export function SetupProfilePage({
     createDefaultProfileForm()
   );
   const [stepIndex, setStepIndex] = useState(0);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [isUsernameOnlySetup, setIsUsernameOnlySetup] = useState(false);
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadExistingProfile = async () => {
+      try {
+        const response = await profileService.getProfile();
+
+        if (!isMounted) {
+          return;
+        }
+
+        setForm(createDefaultProfileForm(response.profile));
+        setIsUsernameOnlySetup(
+          response.profile.profileCompleted && !response.profile.username
+        );
+      } catch (caughtError) {
+        if (isMounted) {
+          setError(
+            caughtError instanceof HttpError
+              ? caughtError.message
+              : "تعذر تحميل بيانات الملف الدراسي."
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingProfile(false);
+        }
+      }
+    };
+
+    void loadExistingProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const updateForm = (nextValues: Partial<ProfileFormState>) => {
     setError("");
@@ -82,6 +121,31 @@ export function SetupProfilePage({
     const allSteps: SetupStep[] = [
       {
         number: 1,
+        title: "ما اسم المستخدم الذي تريده داخل أبقور؟",
+        render: () => (
+          <label className="form-field onboarding-username-field">
+            اسم المستخدم
+            <input
+              autoComplete="username"
+              dir="ltr"
+              maxLength={24}
+              minLength={3}
+              placeholder="مثال: abqoor_student"
+              type="text"
+              value={form.username}
+              onChange={(event) =>
+                updateForm({ username: event.target.value })
+              }
+            />
+            <small>
+              هويتك العامة داخل أبقور، وهي منفصلة عن بريدك الإلكتروني واسمك
+              الحقيقي.
+            </small>
+          </label>
+        )
+      },
+      {
+        number: 2,
         title: "ما الدرجة التي تستهدف تحقيقها في اختبار القدرات؟",
         render: () => (
           <label className="onboarding-slider">
@@ -99,7 +163,7 @@ export function SetupProfilePage({
         )
       },
       {
-        number: 2,
+        number: 3,
         title: "متى موعد اختبارك القادم؟",
         render: () => (
           <div className="onboarding-stack">
@@ -135,7 +199,7 @@ export function SetupProfilePage({
         )
       },
       {
-        number: 3,
+        number: 4,
         title: "كم ساعة تستطيع الدراسة أسبوعياً بشكل واقعي؟",
         render: () => (
           <OptionButtons
@@ -148,7 +212,7 @@ export function SetupProfilePage({
         )
       },
       {
-        number: 4,
+        number: 5,
         title: "هل سبق لك دخول اختبار القدرات؟",
         render: () => (
           <div className="onboarding-options">
@@ -186,7 +250,7 @@ export function SetupProfilePage({
         )
       },
       {
-        number: 5,
+        number: 6,
         title: "كم مرة دخلت اختبار القدرات؟",
         render: () => (
           <label className="form-field">
@@ -203,7 +267,7 @@ export function SetupProfilePage({
         )
       },
       {
-        number: 6,
+        number: 7,
         title: "ما آخر درجة حصلت عليها؟",
         render: () => (
           <label className="form-field">
@@ -219,7 +283,7 @@ export function SetupProfilePage({
         )
       },
       {
-        number: 7,
+        number: 8,
         title: "أي القسمين يمثل تحدياً أكبر بالنسبة لك؟",
         render: () => (
           <OptionButtons
@@ -232,7 +296,7 @@ export function SetupProfilePage({
         )
       },
       {
-        number: 8,
+        number: 9,
         title: "كيف تفضل الدراسة عادة؟",
         render: () => (
           <OptionButtons
@@ -245,7 +309,7 @@ export function SetupProfilePage({
         )
       },
       {
-        number: 9,
+        number: 10,
         title: "كيف تفضل أن تبني أبقور خطتك الدراسية؟",
         render: () => (
           <OptionButtons
@@ -259,10 +323,14 @@ export function SetupProfilePage({
       }
     ];
 
+    if (isUsernameOnlySetup) {
+      return [allSteps[0]];
+    }
+
     return form.hasTakenQudurat === true
       ? allSteps
-      : allSteps.filter((step) => step.number !== 5 && step.number !== 6);
-  }, [form]);
+      : allSteps.filter((step) => step.number !== 6 && step.number !== 7);
+  }, [form, isUsernameOnlySetup]);
 
   const currentStep = steps[Math.min(stepIndex, steps.length - 1)];
   const progressPercent = Math.round(((stepIndex + 1) / steps.length) * 100);
@@ -283,7 +351,8 @@ export function SetupProfilePage({
       const response = await profileService.saveProfile(toProfileInput(form));
       onProfileCompleted({
         ...user,
-        profileCompleted: response.profile.profileCompleted
+        profileCompleted: response.profile.profileCompleted,
+        username: response.profile.username
       });
       navigateTo("/career");
     } catch (caughtError) {
@@ -308,6 +377,14 @@ export function SetupProfilePage({
     setStepIndex((currentIndex) => Math.min(currentIndex + 1, steps.length - 1));
   };
 
+  if (isLoadingProfile) {
+    return (
+      <main className="onboarding-shell" dir="rtl">
+        <p className="status-message">جاري تجهيز ملفك الدراسي...</p>
+      </main>
+    );
+  }
+
   return (
     <main className="onboarding-shell" dir="rtl">
       <section className="onboarding-layout" aria-labelledby="setup-profile-title">
@@ -323,7 +400,7 @@ export function SetupProfilePage({
 
           <div className="onboarding-progress">
           <span>
-            السؤال {arabicNumber(currentStep.number)} من {arabicNumber(9)}
+            السؤال {arabicNumber(stepIndex + 1)} من {arabicNumber(steps.length)}
           </span>
           <div
             aria-label={`نسبة الإكمال ${progressPercent}%`}

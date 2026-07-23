@@ -8,17 +8,17 @@ export function TopicWorldPage({
   topicSlug
 }: {
   subjectSlug: CareerWorldId;
-  topicSlug: string;
+  topicSlug: string | null;
 }) {
   const world = findCareerWorld(subjectSlug);
-  const topic = findTopic(subjectSlug, topicSlug);
+  const topic = topicSlug ? findTopic(subjectSlug, topicSlug) : null;
 
-  if (!world || !topic) {
+  if (!world || (topicSlug && !topic)) {
     return (
       <PlaceholderPage
         description="هذا المسار غير معروف في هيكل المحاور الحالي."
         eyebrow="مسار غير متاح"
-        title="لم يتم العثور على العالم"
+        title="لم يتم العثور على المحور"
       />
     );
   }

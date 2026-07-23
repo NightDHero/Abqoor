@@ -10,14 +10,14 @@ export function AppShell({
 }) {
   const isCareerExperience = currentPath === "/career";
   const isExamExperience = currentPath === "/exam";
-  const isLearningWorldExperience = currentPath.startsWith("/topic/");
+  const isTopicDirectoryExperience = currentPath.startsWith("/topic/");
   const shellClassName = [
     "app-shell",
     isCareerExperience ? "career-app-shell" : "",
     !isCareerExperience ? "focused-app-shell" : "",
     isExamExperience ? "exam-entry-app-shell" : "",
-    isLearningWorldExperience ? "learning-world-app-shell" : "",
-    !isCareerExperience && !isExamExperience && !isLearningWorldExperience
+    isTopicDirectoryExperience ? "topic-directory-app-shell" : "",
+    !isCareerExperience && !isExamExperience
       ? "product-app-shell"
       : ""
   ]
@@ -26,7 +26,7 @@ export function AppShell({
   const mainClassName = [
     "app-main",
     isCareerExperience ? "career-app-main" : "",
-    isLearningWorldExperience ? "learning-world-app-main" : ""
+    isTopicDirectoryExperience ? "topic-directory-app-main" : ""
   ]
     .filter(Boolean)
     .join(" ");

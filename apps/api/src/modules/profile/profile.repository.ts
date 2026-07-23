@@ -10,6 +10,7 @@ import type {
 const findProfileByUserIdStatement = db.prepare<string, StudentProfileRecord>(`
   SELECT
     user_id,
+    username,
     profile_completed,
     target_score,
     has_exam_date,
@@ -30,6 +31,7 @@ const findProfileByUserIdStatement = db.prepare<string, StudentProfileRecord>(`
 const upsertProfileStatement = db.prepare(`
   INSERT INTO student_profiles (
     user_id,
+    username,
     profile_completed,
     target_score,
     has_exam_date,
@@ -46,6 +48,7 @@ const upsertProfileStatement = db.prepare(`
   )
   VALUES (
     @userId,
+    @username,
     @profileCompleted,
     @targetScore,
     @hasExamDate,
@@ -61,6 +64,7 @@ const upsertProfileStatement = db.prepare(`
     @updatedAt
   )
   ON CONFLICT(user_id) DO UPDATE SET
+    username = excluded.username,
     profile_completed = excluded.profile_completed,
     target_score = excluded.target_score,
     has_exam_date = excluded.has_exam_date,
@@ -75,12 +79,37 @@ const upsertProfileStatement = db.prepare(`
     updated_at = excluded.updated_at
 `);
 
+const findProfileByUsernameStatement = db.prepare<
+  { userId: string; username: string },
+  { user_id: string }
+>(`
+  SELECT user_id
+  FROM student_profiles
+  WHERE username = @username COLLATE NOCASE
+    AND user_id <> @userId
+`);
+
 export const findStudentProfileByUserId = (userId: string) => {
   return findProfileByUserIdStatement.get(userId) ?? null;
 };
 
 export const isStudentProfileCompleted = (userId: string) => {
-  return findStudentProfileByUserId(userId)?.profile_completed === 1;
+  const profile = findStudentProfileByUserId(userId);
+  return profile?.profile_completed === 1 && Boolean(profile.username);
+};
+
+export const getStudentProfileIdentity = (userId: string) => {
+  const profile = findStudentProfileByUserId(userId);
+
+  return {
+    profileCompleted:
+      profile?.profile_completed === 1 && Boolean(profile.username),
+    username: profile?.username ?? null
+  };
+};
+
+export const isUsernameAvailable = (username: string, userId: string) => {
+  return !findProfileByUsernameStatement.get({ userId, username });
 };
 
 export const upsertStudentProfile = (input: {
@@ -93,6 +122,7 @@ export const upsertStudentProfile = (input: {
   studyStylePreference: StudyStylePreference;
   targetScore: number;
   userId: string;
+  username: string;
   weakerSection: WeakerSection;
   weeklyStudyHours: WeeklyStudyHours;
 }) => {
@@ -112,6 +142,7 @@ export const upsertStudentProfile = (input: {
     targetScore: input.targetScore,
     updatedAt: now,
     userId: input.userId,
+    username: input.username,
     weakerSection: input.weakerSection,
     weeklyStudyHours: input.weeklyStudyHours
   });

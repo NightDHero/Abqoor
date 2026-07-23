@@ -1342,3 +1342,292 @@
     transition: none;
   }
 }
+
+/* Spacious non-exam application composition */
+.product-app-shell,
+.auth-shell,
+.onboarding-shell,
+.landing-shell {
+  font-family: var(--font-arabic-body);
+  line-height: 1.75;
+}
+
+.product-app-shell h1,
+.product-app-shell h2,
+.product-app-shell h3,
+.auth-shell h1,
+.auth-shell h2,
+.onboarding-shell h1,
+.onboarding-shell h2,
+.landing-shell h1,
+.landing-shell h2 {
+  font-family: var(--font-arabic-display);
+}
+
+.product-app-shell .app-main {
+  width: min(100% - clamp(32px, 7vw, 128px), 1480px);
+  padding-block: clamp(52px, 7vw, 104px) clamp(96px, 12vw, 150px);
+}
+
+.product-app-shell .page-container,
+.product-app-shell .page-content,
+.product-app-shell .study-mode,
+.product-app-shell .study-result,
+.product-app-shell .practice-session,
+.product-app-shell .practice-result,
+.product-app-shell .question-browser {
+  gap: clamp(34px, 5vw, 72px);
+}
+
+.product-app-shell .page-hero {
+  grid-template-columns: minmax(0, 1.35fr) minmax(180px, 0.65fr);
+  gap: clamp(48px, 8vw, 120px);
+  min-height: clamp(240px, 27vw, 390px);
+  padding-bottom: clamp(38px, 5vw, 64px);
+}
+
+.product-app-shell .page-hero-copy {
+  gap: clamp(14px, 2vw, 24px);
+}
+
+.product-app-shell .page-description {
+  max-width: 850px;
+  font-size: clamp(1rem, 1.35vw, 1.16rem);
+  line-height: 2;
+}
+
+.product-app-shell .study-panel,
+.product-app-shell .question-card,
+.product-app-shell .study-result,
+.product-app-shell .practice-result,
+.product-app-shell .browser-toolbar,
+.product-app-shell .browser-gallery,
+.product-app-shell .review-section,
+.product-app-shell .review-item,
+.product-app-shell .profile-section,
+.product-app-shell .metric,
+.product-app-shell .admin-panel {
+  border-radius: clamp(18px, 2vw, 26px);
+  padding: clamp(26px, 4vw, 52px);
+}
+
+.product-app-shell .study-mode > .study-panel:first-child {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
+  gap: clamp(36px, 7vw, 96px);
+  align-items: center;
+  min-height: clamp(300px, 32vw, 470px);
+}
+
+.product-app-shell .question-card {
+  gap: clamp(26px, 4vw, 48px);
+  width: 100%;
+  min-height: clamp(420px, 56vh, 680px);
+}
+
+.product-app-shell .question-card-heading {
+  gap: 14px;
+  padding-bottom: clamp(18px, 2.5vw, 30px);
+}
+
+.product-app-shell .answer-options {
+  gap: clamp(14px, 1.7vw, 22px);
+}
+
+.product-app-shell .answer-option {
+  min-height: 68px;
+  padding: 18px 22px;
+}
+
+.product-app-shell .profile-overview,
+.product-app-shell .review-overview,
+.product-app-shell .summary-grid,
+.product-app-shell .result-grid {
+  gap: clamp(18px, 2.5vw, 32px);
+}
+
+.product-app-shell .profile-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(24px, 3vw, 42px);
+  align-items: start;
+}
+
+.product-app-shell .profile-editor-heading,
+.product-app-shell .profile-form > .action-row,
+.product-app-shell .profile-form > .profile-section:first-of-type {
+  grid-column: 1 / -1;
+}
+
+.product-app-shell .profile-editor-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.62fr);
+  gap: clamp(28px, 5vw, 74px);
+  align-items: end;
+  padding-bottom: clamp(28px, 4vw, 48px);
+}
+
+.product-app-shell .profile-section {
+  display: grid;
+  gap: clamp(24px, 3vw, 38px);
+  min-height: 100%;
+}
+
+.product-app-shell .profile-field-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(18px, 2.5vw, 30px);
+}
+
+.profile-username-field small,
+.onboarding-username-field small {
+  color: var(--abq-muted);
+  font-size: 0.82rem;
+  line-height: 1.8;
+}
+
+.product-app-shell .review-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(20px, 2.8vw, 34px);
+}
+
+.product-app-shell .review-item {
+  display: grid;
+  gap: clamp(20px, 2.6vw, 32px);
+  align-content: start;
+  min-height: 100%;
+}
+
+.product-app-shell .metric {
+  min-height: 170px;
+  align-content: space-between;
+}
+
+.auth-layout {
+  width: min(100% - clamp(30px, 7vw, 112px), 1320px);
+  grid-template-columns: minmax(0, 1fr) minmax(380px, 0.72fr);
+  gap: clamp(56px, 9vw, 140px);
+  align-items: center;
+}
+
+.auth-card {
+  padding: clamp(34px, 5vw, 58px);
+}
+
+.onboarding-layout {
+  width: min(100% - clamp(30px, 7vw, 112px), 1420px);
+  grid-template-columns: minmax(320px, 0.78fr) minmax(0, 1.22fr);
+  gap: clamp(56px, 9vw, 136px);
+  align-items: center;
+}
+
+.onboarding-card {
+  min-height: clamp(480px, 62vh, 690px);
+  padding: clamp(34px, 5vw, 68px);
+}
+
+.onboarding-question {
+  gap: clamp(24px, 4vw, 42px);
+  align-content: center;
+  min-height: 330px;
+}
+
+.onboarding-options {
+  gap: clamp(14px, 2vw, 22px);
+}
+
+.onboarding-option {
+  min-height: 66px;
+  padding: 16px 20px;
+}
+
+.onboarding-username-field {
+  width: min(100%, 620px);
+  margin-inline: auto;
+}
+
+@media (max-width: 980px) {
+  .product-app-shell .app-main {
+    width: min(100% - 32px, 920px);
+    padding-block: 48px 100px;
+  }
+
+  .product-app-shell .page-hero,
+  .product-app-shell .study-mode > .study-panel:first-child,
+  .product-app-shell .profile-editor-heading,
+  .auth-layout,
+  .onboarding-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .product-app-shell .page-hero {
+    min-height: 0;
+  }
+
+  .product-app-shell .profile-form {
+    grid-template-columns: 1fr;
+  }
+
+  .product-app-shell .profile-form > * {
+    grid-column: 1;
+  }
+
+  .product-app-shell .profile-field-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .auth-layout,
+  .onboarding-layout {
+    gap: 42px;
+  }
+}
+
+@media (max-width: 640px) {
+  .product-app-shell .app-main {
+    width: min(100% - 24px, 620px);
+    padding-block: 72px 88px;
+  }
+
+  .product-app-shell .page-container,
+  .product-app-shell .page-content,
+  .product-app-shell .study-mode,
+  .product-app-shell .study-result,
+  .product-app-shell .practice-session,
+  .product-app-shell .practice-result,
+  .product-app-shell .question-browser {
+    gap: 30px;
+  }
+
+  .product-app-shell .study-panel,
+  .product-app-shell .question-card,
+  .product-app-shell .review-section,
+  .product-app-shell .review-item,
+  .product-app-shell .profile-section,
+  .product-app-shell .metric {
+    padding: 24px 20px;
+  }
+
+  .product-app-shell .profile-field-grid,
+  .product-app-shell .review-list {
+    grid-template-columns: 1fr;
+  }
+
+  .product-app-shell .question-card {
+    min-height: 0;
+  }
+
+  .auth-layout,
+  .onboarding-layout {
+    width: min(100% - 24px, 620px);
+  }
+
+  .auth-card,
+  .onboarding-card {
+    min-height: 0;
+    padding: 28px 22px;
+  }
+
+  .onboarding-question {
+    min-height: 300px;
+  }
+}

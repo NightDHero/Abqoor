@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Alexandria:wght@500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@500;600;700;800;900&family=Noto+Sans+Arabic:wght@400;500;600;700;800;900&display=swap");
 
 :root {
   color: #000;
@@ -41,6 +41,8 @@
     radial-gradient(circle at 18% 20%, rgb(43 183 212 / 10%), transparent 30%),
     linear-gradient(120deg, #071827 0%, #082236 48%, #102a43 100%);
   --abqoor-card-gradient: linear-gradient(180deg, rgb(255 255 255 / 7%), rgb(255 255 255 / 5%));
+  --font-arabic-body: "Noto Sans Arabic", Tahoma, Arial, sans-serif;
+  --font-arabic-display: "Noto Kufi Arabic", "Noto Sans Arabic", Tahoma, Arial, sans-serif;
 }
 
 * {
@@ -182,8 +184,7 @@ a {
 .onboarding-shell,
 .app-shell {
   font-family:
-    "IBM Plex Sans Arabic", "Segoe UI", Tahoma, Arial, ui-sans-serif,
-    system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    var(--font-arabic-body);
 }
 
 .public-home h1,
@@ -200,8 +201,7 @@ a {
 .app-shell .landing-title,
 .app-shell .auth-title {
   font-family:
-    "Alexandria", "IBM Plex Sans Arabic", "Segoe UI", Tahoma, Arial,
-    sans-serif;
+    var(--font-arabic-display);
 }
 
 .exam-entry-open .app-header,

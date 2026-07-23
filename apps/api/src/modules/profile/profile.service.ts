@@ -1,5 +1,6 @@
 import {
   findStudentProfileByUserId,
+  isUsernameAvailable,
   upsertStudentProfile
 } from "./profile.repository.js";
 import {
@@ -24,6 +25,25 @@ export class ProfileError extends Error {
     super(message);
   }
 }
+
+const usernamePattern =
+  /^[\p{L}\p{N}](?:[\p{L}\p{N}_-]{1,22}[\p{L}\p{N}])$/u;
+
+const toUsername = (value: unknown) => {
+  if (typeof value !== "string") {
+    throw new ProfileError("اسم المستخدم مطلوب.");
+  }
+
+  const username = value.trim();
+
+  if (!usernamePattern.test(username)) {
+    throw new ProfileError(
+      "اسم المستخدم يجب أن يتكون من ٣ إلى ٢٤ حرفاً أو رقماً، ويمكن استخدام _ أو - في الوسط."
+    );
+  }
+
+  return username;
+};
 
 const profileFieldLabels: Record<string, string> = {
   attemptCount: "عدد المحاولات",
@@ -106,6 +126,7 @@ const toDateOrNull = (hasExamDate: boolean, value: unknown) => {
 };
 
 const normalizeProfileInput = (input: UpdateStudentProfileInput) => {
+  const username = toUsername(input.username);
   const targetScore = toInteger(input.targetScore, "targetScore");
   if (targetScore < 50 || targetScore > 100) {
     throw new ProfileError("الدرجة المستهدفة يجب أن تكون بين ٥٠ و١٠٠.");
@@ -150,6 +171,7 @@ const normalizeProfileInput = (input: UpdateStudentProfileInput) => {
       "studyStylePreference"
     ) as StudyStylePreference,
     targetScore,
+    username,
     weakerSection: toRequiredOption(
       input.weakerSection,
       weakerSectionOptions,
@@ -180,6 +202,11 @@ export const saveStudentProfile = (
   }
 
   const normalized = normalizeProfileInput(input);
+
+  if (!isUsernameAvailable(normalized.username, userId)) {
+    throw new ProfileError("اسم المستخدم مستخدم بالفعل. اختر اسماً آخر.", 409);
+  }
+
   const savedProfile = upsertStudentProfile({
     ...normalized,
     userId

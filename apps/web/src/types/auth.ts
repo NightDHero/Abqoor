@@ -3,6 +3,7 @@ export type User = {
   email: string;
   createdAt: string;
   profileCompleted: boolean;
+  username: string | null;
 };
 
 export type AuthMode = "login" | "register";
