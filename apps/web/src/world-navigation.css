@@ -1949,3 +1949,845 @@
     transition-duration: 1ms;
   }
 }
+
+/* Hub world architecture */
+.career-app-shell,
+.focused-app-shell {
+  min-height: 100vh;
+  padding-bottom: 0;
+}
+
+.focused-app-shell {
+  position: relative;
+}
+
+.focused-app-shell .app-main {
+  min-height: 100vh;
+}
+
+.learning-world-app-shell .learning-world-app-main {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.learning-map-world {
+  height: 100svh;
+}
+
+.exam-entry-app-shell .exam-entry-page {
+  min-height: 100svh;
+}
+
+.hub-return-control {
+  position: fixed;
+  z-index: 90;
+  top: 18px;
+  right: 18px;
+  display: grid;
+  width: 52px;
+  height: 52px;
+  min-height: 0;
+  border: 1px solid rgb(255 255 255 / 15%);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 20%, rgb(255 255 255 / 15%), transparent 45%),
+    rgb(5 24 37 / 70%);
+  padding: 10px;
+  color: var(--world-white);
+  box-shadow:
+    0 14px 38px rgb(0 7 14 / 30%),
+    inset 0 1px 0 rgb(255 255 255 / 13%);
+  place-items: center;
+  backdrop-filter: blur(18px);
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.hub-return-control:hover {
+  border-color: rgb(103 220 231 / 40%);
+  background-color: rgb(8 38 53 / 82%);
+  box-shadow:
+    0 18px 42px rgb(0 7 14 / 34%),
+    0 0 24px rgb(103 220 231 / 10%);
+  transform: translateY(-2px);
+}
+
+.hub-return-control:focus-visible {
+  outline: 2px solid var(--world-cyan);
+  outline-offset: 4px;
+}
+
+.hub-return-control img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.hub-world-map {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  width: 100%;
+  min-height: 100svh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 15% 12%, rgb(103 220 231 / 14%), transparent 34rem),
+    radial-gradient(circle at 85% 16%, rgb(245 201 79 / 13%), transparent 35rem),
+    linear-gradient(145deg, #04131f 0%, #082432 48%, #181f28 100%);
+  color: var(--world-white);
+}
+
+.hub-world-map::before {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  background:
+    linear-gradient(135deg, transparent 0 48%, rgb(255 255 255 / 1.8%) 48.1% 48.2%, transparent 48.3%),
+    radial-gradient(circle at 50% 45%, transparent 25%, rgb(0 6 12 / 32%) 100%);
+  background-size: 116px 116px, 100% 100%;
+  pointer-events: none;
+  content: "";
+}
+
+.hub-world-atmosphere {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hub-atmosphere-verbal,
+.hub-atmosphere-math,
+.hub-atmosphere-bridge {
+  position: absolute;
+  display: block;
+}
+
+.hub-atmosphere-verbal {
+  top: -12%;
+  bottom: 38%;
+  left: -8%;
+  width: 58%;
+  background:
+    radial-gradient(ellipse at 34% 44%, rgb(76 214 226 / 18%), transparent 52%),
+    radial-gradient(ellipse at 72% 72%, rgb(35 185 173 / 10%), transparent 46%);
+  filter: blur(14px);
+  animation: hub-landscape-breathe 12s ease-in-out infinite alternate;
+}
+
+.hub-atmosphere-math {
+  top: -12%;
+  right: -8%;
+  bottom: 38%;
+  width: 58%;
+  background:
+    radial-gradient(ellipse at 66% 42%, rgb(245 201 79 / 18%), transparent 52%),
+    radial-gradient(ellipse at 28% 74%, rgb(237 139 58 / 9%), transparent 46%);
+  filter: blur(14px);
+  animation: hub-landscape-breathe 10s ease-in-out 1.5s infinite alternate-reverse;
+}
+
+.hub-atmosphere-bridge {
+  top: -8%;
+  bottom: 32%;
+  left: 42%;
+  width: 16%;
+  background:
+    radial-gradient(ellipse at center, rgb(247 251 252 / 14%), transparent 58%),
+    linear-gradient(
+      90deg,
+      transparent,
+      rgb(103 220 231 / 9%),
+      rgb(245 201 79 / 8%),
+      transparent
+    );
+  filter: blur(22px);
+  opacity: 0.78;
+  animation: hub-bridge-pulse 7s ease-in-out infinite alternate;
+}
+
+.hub-world-particle {
+  position: absolute;
+  top: var(--hub-particle-y);
+  left: var(--hub-particle-x);
+  width: var(--hub-particle-size);
+  height: var(--hub-particle-size);
+  border-radius: 50%;
+  background: var(--world-cyan);
+  color: var(--world-cyan);
+  box-shadow: 0 0 14px currentColor;
+  opacity: 0.34;
+  animation: hub-world-particle-drift 8s ease-in-out var(--hub-particle-delay) infinite alternate;
+}
+
+.hub-world-particle:nth-of-type(even) {
+  background: var(--world-gold);
+  color: var(--world-gold);
+}
+
+.hub-world-composition {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-rows: minmax(360px, 1.08fr) minmax(190px, 0.72fr);
+  gap: clamp(28px, 4vh, 54px);
+  width: min(100% - clamp(42px, 7vw, 140px), 1760px);
+  min-height: 100svh;
+  margin-inline: auto;
+  padding-block: clamp(58px, 8vh, 104px) clamp(38px, 6vh, 76px);
+}
+
+.hub-world-entrances {
+  position: relative;
+  display: grid;
+  direction: ltr;
+  grid-template-columns: minmax(0, 25%) minmax(0, 50%) minmax(0, 25%);
+  align-items: center;
+}
+
+.hub-world-entrances::before {
+  position: absolute;
+  top: 50%;
+  right: 23%;
+  left: 23%;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    rgb(103 220 231 / 28%),
+    rgb(247 251 252 / 15%),
+    rgb(245 201 79 / 28%)
+  );
+  box-shadow:
+    0 0 12px rgb(103 220 231 / 20%),
+    0 0 24px rgb(245 201 79 / 13%);
+  opacity: 0.72;
+  content: "";
+}
+
+.career-app-shell .hub-world-entrance {
+  position: relative;
+  display: grid;
+  gap: clamp(16px, 2.2vh, 28px);
+  align-content: center;
+  justify-items: center;
+  min-width: 0;
+  min-height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--world-white);
+  box-shadow: none;
+  isolation: isolate;
+  transition:
+    filter 220ms ease,
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.career-app-shell .hub-world-entrance:hover {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  filter: brightness(1.08);
+  transform: translateY(-5px);
+}
+
+.career-app-shell .hub-world-entrance:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 12px;
+}
+
+.hub-world-entrance-verbal {
+  grid-column: 1;
+  color: var(--world-cyan);
+}
+
+.hub-world-entrance-math {
+  grid-column: 3;
+  color: var(--world-gold);
+}
+
+.hub-world-icon-shell {
+  position: relative;
+  display: grid;
+  width: clamp(128px, 12vw, 200px);
+  aspect-ratio: 1;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 24%, rgb(255 255 255 / 24%), transparent 34%),
+    rgb(255 255 255 / 8%);
+  box-shadow:
+    0 30px 70px rgb(0 7 14 / 36%),
+    inset 0 1px 0 rgb(255 255 255 / 15%);
+  place-items: center;
+  backdrop-filter: blur(14px);
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hub-world-entrance:hover .hub-world-icon-shell {
+  border-color: color-mix(in srgb, currentColor 42%, transparent);
+  box-shadow:
+    0 36px 80px rgb(0 7 14 / 42%),
+    0 0 40px color-mix(in srgb, currentColor 18%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 18%);
+  transform: scale(1.035);
+}
+
+.hub-world-icon-shell::after {
+  position: absolute;
+  inset: -22px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 50%;
+  opacity: 0.58;
+  content: "";
+  animation: hub-icon-orbit 8s linear infinite;
+}
+
+.hub-world-icon-glow {
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  background: currentColor;
+  filter: blur(32px);
+  opacity: 0.15;
+}
+
+.hub-world-icon-shell img {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 68%;
+  height: 68%;
+  object-fit: contain;
+}
+
+.hub-world-entrance-verbal .hub-world-icon-shell {
+  background:
+    radial-gradient(circle at 34% 24%, rgb(255 255 255 / 24%), transparent 34%),
+    linear-gradient(145deg, rgb(164 237 241 / 92%), rgb(56 188 201 / 88%));
+}
+
+.hub-world-entrance-verbal .hub-world-icon-shell img {
+  width: 61%;
+  height: 61%;
+}
+
+.hub-world-entrance-math .hub-world-icon-shell {
+  background:
+    radial-gradient(circle at 34% 24%, rgb(255 255 255 / 16%), transparent 34%),
+    rgb(255 255 255 / 7%);
+}
+
+.hub-world-entrance strong {
+  color: currentColor;
+  font-family:
+    "Alexandria", "IBM Plex Sans Arabic", sans-serif;
+  font-size: clamp(3.1rem, 5vw, 6rem);
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 0 34px color-mix(in srgb, currentColor 30%, transparent);
+}
+
+.hub-world-destinations {
+  position: relative;
+  display: grid;
+  direction: rtl;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(18px, 3vw, 46px);
+  align-items: stretch;
+}
+
+.hub-world-destinations::before {
+  position: absolute;
+  top: 50%;
+  right: 8%;
+  left: 8%;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(103 220 231 / 20%),
+    rgb(255 255 255 / 18%),
+    rgb(245 201 79 / 18%),
+    transparent
+  );
+  box-shadow: 0 0 18px rgb(103 220 231 / 15%);
+  content: "";
+}
+
+.hub-world-destination {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 150px;
+  border: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, rgb(255 255 255 / 8%) 0 38%, rgb(255 255 255 / 3%) 39% 58%, transparent 59%);
+  color: var(--world-white);
+  place-items: center;
+  text-decoration: none;
+  isolation: isolate;
+  transition:
+    filter 180ms ease,
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hub-world-destination::before {
+  position: absolute;
+  z-index: -1;
+  width: min(72%, 180px);
+  aspect-ratio: 1;
+  border: 1px solid rgb(255 255 255 / 11%);
+  border-radius: 50%;
+  background: rgb(5 26 39 / 56%);
+  box-shadow:
+    0 24px 54px rgb(0 7 14 / 28%),
+    inset 0 1px 0 rgb(255 255 255 / 9%);
+  backdrop-filter: blur(12px);
+  content: "";
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hub-world-destination::after {
+  position: absolute;
+  z-index: -2;
+  width: min(88%, 220px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(103 220 231 / 8%), transparent 68%);
+  content: "";
+}
+
+.hub-world-destination:hover {
+  color: var(--world-white);
+  filter: brightness(1.08);
+  transform: translateY(-4px);
+}
+
+.hub-world-destination:hover::before {
+  border-color: rgb(103 220 231 / 26%);
+  box-shadow:
+    0 30px 64px rgb(0 7 14 / 34%),
+    0 0 28px rgb(103 220 231 / 10%),
+    inset 0 1px 0 rgb(255 255 255 / 12%);
+  transform: scale(1.035);
+}
+
+.hub-world-destination:focus-visible {
+  outline: 2px solid var(--world-cyan);
+  outline-offset: 4px;
+}
+
+.hub-world-destination strong {
+  position: relative;
+  z-index: 1;
+  max-width: 150px;
+  font-family:
+    "Alexandria", "IBM Plex Sans Arabic", sans-serif;
+  font-size: clamp(1rem, 1.35vw, 1.32rem);
+  font-weight: 700;
+  text-align: center;
+}
+
+.hub-avatar {
+  position: absolute;
+  z-index: 50;
+  top: clamp(18px, 3vw, 34px);
+  right: clamp(18px, 3vw, 38px);
+}
+
+.career-app-shell .hub-avatar-trigger {
+  display: grid;
+  width: 56px;
+  height: 56px;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 15%);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 20%, rgb(255 255 255 / 20%), transparent 40%),
+    rgb(255 255 255 / 86%);
+  padding: 11px;
+  box-shadow:
+    0 16px 42px rgb(0 7 14 / 32%),
+    0 0 22px rgb(103 220 231 / 8%);
+  place-items: center;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.career-app-shell .hub-avatar-trigger:hover {
+  border-color: rgb(103 220 231 / 42%);
+  background: rgb(255 255 255 / 94%);
+  box-shadow:
+    0 20px 48px rgb(0 7 14 / 38%),
+    0 0 28px rgb(103 220 231 / 13%);
+  transform: translateY(-2px);
+}
+
+.hub-avatar-trigger img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.hub-profile-menu {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  display: grid;
+  width: min(280px, calc(100vw - 36px));
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 13%);
+  border-radius: 16px;
+  background: rgb(5 25 38 / 94%);
+  padding: 8px;
+  box-shadow: 0 28px 72px rgb(0 6 12 / 46%);
+  backdrop-filter: blur(22px);
+  animation: hub-profile-menu-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hub-profile-menu p {
+  overflow: hidden;
+  margin: 0 6px 7px;
+  border-bottom: 1px solid rgb(255 255 255 / 9%);
+  padding: 10px 8px 14px;
+  color: var(--world-muted);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.career-app-shell .hub-profile-menu button {
+  display: flex;
+  justify-content: flex-start;
+  min-height: 43px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  padding: 9px 12px;
+  color: var(--world-white);
+  font-weight: 700;
+  text-align: right;
+}
+
+.career-app-shell .hub-profile-menu button:hover {
+  border: 0;
+  background: rgb(255 255 255 / 7%);
+  box-shadow: none;
+  transform: none;
+}
+
+.career-app-shell .hub-profile-menu .hub-profile-menu-logout {
+  color: #f1a0a0;
+}
+
+@keyframes hub-landscape-breathe {
+  from {
+    opacity: 0.68;
+    transform: translate3d(-2%, 1%, 0) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(2%, -1%, 0) scale(1.04);
+  }
+}
+
+@keyframes hub-bridge-pulse {
+  from {
+    opacity: 0.52;
+    transform: scaleX(0.84);
+  }
+
+  to {
+    opacity: 0.9;
+    transform: scaleX(1.12);
+  }
+}
+
+@keyframes hub-world-particle-drift {
+  from {
+    opacity: 0.2;
+    transform: translate3d(-7px, 10px, 0) scale(0.8);
+  }
+
+  to {
+    opacity: 0.55;
+    transform: translate3d(10px, -12px, 0) scale(1.08);
+  }
+}
+
+@keyframes hub-icon-orbit {
+  0% {
+    opacity: 0.34;
+    transform: rotate(0deg) scale(0.98);
+  }
+
+  50% {
+    opacity: 0.68;
+    transform: rotate(180deg) scale(1.02);
+  }
+
+  100% {
+    opacity: 0.34;
+    transform: rotate(360deg) scale(0.98);
+  }
+}
+
+@keyframes hub-profile-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 1099px) {
+  .hub-world-composition {
+    grid-template-rows: minmax(390px, 1fr) minmax(350px, 0.95fr);
+    gap: 20px;
+    width: min(100% - 40px, 900px);
+    padding-block: 70px 38px;
+  }
+
+  .hub-world-entrances {
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+  }
+
+  .hub-world-entrances::before {
+    right: 24%;
+    left: 24%;
+  }
+
+  .hub-world-entrance-verbal {
+    grid-column: 1;
+  }
+
+  .hub-world-entrance-math {
+    grid-column: 2;
+  }
+
+  .hub-world-destinations {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px;
+  }
+
+  .hub-world-destinations::before {
+    top: 50%;
+    right: 14%;
+    left: 14%;
+  }
+
+  .hub-world-destination {
+    min-height: 158px;
+  }
+}
+
+@media (max-width: 640px) {
+  .hub-world-map {
+    overflow: visible;
+  }
+
+  .hub-world-composition {
+    grid-template-rows: minmax(500px, 64svh) auto;
+    gap: 18px;
+    width: 100%;
+    min-height: 100svh;
+    padding: 60px 16px 32px;
+  }
+
+  .hub-world-entrances {
+    position: relative;
+    display: block;
+    min-height: 500px;
+  }
+
+  .hub-world-entrances::before {
+    top: 48%;
+    right: 4%;
+    left: 4%;
+    height: 70px;
+    background:
+      radial-gradient(ellipse at center, rgb(247 251 252 / 13%), transparent 62%),
+      linear-gradient(
+        90deg,
+        transparent,
+        rgb(103 220 231 / 17%),
+        rgb(245 201 79 / 15%),
+        transparent
+      );
+    box-shadow:
+      0 0 20px rgb(103 220 231 / 14%),
+      0 0 34px rgb(245 201 79 / 10%);
+    filter: blur(8px);
+    transform: rotate(-45deg);
+  }
+
+  .career-app-shell .hub-world-entrance {
+    position: absolute;
+    width: min(58vw, 230px);
+    min-height: 240px;
+  }
+
+  .career-app-shell .hub-world-entrance-verbal {
+    top: 0;
+    left: 2%;
+  }
+
+  .career-app-shell .hub-world-entrance-math {
+    right: 2%;
+    bottom: 0;
+  }
+
+  .hub-world-icon-shell {
+    width: clamp(118px, 34vw, 158px);
+  }
+
+  .hub-world-entrance strong {
+    font-size: clamp(2.7rem, 13vw, 4.2rem);
+  }
+
+  .hub-world-destinations {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    border-block: 1px solid rgb(255 255 255 / 9%);
+  }
+
+  .hub-world-destinations::before {
+    display: none;
+  }
+
+  .hub-world-destination {
+    display: flex;
+    justify-content: space-between;
+    min-height: 76px;
+    border-bottom: 1px solid rgb(255 255 255 / 8%);
+    border-radius: 0;
+    background: transparent;
+    padding-inline: 18px;
+  }
+
+  .hub-world-destination:last-child {
+    border-bottom: 0;
+  }
+
+  .hub-world-destination::before {
+    right: auto;
+    left: 18px;
+    width: 8px;
+    border: 0;
+    background: var(--world-cyan);
+    box-shadow: 0 0 14px rgb(103 220 231 / 48%);
+    backdrop-filter: none;
+  }
+
+  .hub-world-destination::after {
+    display: none;
+  }
+
+  .hub-world-destination:hover {
+    background: rgb(255 255 255 / 3%);
+    transform: none;
+  }
+
+  .hub-world-destination:hover::before {
+    border: 0;
+    box-shadow: 0 0 18px rgb(103 220 231 / 58%);
+    transform: scale(1.2);
+  }
+
+  .hub-world-destination strong {
+    max-width: none;
+    font-size: 1.05rem;
+    text-align: start;
+  }
+
+  .hub-avatar {
+    top: 12px;
+    right: 12px;
+  }
+
+  .career-app-shell .hub-avatar-trigger {
+    width: 46px;
+    height: 46px;
+    padding: 9px;
+  }
+
+  .hub-atmosphere-verbal {
+    top: -2%;
+    bottom: 56%;
+    left: -28%;
+    width: 110%;
+  }
+
+  .hub-atmosphere-math {
+    top: 26%;
+    right: -30%;
+    bottom: 25%;
+    width: 112%;
+  }
+
+  .hub-atmosphere-bridge {
+    top: 13%;
+    bottom: 39%;
+    left: -12%;
+    width: 124%;
+    transform: rotate(-45deg);
+  }
+
+  .hub-return-control {
+    top: 12px;
+    right: 12px;
+    width: 46px;
+    height: 46px;
+    padding: 9px;
+  }
+
+  .learning-world-switch {
+    top: 12px;
+  }
+
+  .learning-world-hint {
+    display: none;
+  }
+
+  .exam-entry-app-shell .exam-entry-page {
+    padding-top: 72px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-atmosphere-verbal,
+  .hub-atmosphere-math,
+  .hub-atmosphere-bridge,
+  .hub-world-particle,
+  .hub-world-icon-shell::after,
+  .hub-profile-menu {
+    animation: none;
+  }
+}

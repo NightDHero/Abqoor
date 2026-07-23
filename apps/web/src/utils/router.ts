@@ -16,6 +16,19 @@ export const navigateTo = (path: string) => {
   const commitNavigation = () => {
     window.history.pushState({}, "", path);
     window.dispatchEvent(new PopStateEvent("popstate"));
+
+    const hash = path.includes("#") ? path.slice(path.indexOf("#") + 1) : "";
+
+    if (hash) {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          document.getElementById(hash)?.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+          });
+        });
+      });
+    }
   };
   const documentWithTransitions = document as Document & {
     startViewTransition?: (callback: () => void) => void;

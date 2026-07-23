@@ -23,7 +23,6 @@ import {
   MATH_WORLD_SIZE,
   trailGapForRectangle
 } from "./mathWorldLayout";
-import { ReturnButton } from "./ReturnButton";
 import { TopicStation } from "./TopicStation";
 import { TrailPath } from "./TrailPath";
 import { useMapCamera } from "./useMapCamera";
@@ -436,21 +435,6 @@ export function MapCanvas({
     }, 520);
   };
 
-  const returnToHub = () => {
-    setHoveredTopicSlug(null);
-    setActiveEffectSlug(null);
-    camera.travelTo(MATH_HUB_POSITION, hubScale, 640);
-
-    if (navigationTimerRef.current !== null) {
-      window.clearTimeout(navigationTimerRef.current);
-    }
-
-    navigationTimerRef.current = window.setTimeout(() => {
-      navigateTo("/career");
-      navigationTimerRef.current = null;
-    }, 600);
-  };
-
   const switchWorld = (nextWorldId: CareerWorldId) => {
     if (nextWorldId === world.id) {
       camera.travelTo(MATH_HUB_POSITION, hubScale, 560);
@@ -619,7 +603,6 @@ export function MapCanvas({
         />
         <WorldCursor viewportRef={viewportRef} />
         <WorldSwitch activeWorld={world.id} onSwitch={switchWorld} />
-        <ReturnButton label="العودة إلى المركز" onReturn={returnToHub} />
         <p className="learning-world-hint">
           اسحب للاستكشاف · مرّر للتكبير · انقر مرتين للعودة
         </p>

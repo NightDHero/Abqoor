@@ -91,8 +91,6 @@ export default function App() {
       ) : (
         <AppShell
           currentPath={path}
-          onLogout={auth.logout}
-          user={auth.user}
         >
           {children}
         </AppShell>
@@ -111,7 +109,9 @@ export default function App() {
   );
 
   if (path === "/career") {
-    return renderProtectedPage(<CareerPage />);
+    return renderProtectedPage(
+      <CareerPage onLogout={auth.logout} user={auth.user} />
+    );
   }
 
   if (topicRouteValue) {

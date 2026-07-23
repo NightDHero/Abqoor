@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Alexandria:wght@500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap");
+
 :root {
   color: #000;
   background: #fff;
@@ -173,6 +175,33 @@ a {
   place-items: center;
   padding: var(--space-2);
   text-align: center;
+}
+
+.public-home,
+.auth-shell,
+.onboarding-shell,
+.app-shell {
+  font-family:
+    "IBM Plex Sans Arabic", "Segoe UI", Tahoma, Arial, ui-sans-serif,
+    system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.public-home h1,
+.public-home h2,
+.public-home h3,
+.auth-shell h1,
+.auth-shell h2,
+.onboarding-shell h1,
+.onboarding-shell h2,
+.app-shell h1,
+.app-shell h2,
+.app-shell h3,
+.app-shell .page-title,
+.app-shell .landing-title,
+.app-shell .auth-title {
+  font-family:
+    "Alexandria", "IBM Plex Sans Arabic", "Segoe UI", Tahoma, Arial,
+    sans-serif;
 }
 
 .exam-entry-open .app-header,

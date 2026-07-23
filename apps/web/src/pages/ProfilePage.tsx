@@ -182,7 +182,7 @@ export function ProfilePage({
         />
       </section>
 
-      <form className="profile-form" onSubmit={handleSubmit}>
+      <form className="profile-form" id="settings" onSubmit={handleSubmit}>
         <header className="profile-editor-heading">
           <div>
             <p className="page-eyebrow">تحديث الملف</p>
