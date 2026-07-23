@@ -1,5 +1,9 @@
 import { env } from "../../config/env";
-import type { CorrectAnswer, SessionQuestion } from "../../types/session";
+import type {
+  CorrectAnswer,
+  SessionQuestion,
+  SubmitAnswerResponse
+} from "../../types/session";
 import { AnswerOption } from "./AnswerOption";
 
 const answers: CorrectAnswer[] = ["A", "B", "C", "D"];
@@ -11,11 +15,13 @@ const toImageSrc = (questionImageUrl: string) =>
 
 export function QuestionCard({
   disabled,
+  feedback,
   onSelectAnswer,
   question,
   selectedAnswer
 }: {
   disabled: boolean;
+  feedback: SubmitAnswerResponse | null;
   onSelectAnswer: (answer: CorrectAnswer) => void;
   question: SessionQuestion;
   selectedAnswer: CorrectAnswer | null;
@@ -38,7 +44,13 @@ export function QuestionCard({
           <AnswerOption
             answer={answer}
             disabled={disabled}
+            isCorrect={feedback?.correctAnswer === answer}
             isSelected={selectedAnswer === answer}
+            isWrong={
+              Boolean(feedback) &&
+              selectedAnswer === answer &&
+              feedback?.correctAnswer !== answer
+            }
             key={answer}
             onSelect={onSelectAnswer}
           />

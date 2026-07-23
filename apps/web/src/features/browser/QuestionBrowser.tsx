@@ -2,6 +2,7 @@ import type { CareerWorld, SubtopicPillar, TopicPillar } from "../career/career.
 import { BrowserControls } from "./BrowserControls";
 import { GalleryMode } from "./GalleryMode";
 import { QuestionMode } from "./QuestionMode";
+import { QuestionNavigator } from "./QuestionNavigator";
 import { useQuestionBrowser } from "./useQuestionBrowser";
 import { useReviewBank } from "./useReviewBank";
 
@@ -45,12 +46,11 @@ export function QuestionBrowser({
 
       <BrowserControls
         displayMode={browser.displayMode}
-        jumpText={browser.jumpText}
-        onJump={browser.jumpToQuestion}
+        resultCount={browser.filteredQuestions.length}
         searchText={browser.searchText}
         setDisplayMode={browser.setDisplayMode}
-        setJumpText={browser.setJumpText}
         setSearchText={browser.setSearchText}
+        totalCount={browser.questions.length}
       />
 
       {browser.isLoading ? (
@@ -62,6 +62,14 @@ export function QuestionBrowser({
         <div className="browser-panel">
           لا توجد أسئلة مطابقة لهذا المسار أو البحث الحالي.
         </div>
+      ) : null}
+
+      {!browser.isLoading && browser.filteredQuestions.length > 0 ? (
+        <QuestionNavigator
+          currentQuestionId={browser.currentQuestion?.id}
+          onOpenQuestion={browser.goToQuestion}
+          questions={browser.filteredQuestions}
+        />
       ) : null}
 
       {browser.displayMode === "question" && browser.currentQuestion ? (

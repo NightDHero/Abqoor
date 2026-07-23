@@ -13,10 +13,15 @@ export function PageContainer({
 }) {
   return (
     <section className="page-container">
-      {eyebrow ? <p className="page-eyebrow">{eyebrow}</p> : null}
-      <h1 className="page-title">{title}</h1>
-      {description ? <p className="page-description">{description}</p> : null}
-      {children}
+      <header className="page-hero">
+        <div className="page-hero-copy">
+          {eyebrow ? <p className="page-eyebrow">{eyebrow}</p> : null}
+          <h1 className="page-title">{title}</h1>
+          {description ? <p className="page-description">{description}</p> : null}
+        </div>
+        <span className="page-hero-line" aria-hidden="true" />
+      </header>
+      {children ? <div className="page-content">{children}</div> : null}
     </section>
   );
 }

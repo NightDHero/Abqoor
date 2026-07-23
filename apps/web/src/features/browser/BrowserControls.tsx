@@ -2,24 +2,22 @@ import type { BrowserDisplayMode } from "./useQuestionBrowser";
 
 export function BrowserControls({
   displayMode,
-  jumpText,
-  onJump,
+  resultCount,
   searchText,
   setDisplayMode,
-  setJumpText,
-  setSearchText
+  setSearchText,
+  totalCount
 }: {
   displayMode: BrowserDisplayMode;
-  jumpText: string;
-  onJump: () => void;
+  resultCount: number;
   searchText: string;
   setDisplayMode: (mode: BrowserDisplayMode) => void;
-  setJumpText: (value: string) => void;
   setSearchText: (value: string) => void;
+  totalCount: number;
 }) {
   return (
-    <section className="browser-panel" aria-label="أدوات التصفح">
-      <div className="browser-mode-switch">
+    <section className="browser-toolbar" aria-label="أدوات التصفح">
+      <div className="browser-mode-switch" aria-label="طريقة العرض">
         <button
           aria-pressed={displayMode === "question"}
           className={displayMode === "question" ? "selected" : undefined}
@@ -38,37 +36,19 @@ export function BrowserControls({
         </button>
       </div>
 
-      <label className="form-field">
-        بحث فوري برقم السؤال أو المعرّف
+      <label className="browser-search">
+        <span>ابحث عن سؤال</span>
         <input
           dir="ltr"
-          placeholder="Q-001 أو 1"
+          placeholder="رقم السؤال أو Q-001"
           type="search"
           value={searchText}
           onChange={(event) => setSearchText(event.target.value)}
         />
+        <small>
+          {searchText ? `${resultCount} نتيجة` : `${totalCount} سؤال متاح`}
+        </small>
       </label>
-
-      <div className="browser-jump-row">
-        <label className="form-field">
-          انتقال مباشر
-          <input
-            dir="ltr"
-            placeholder="Q-010 أو 10"
-            type="text"
-            value={jumpText}
-            onChange={(event) => setJumpText(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                onJump();
-              }
-            }}
-          />
-        </label>
-        <button type="button" onClick={onJump}>
-          اذهب
-        </button>
-      </div>
     </section>
   );
 }

@@ -5,8 +5,7 @@ import type { CorrectAnswer, Question } from "../../types/question";
 import type { RouteSubject } from "../../utils/router";
 import {
   matchesQuestionSearch,
-  sortByImporterOrder,
-  toQuestionNumber
+  sortByImporterOrder
 } from "./browserUtils";
 
 export type BrowserDisplayMode = "question" | "gallery";
@@ -29,7 +28,6 @@ export function useQuestionBrowser({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [displayMode, setDisplayMode] = useState<BrowserDisplayMode>("question");
   const [searchText, setSearchText] = useState("");
-  const [jumpText, setJumpText] = useState("");
   const [answersByQuestionId, setAnswersByQuestionId] = useState<
     Partial<Record<string, CorrectAnswer>>
   >({});
@@ -142,28 +140,6 @@ export function useQuestionBrowser({
     }
   };
 
-  const jumpToQuestion = () => {
-    const value = jumpText.trim().toLowerCase();
-
-    if (!value) {
-      return;
-    }
-
-    const index = filteredQuestions.findIndex((question) => {
-      const questionNumber = toQuestionNumber(question.id);
-      return (
-        question.id.toLowerCase() === value ||
-        String(questionNumber ?? "") === value ||
-        String(questionNumber ?? "").padStart(3, "0") === value
-      );
-    });
-
-    if (index >= 0) {
-      setCurrentIndex(index);
-      setDisplayMode("question");
-    }
-  };
-
   return {
     answerQuestion,
     answersByQuestionId,
@@ -176,12 +152,9 @@ export function useQuestionBrowser({
     goToPrevious,
     goToQuestion,
     isLoading,
-    jumpText,
-    jumpToQuestion,
     questions,
     searchText,
     setDisplayMode,
-    setJumpText,
     setSearchText
   };
 }

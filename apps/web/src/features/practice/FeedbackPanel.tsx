@@ -1,5 +1,5 @@
 import type { SubmitAnswerResponse } from "../../types/session";
-import { toArabicAnswerLabel } from "../../utils/answerLabels";
+import { AnswerFeedback } from "../../components/ui/AnswerFeedback";
 
 export function FeedbackPanel({
   feedback
@@ -7,10 +7,10 @@ export function FeedbackPanel({
   feedback: SubmitAnswerResponse;
 }) {
   return (
-    <section className="feedback-panel" aria-live="polite">
-      <strong>{feedback.isCorrect ? "الإجابة صحيحة" : "الإجابة غير صحيحة"}</strong>
-      <span>إجابتك: {toArabicAnswerLabel(feedback.userAnswer)}</span>
-      <span>الإجابة الصحيحة: {toArabicAnswerLabel(feedback.correctAnswer)}</span>
-    </section>
+    <AnswerFeedback
+      correctAnswer={feedback.correctAnswer}
+      isCorrect={feedback.isCorrect}
+      userAnswer={feedback.userAnswer}
+    />
   );
 }

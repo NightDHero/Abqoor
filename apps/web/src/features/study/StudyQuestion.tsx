@@ -3,6 +3,7 @@ import type {
   SessionQuestion,
   SubmitAnswerResponse
 } from "../../types/session";
+import { AnswerFeedback } from "../../components/ui/AnswerFeedback";
 import { toArabicAnswerLabel } from "../../utils/answerLabels";
 import { studyAnswers, toStudyImageSrc } from "./studyUtils";
 
@@ -63,11 +64,21 @@ export function StudyQuestion({
       <div className="answer-options" role="group" aria-label="خيارات الإجابة">
         {studyAnswers.map((answer) => {
           const isSelected = response?.userAnswer === answer;
+          const isAnswered = Boolean(response);
 
           return (
             <button
               aria-pressed={isSelected}
-              className={isSelected ? "answer-option selected" : "answer-option"}
+              className={[
+                "answer-option",
+                isSelected ? "selected" : "",
+                isAnswered && answer === response?.correctAnswer ? "answer-correct" : "",
+                isAnswered && isSelected && answer !== response?.correctAnswer
+                  ? "answer-wrong"
+                  : ""
+              ]
+                .filter(Boolean)
+                .join(" ")}
               disabled={Boolean(response) || isSubmitting}
               key={answer}
               type="button"
@@ -80,13 +91,11 @@ export function StudyQuestion({
       </div>
 
       {response ? (
-        <section className="feedback-panel" aria-live="polite">
-          <strong>
-            {response.isCorrect ? "الإجابة صحيحة" : "الإجابة غير صحيحة"}
-          </strong>
-          <span>إجابتك: {toArabicAnswerLabel(response.userAnswer)}</span>
-          <span>الإجابة الصحيحة: {toArabicAnswerLabel(response.correctAnswer)}</span>
-        </section>
+        <AnswerFeedback
+          correctAnswer={response.correctAnswer}
+          isCorrect={response.isCorrect}
+          userAnswer={response.userAnswer}
+        />
       ) : (
         <p className="status-message">يمكنك الإجابة الآن أو تخطي السؤال والعودة لاحقًا.</p>
       )}

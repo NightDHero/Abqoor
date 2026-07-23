@@ -1,18 +1,10 @@
 import { useEffect, useState } from "react";
 import { PageContainer } from "../../components/layout/PageContainer";
+import { SummaryMetric } from "../../components/ui/SummaryMetric";
 import { env } from "../../config/env";
 import { adminService } from "../../services/adminService";
 import { HttpError } from "../../services/http";
 import type { ValidationQuestion, ValidationSummary } from "../../types/admin";
-
-function Metric({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="metric">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
 
 const toImageSrc = (question: ValidationQuestion) =>
   question.question_image_url.startsWith("http")
@@ -62,11 +54,11 @@ export function AdminValidationPage() {
 
       {summary ? (
         <section className="admin-summary" aria-label="ملخص التحقق">
-          <Metric label="إجمالي الأسئلة" value={summary.totalQuestions} />
-          <Metric label="المستوردة" value={summary.importedQuestions} />
-          <Metric label="الفاشلة" value={summary.failedQuestions} />
-          <Metric label="إجابات ناقصة" value={summary.missingCorrectAnswers} />
-          <Metric label="صور ناقصة" value={summary.missingImages} />
+          <SummaryMetric label="إجمالي الأسئلة" value={summary.totalQuestions} />
+          <SummaryMetric label="المستوردة" tone="positive" value={summary.importedQuestions} />
+          <SummaryMetric label="الفاشلة" tone="attention" value={summary.failedQuestions} />
+          <SummaryMetric label="إجابات ناقصة" tone="attention" value={summary.missingCorrectAnswers} />
+          <SummaryMetric label="صور ناقصة" tone="attention" value={summary.missingImages} />
         </section>
       ) : null}
 

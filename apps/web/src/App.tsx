@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { AppShell } from "./components/layout/AppShell";
 import { PageContainer } from "./components/layout/PageContainer";
 import { ProtectedRoute } from "./components/routing/ProtectedRoute";
@@ -6,6 +6,7 @@ import { RedirectTo } from "./components/routing/RedirectTo";
 import { AdminImportPage } from "./features/admin/AdminImportPage";
 import { AdminValidationPage } from "./features/admin/AdminValidationPage";
 import { AuthPage } from "./features/auth/AuthPage";
+import { ExamEntryDialog } from "./features/exam/ExamEntryDialog";
 import { useAuth } from "./hooks/useAuth";
 import { useRouter } from "./hooks/useRouter";
 import { BrowsePage } from "./pages/BrowsePage";
@@ -28,9 +29,17 @@ import {
 export default function App() {
   const { path } = useRouter();
   const auth = useAuth();
+  const [isExamRuntimeActive, setIsExamRuntimeActive] = useState(false);
+  const [shouldAutoStartExam, setShouldAutoStartExam] = useState(false);
   const browseValue = getBrowseRouteValue(path);
   const practiceValue = getPracticeRouteValue(path);
   const topicRouteValue = getTopicRouteValue(path);
+
+  const launchExam = () => {
+    setIsExamRuntimeActive(true);
+    setShouldAutoStartExam(true);
+    navigateTo("/exam");
+  };
 
   if (path === "/login") {
     return (
@@ -80,7 +89,11 @@ export default function App() {
       {auth.user && !auth.user.profileCompleted ? (
         <RedirectTo path="/setup-profile" />
       ) : (
-        <AppShell user={auth.user} currentPath={path} onLogout={auth.logout}>
+        <AppShell
+          currentPath={path}
+          onLogout={auth.logout}
+          user={auth.user}
+        >
           {children}
         </AppShell>
       )}
@@ -133,7 +146,24 @@ export default function App() {
   }
 
   if (path === "/exam") {
-    return renderProtectedExamPage(<ExamPage userEmail={auth.user?.email} />);
+    if (isExamRuntimeActive) {
+      return renderProtectedExamPage(
+        <ExamPage
+          autoStart={shouldAutoStartExam}
+          onAutoStartConsumed={() => setShouldAutoStartExam(false)}
+          onExit={() => {
+            setIsExamRuntimeActive(false);
+            setShouldAutoStartExam(false);
+            navigateTo("/career");
+          }}
+          userEmail={auth.user?.email}
+        />
+      );
+    }
+
+    return renderProtectedPage(
+      <ExamEntryDialog displayMode="page" onStart={launchExam} />
+    );
   }
 
   if (path === "/review") {

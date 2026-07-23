@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { PageContainer } from "../components/layout/PageContainer";
+import { SummaryMetric } from "../components/ui/SummaryMetric";
 import {
   createDefaultProfileForm,
   toProfileInput,
@@ -62,6 +63,19 @@ export function ProfilePage({
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const examDateLabel = form.hasExamDate && form.examDate
+    ? new Date(`${form.examDate}T00:00:00`).toLocaleDateString("ar-SA", {
+        day: "numeric",
+        month: "short",
+        year: "numeric"
+      })
+    : "غير محدد";
+  const weeklyHoursLabel =
+    weeklyStudyHourOptions.find((option) => option.value === form.weeklyStudyHours)
+      ?.label ?? "لم يحدد";
+  const weakerSectionLabel =
+    weakerSectionOptions.find((option) => option.value === form.weakerSection)
+      ?.label ?? "لم يحدد";
 
   useEffect(() => {
     let isMounted = true;
@@ -145,7 +159,37 @@ export function ProfilePage({
       {error ? <p className="error-message">{error}</p> : null}
       {message ? <p className="status-message">{message}</p> : null}
 
+      <section className="profile-overview" aria-label="ملخص الملف الدراسي">
+        <SummaryMetric
+          detail="هدفك في القدرات"
+          label="الدرجة المستهدفة"
+          value={form.targetScore}
+        />
+        <SummaryMetric
+          detail="موعد الاختبار القادم"
+          label="الاختبار"
+          value={examDateLabel}
+        />
+        <SummaryMetric
+          detail="الوقت المتاح أسبوعيًا"
+          label="إيقاع الدراسة"
+          value={weeklyHoursLabel}
+        />
+        <SummaryMetric
+          detail="لتحسين اختيار الأسئلة"
+          label="التحدي الأكبر"
+          value={weakerSectionLabel}
+        />
+      </section>
+
       <form className="profile-form" onSubmit={handleSubmit}>
+        <header className="profile-editor-heading">
+          <div>
+            <p className="page-eyebrow">تحديث الملف</p>
+            <h2>عدّل ما تغيّر فقط</h2>
+          </div>
+          <p>تُحفظ هذه البيانات مع حسابك وتستخدم في الجلسات القادمة.</p>
+        </header>
         <section className="profile-section" aria-labelledby="account-section">
           <h2 id="account-section">الحساب</h2>
           <div className="profile-field-grid">

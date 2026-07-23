@@ -1,4 +1,5 @@
 import type { CorrectAnswer, Question } from "../../types/question";
+import { AnswerFeedback } from "../../components/ui/AnswerFeedback";
 import { toArabicAnswerLabel } from "../../utils/answerLabels";
 import {
   answers,
@@ -32,9 +33,6 @@ export function QuestionMode({
   const isAnswered = Boolean(selectedAnswer);
   const isCorrect = selectedAnswer === question.correctAnswer;
   const questionNumber = toQuestionNumber(question.id);
-  const selectedAnswerLabel = selectedAnswer
-    ? toArabicAnswerLabel(selectedAnswer)
-    : "";
 
   return (
     <section className="browser-question-mode" aria-labelledby="browser-question-title">
@@ -66,7 +64,17 @@ export function QuestionMode({
           return (
             <button
               aria-pressed={isSelected}
-              className={isSelected ? "answer-option selected" : "answer-option"}
+              className={[
+                "answer-option",
+                isSelected ? "selected" : "",
+                isAnswered && answer === question.correctAnswer ? "answer-correct" : "",
+                isAnswered && isSelected && answer !== question.correctAnswer
+                  ? "answer-wrong"
+                  : ""
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              disabled={isAnswered}
               key={answer}
               type="button"
               onClick={() => onAnswer(answer)}
@@ -85,11 +93,11 @@ export function QuestionMode({
       </div>
 
       {isAnswered ? (
-        <section className="feedback-panel" aria-live="polite">
-          <strong>{isCorrect ? "الإجابة صحيحة" : "الإجابة غير صحيحة"}</strong>
-          <span>إجابتك: {selectedAnswerLabel}</span>
-          <span>الإجابة الصحيحة: {toArabicAnswerLabel(question.correctAnswer)}</span>
-        </section>
+        <AnswerFeedback
+          correctAnswer={question.correctAnswer}
+          isCorrect={isCorrect}
+          userAnswer={selectedAnswer!}
+        />
       ) : null}
 
       <div className="browser-navigation-row">

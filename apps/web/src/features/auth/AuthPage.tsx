@@ -53,11 +53,22 @@ export function AuthPage({
 
   return (
     <main className="auth-shell" dir="rtl">
-      <section className="auth-card">
-        <div>
+      <section className="auth-layout">
+        <aside className="auth-context">
+          <p className="page-eyebrow">عبقور</p>
+          <h2>مكان واحد لرحلتك في القدرات.</h2>
+          <p>
+            تدرب، راجع أخطاءك، وتابع تقدمك من حساب واحد مصمم للدراسة اليومية.
+          </p>
+          <button className="secondary" type="button" onClick={() => navigateTo("/")}>
+            العودة للرئيسية
+          </button>
+        </aside>
+        <section className="auth-card">
+          <header>
           <p className="page-eyebrow">{copy.eyebrow}</p>
           <h1 className="auth-title">{copy.title}</h1>
-        </div>
+          </header>
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <label className="form-field">
@@ -96,6 +107,7 @@ export function AuthPage({
         >
           {copy.alternate}
         </button>
+        </section>
       </section>
     </main>
   );

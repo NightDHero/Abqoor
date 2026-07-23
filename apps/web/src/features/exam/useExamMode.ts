@@ -3,8 +3,11 @@ import { HttpError } from "../../services/http";
 import { examService } from "../../services/examService";
 import type { ExamAttempt, ExamQuestion, ExamResult } from "../../types/exam";
 import type { CorrectAnswer } from "../../types/session";
-
-const activeExamStorageKey = "abqoor.exam.activeAttemptId";
+import {
+  clearSavedActiveExamId,
+  getSavedActiveExamId,
+  saveActiveExamId
+} from "./examStorage";
 
 const readErrorMessage = (caughtError: unknown, fallback: string) =>
   caughtError instanceof HttpError ? caughtError.message : fallback;
@@ -56,15 +59,15 @@ export function useExamMode() {
       setResult(response.exam.result ?? null);
 
       if (response.exam.status === "completed") {
-        window.localStorage.removeItem(activeExamStorageKey);
+        clearSavedActiveExamId();
       }
     } catch {
-      window.localStorage.removeItem(activeExamStorageKey);
+      clearSavedActiveExamId();
     }
   };
 
   useEffect(() => {
-    const savedExamId = window.localStorage.getItem(activeExamStorageKey);
+    const savedExamId = getSavedActiveExamId();
 
     if (!savedExamId) {
       setIsLoadingSavedExam(false);
@@ -121,7 +124,7 @@ export function useExamMode() {
     try {
       const response = await examService.startExam();
       setExam(response.exam);
-      window.localStorage.setItem(activeExamStorageKey, response.exam.id);
+      saveActiveExamId(response.exam.id);
     } catch (caughtError) {
       setError(readErrorMessage(caughtError, "تعذر بدء الاختبار."));
     } finally {
@@ -193,7 +196,7 @@ export function useExamMode() {
       if (response.result ?? response.exam.result) {
         const nextResult = response.result ?? response.exam.result ?? null;
         setResult(nextResult);
-        window.localStorage.removeItem(activeExamStorageKey);
+        clearSavedActiveExamId();
       }
     } catch (caughtError) {
       setError(readErrorMessage(caughtError, "تعذر إنهاء القسم."));
@@ -230,6 +233,15 @@ export function useExamMode() {
     }
   };
 
+  const exitExam = () => {
+    clearSavedActiveExamId();
+    setExam(null);
+    setResult(null);
+    setCurrentIndex(0);
+    setRemainingSeconds(30 * 60);
+    setError("");
+  };
+
   return {
     answerQuestion,
     completeSection,
@@ -243,6 +255,7 @@ export function useExamMode() {
     isCompletingSection,
     isLoadingSavedExam,
     isStarting,
+    exitExam,
     jumpToQuestion,
     remainingSeconds,
     result,

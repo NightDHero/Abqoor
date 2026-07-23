@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ExamActionBar } from "./ExamActionBar";
 import { ExamQuestionView } from "./ExamQuestionView";
 import { ExamReferenceTopBar } from "./ExamReferenceTopBar";
@@ -7,9 +7,44 @@ import { ExamSidebar } from "./ExamSidebar";
 import { SectionReviewPanel } from "./SectionReviewPanel";
 import { useExamMode } from "./useExamMode";
 
-export function ExamMode({ userEmail }: { userEmail?: string }) {
+export function ExamMode({
+  autoStart = false,
+  onAutoStartConsumed,
+  onExit,
+  userEmail
+}: {
+  autoStart?: boolean;
+  onAutoStartConsumed?: () => void;
+  onExit: () => void;
+  userEmail?: string;
+}) {
   const exam = useExamMode();
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [isExitConfirmationOpen, setIsExitConfirmationOpen] = useState(false);
+  const autoStartHandledRef = useRef(false);
+
+  useEffect(() => {
+    if (
+      !autoStart ||
+      autoStartHandledRef.current ||
+      exam.isLoadingSavedExam ||
+      exam.exam ||
+      exam.result
+    ) {
+      return;
+    }
+
+    autoStartHandledRef.current = true;
+    void exam.startExam().finally(() => {
+      onAutoStartConsumed?.();
+    });
+  }, [
+    autoStart,
+    exam.exam,
+    exam.isLoadingSavedExam,
+    exam.result,
+    onAutoStartConsumed
+  ]);
 
   if (exam.result) {
     return (
@@ -69,8 +104,19 @@ export function ExamMode({ userEmail }: { userEmail?: string }) {
   }
 
   return (
-    <section className="exam-reference-shell" aria-label="محاكاة اختبار القدرات">
+    <section
+      className="exam-reference-shell exam-reference-shell-entering"
+      aria-label="محاكاة اختبار القدرات"
+    >
       <ExamReferenceTopBar />
+
+      <button
+        className="exam-exit-button"
+        type="button"
+        onClick={() => setIsExitConfirmationOpen(true)}
+      >
+        إنهاء الاختبار
+      </button>
 
       {exam.exam.isTestMode ? (
         <div className="exam-test-mode-banner" role="status">
@@ -128,6 +174,37 @@ export function ExamMode({ userEmail }: { userEmail?: string }) {
           onJump={exam.jumpToQuestion}
           section={exam.currentSection}
         />
+      ) : null}
+
+      {isExitConfirmationOpen ? (
+        <div className="exam-exit-overlay" role="dialog" aria-modal="true">
+          <section className="exam-exit-dialog" aria-labelledby="exam-exit-title">
+            <h2 id="exam-exit-title">إنهاء الاختبار</h2>
+            <p>سيتم إنهاء الاختبار الحالي.</p>
+            <p>لن يؤثر ذلك على مستوى مهاراتك أو تقدمك.</p>
+            <p>هل أنت متأكد من رغبتك في الخروج؟</p>
+            <div className="exam-exit-actions">
+              <button
+                className="secondary"
+                type="button"
+                onClick={() => setIsExitConfirmationOpen(false)}
+              >
+                العودة للاختبار
+              </button>
+              <button
+                className="danger"
+                type="button"
+                onClick={() => {
+                  exam.exitExam();
+                  setIsExitConfirmationOpen(false);
+                  onExit();
+                }}
+              >
+                إنهاء الاختبار
+              </button>
+            </div>
+          </section>
+        </div>
       ) : null}
     </section>
   );

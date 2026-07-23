@@ -310,17 +310,18 @@ export function SetupProfilePage({
 
   return (
     <main className="onboarding-shell" dir="rtl">
-      <section className="onboarding-card" aria-labelledby="setup-profile-title">
-        <div className="onboarding-header">
+      <section className="onboarding-layout" aria-labelledby="setup-profile-title">
+        <aside className="onboarding-guide">
+          <div className="onboarding-header">
           <p className="page-eyebrow">إعداد الملف الدراسي</p>
           <h1 id="setup-profile-title">لنجهّز خطة أبقور لك</h1>
           <p>
             هذه الأسئلة تساعد أبقور على تخصيص الدراسة، تحسين التوقعات، وبناء
             توصيات أكثر دقة.
           </p>
-        </div>
+          </div>
 
-        <div className="onboarding-progress">
+          <div className="onboarding-progress">
           <span>
             السؤال {arabicNumber(currentStep.number)} من {arabicNumber(9)}
           </span>
@@ -334,16 +335,20 @@ export function SetupProfilePage({
           >
             <span style={{ width: `${progressPercent}%` }} />
           </div>
-        </div>
+          </div>
+          <p className="onboarding-reassurance">يمكنك تعديل هذه الإجابات لاحقًا من ملفك الشخصي.</p>
+        </aside>
 
-        <section className="onboarding-question">
-          <h2>{currentStep.title}</h2>
-          {currentStep.render()}
-        </section>
+        <section className="onboarding-card">
+          <section className="onboarding-question">
+            <span className="onboarding-step-number">{arabicNumber(currentStep.number)}</span>
+            <h2>{currentStep.title}</h2>
+            {currentStep.render()}
+          </section>
 
-        {error ? <p className="error-message">{error}</p> : null}
+          {error ? <p className="error-message">{error}</p> : null}
 
-        <div className="onboarding-actions">
+          <div className="onboarding-actions">
           <button
             className="secondary"
             type="button"
@@ -355,7 +360,8 @@ export function SetupProfilePage({
           <button type="button" disabled={isSaving} onClick={goNext}>
             {isSaving ? "جاري الحفظ..." : isLastStep ? "إنهاء الإعداد" : "التالي"}
           </button>
-        </div>
+          </div>
+        </section>
       </section>
     </main>
   );

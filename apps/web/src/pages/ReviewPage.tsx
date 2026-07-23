@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { PageContainer } from "../components/layout/PageContainer";
+import { SummaryMetric } from "../components/ui/SummaryMetric";
 import { HttpError } from "../services/http";
 import {
   emptyReviewBank,
@@ -78,22 +79,39 @@ function ReviewQuestionList({
 
             return (
               <article className="review-item" key={item.id}>
-                <div>
-                  <strong dir="ltr">{item.questionId}</strong>
-                  {questionNumber ? <p>رقم السؤال: {questionNumber}</p> : null}
-                </div>
-                <p>الموضوع: {item.topic}</p>
-                {item.subtopic ? <p>المهارة: {item.subtopic}</p> : null}
-                <p>تاريخ الإضافة: {formatDate(item.updatedAt)}</p>
-                <p>مصدر الإضافة: {sourceLabels[item.source]}</p>
-                <div className="action-row">
+                <header className="review-item-heading">
+                  <div>
+                    <span>السؤال {questionNumber ?? item.questionId}</span>
+                    <strong dir="ltr">{item.questionId}</strong>
+                  </div>
+                  <span className={`review-source review-source-${item.source}`}>
+                    {sourceLabels[item.source]}
+                  </span>
+                </header>
+                <dl className="review-item-meta">
+                  <div>
+                    <dt>الموضوع</dt>
+                    <dd>{item.topic}</dd>
+                  </div>
+                  {item.subtopic ? (
+                    <div>
+                      <dt>المهارة</dt>
+                      <dd>{item.subtopic}</dd>
+                    </div>
+                  ) : null}
+                  <div>
+                    <dt>آخر تفاعل</dt>
+                    <dd>{formatDate(item.updatedAt)}</dd>
+                  </div>
+                </dl>
+                <div className="review-item-actions">
                   <button
                     type="button"
                     onClick={() => navigateTo(getQuestionPath(item))}
                   >
                     فتح السؤال
                   </button>
-                  <button type="button" onClick={() => onRemove(item.id)}>
+                  <button className="secondary" type="button" onClick={() => onRemove(item.id)}>
                     إزالة من المراجعة
                   </button>
                 </div>
@@ -154,6 +172,25 @@ export function ReviewPage() {
     >
       {isLoading ? <p className="status-message">جاري تحميل بنك المراجعة...</p> : null}
       {error ? <p className="error-message">{error}</p> : null}
+
+      <section className="review-overview" aria-label="ملخص بنك المراجعة">
+        <SummaryMetric
+          detail="اخترتها للعودة إليها"
+          label="محفوظة يدويًا"
+          value={reviewBank.savedQuestions.length}
+        />
+        <SummaryMetric
+          detail="تحتاج محاولة جديدة"
+          label="إجابات خاطئة"
+          tone="attention"
+          value={reviewBank.wrongQuestions.length}
+        />
+        <SummaryMetric
+          detail="كل ما ينتظرك هنا"
+          label="إجمالي المراجعة"
+          value={reviewBank.savedQuestions.length + reviewBank.wrongQuestions.length}
+        />
+      </section>
 
       <div className="review-bank">
         <ReviewQuestionList

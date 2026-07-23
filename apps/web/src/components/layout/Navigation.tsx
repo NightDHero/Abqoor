@@ -10,10 +10,12 @@ const navigationItems = [
 
 export function Navigation({
   className,
-  currentPath
+  currentPath,
+  onNavigate
 }: {
   className: string;
   currentPath: string;
+  onNavigate?: () => void;
 }) {
   return (
     <nav className={className} aria-label="التنقل الرئيسي">
@@ -25,6 +27,7 @@ export function Navigation({
           key={item.href}
           onClick={(event) => {
             event.preventDefault();
+            onNavigate?.();
             navigateTo(item.href);
           }}
         >

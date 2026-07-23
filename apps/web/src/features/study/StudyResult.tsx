@@ -1,4 +1,5 @@
 import type { SessionResult } from "../../types/session";
+import { SummaryMetric } from "../../components/ui/SummaryMetric";
 
 export function StudyResult({
   onStartNextSession,
@@ -10,40 +11,29 @@ export function StudyResult({
   weakTopics: string[];
 }) {
   return (
-    <section className="study-panel" aria-labelledby="study-result-title">
-      <p className="page-eyebrow">نتيجة جلسة الدراسة</p>
-      <h1 className="page-title" id="study-result-title">
-        انتهت الجلسة
-      </h1>
+    <section className="study-result" aria-labelledby="study-result-title">
+      <header className="study-result-hero">
+        <p className="page-eyebrow">نتيجة جلسة الدراسة</p>
+        <h1 className="page-title" id="study-result-title">
+          انتهت الجلسة
+        </h1>
+      </header>
 
-      <dl className="result-list">
-        <div>
-          <dt>الأسئلة المعروضة</dt>
-          <dd>{result.totalQuestions}</dd>
+      <section className="result-overview" aria-label="ملخص الجلسة">
+        <div className="result-score">
+          <span>دقة الجلسة</span>
+          <strong>{result.finalScorePercentage}%</strong>
+          <small>{result.correctAnswers} إجابات صحيحة</small>
         </div>
-        <div>
-          <dt>الأسئلة المجابة</dt>
-          <dd>{result.answeredQuestions}</dd>
+        <div className="result-metrics">
+          <SummaryMetric label="تمت الإجابة" value={result.answeredQuestions} />
+          <SummaryMetric label="غير صحيحة" tone="attention" value={result.incorrectAnswers} />
+          <SummaryMetric label="متروكة" value={result.unansweredQuestions} />
+          <SummaryMetric label="إجمالي الأسئلة" value={result.totalQuestions} />
         </div>
-        <div>
-          <dt>الإجابات الصحيحة</dt>
-          <dd>{result.correctAnswers}</dd>
-        </div>
-        <div>
-          <dt>الإجابات غير الصحيحة</dt>
-          <dd>{result.incorrectAnswers}</dd>
-        </div>
-        <div>
-          <dt>الأسئلة المتروكة</dt>
-          <dd>{result.unansweredQuestions}</dd>
-        </div>
-        <div>
-          <dt>الدقة</dt>
-          <dd>{result.finalScorePercentage}%</dd>
-        </div>
-      </dl>
+      </section>
 
-      <section className="study-panel">
+      <section className="study-result-block">
         <h2>الموضوعات الضعيفة في هذه الجلسة</h2>
         {weakTopics.length > 0 ? (
           <ul className="simple-list">
@@ -58,7 +48,7 @@ export function StudyResult({
         )}
       </section>
 
-      <section className="study-panel">
+      <section className="study-result-block">
         <h2>الجلسة المقترحة التالية</h2>
         <p>
           ابدأ جلسة دراسة تكيفية جديدة. سيستخدم النظام سجل إجاباتك السابق

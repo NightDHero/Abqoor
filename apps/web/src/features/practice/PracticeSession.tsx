@@ -56,6 +56,7 @@ export function PracticeSession({
 
           <QuestionCard
             disabled={Boolean(practice.feedback) || practice.isSubmitting}
+            feedback={practice.feedback}
             onSelectAnswer={practice.selectAnswer}
             question={practice.currentQuestion}
             selectedAnswer={practice.selectedAnswer}
