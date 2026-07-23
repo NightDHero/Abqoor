@@ -13,8 +13,23 @@ export const navigateTo = (path: string) => {
     return;
   }
 
-  window.history.pushState({}, "", path);
-  window.dispatchEvent(new PopStateEvent("popstate"));
+  const commitNavigation = () => {
+    window.history.pushState({}, "", path);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+  const documentWithTransitions = document as Document & {
+    startViewTransition?: (callback: () => void) => void;
+  };
+
+  if (
+    documentWithTransitions.startViewTransition &&
+    !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  ) {
+    documentWithTransitions.startViewTransition(commitNavigation);
+    return;
+  }
+
+  commitNavigation();
 };
 
 export const getPracticeRouteValue = (path: string) => {

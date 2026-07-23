@@ -65,7 +65,7 @@ const createTopic = ({
     masteryPercent: 0,
     name,
     practiceRoute,
-    route: worldId === "math" ? toTopicRoute(worldId, slug) : practiceRoute,
+    route: toTopicRoute(worldId, slug),
     routeSlug: slug,
     subtopics: subtopics?.map((subtopic) =>
       createSubtopic({

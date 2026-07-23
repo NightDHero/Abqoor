@@ -1,4 +1,4 @@
-import { mathTopics } from "../career/careerData";
+import { findCareerWorld, mathTopics } from "../career/careerData";
 import type { TopicPillar } from "../career/career.types";
 import { MapCanvas } from "./MapCanvas";
 
@@ -7,5 +7,9 @@ export function MathSubtopicWorld({
 }: {
   selectedTopic: TopicPillar;
 }) {
-  return <MapCanvas selectedTopic={selectedTopic} topics={mathTopics} />;
+  const world = findCareerWorld("math");
+
+  return world ? (
+    <MapCanvas selectedTopic={selectedTopic} topics={mathTopics} world={world} />
+  ) : null;
 }

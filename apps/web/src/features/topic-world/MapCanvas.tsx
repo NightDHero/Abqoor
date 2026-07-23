@@ -5,17 +5,23 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent,
-  type PointerEvent
+  type MouseEvent,
+  type PointerEvent,
+  type WheelEvent
 } from "react";
 import { navigateTo } from "../../utils/router";
-import type { TopicPillar } from "../career/career.types";
+import { findCareerWorld } from "../career/careerData";
+import type {
+  CareerWorld,
+  CareerWorldId,
+  TopicPillar
+} from "../career/career.types";
 import { MathHub } from "./MathHub";
 import {
   createTopicStationLayout,
   MATH_HUB_POSITION,
   MATH_WORLD_SIZE,
-  trailGapForRectangle,
-  WORLD_DIVIDER_X
+  trailGapForRectangle
 } from "./mathWorldLayout";
 import { ReturnButton } from "./ReturnButton";
 import { TopicStation } from "./TopicStation";
@@ -23,60 +29,80 @@ import { TrailPath } from "./TrailPath";
 import { useMapCamera } from "./useMapCamera";
 import { WorldBoundary } from "./WorldBoundary";
 import { WorldCursor } from "./WorldCursor";
+import { WorldSwitch } from "./WorldSwitch";
+
+type PointerPosition = {
+  x: number;
+  y: number;
+};
 
 type DragState = {
-  active: boolean;
-  lastTrailX: number;
-  lastTrailY: number;
-  lastX: number;
-  lastY: number;
+  dragging: boolean;
+  last: PointerPosition;
+  lastTrail: PointerPosition;
+  moved: boolean;
+  pointerId: number | null;
+  start: PointerPosition;
 };
 
 const initialDragState: DragState = {
-  active: false,
-  lastTrailX: 0,
-  lastTrailY: 0,
-  lastX: 0,
-  lastY: 0
+  dragging: false,
+  last: { x: 0, y: 0 },
+  lastTrail: { x: 0, y: 0 },
+  moved: false,
+  pointerId: null,
+  start: { x: 0, y: 0 }
 };
 
+const DRAG_THRESHOLD = 7;
 const getFocusScale = (viewportWidth: number) => {
   if (viewportWidth < 520) {
-    return Math.max(0.68, Math.min(0.78, (viewportWidth - 24) / 470));
+    return Math.max(0.66, Math.min(0.76, (viewportWidth - 24) / 500));
   }
 
   if (viewportWidth < 980) {
-    return 0.86;
+    return 0.84;
   }
 
-  return 0.96;
+  return 0.94;
 };
 
 const getHubScale = (viewportWidth: number) => {
   if (viewportWidth < 520) {
-    return 0.5;
+    return 0.48;
   }
 
   if (viewportWidth < 980) {
     return 0.58;
   }
 
-  return 0.7;
+  return 0.68;
 };
+
+const distanceBetweenPointers = (
+  first: PointerPosition,
+  second: PointerPosition
+) => Math.hypot(second.x - first.x, second.y - first.y);
 
 export function MapCanvas({
   selectedTopic,
-  topics
+  topics,
+  world
 }: {
   selectedTopic: TopicPillar;
   topics: TopicPillar[];
+  world: CareerWorld;
 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const energyLayerRef = useRef<HTMLDivElement>(null);
+  const pointersRef = useRef(new Map<number, PointerPosition>());
   const dragRef = useRef<DragState>({ ...initialDragState });
+  const pinchRef = useRef<{ distance: number; scale: number } | null>(null);
+  const suppressClickRef = useRef(false);
+  const lastTapRef = useRef<{ at: number; x: number; y: number } | null>(null);
   const introductionTimerRef = useRef<number | null>(null);
   const navigationTimerRef = useRef<number | null>(null);
-  const introducedRef = useRef(false);
+  const introducedWorldRef = useRef<CareerWorldId | null>(null);
   const lastTopicSlugRef = useRef<string | null>(null);
   const lastViewportWidthRef = useRef(0);
   const [activeEffectSlug, setActiveEffectSlug] = useState<string | null>(null);
@@ -113,14 +139,14 @@ export function MapCanvas({
       lastViewportWidthRef.current !== camera.viewportSize.width;
     lastViewportWidthRef.current = camera.viewportSize.width;
 
-    if (!introducedRef.current) {
-      introducedRef.current = true;
+    if (introducedWorldRef.current !== world.id) {
+      introducedWorldRef.current = world.id;
       lastTopicSlugRef.current = selectedTopic.routeSlug;
       camera.jumpTo(MATH_HUB_POSITION, hubScale);
       introductionTimerRef.current = window.setTimeout(() => {
         camera.travelTo(selectedStation.position, focusScale, 900);
         introductionTimerRef.current = null;
-      }, 220);
+      }, 180);
       return;
     }
 
@@ -138,25 +164,23 @@ export function MapCanvas({
     focusScale,
     hubScale,
     selectedStation,
-    selectedTopic.routeSlug
+    selectedTopic.routeSlug,
+    world.id
   ]);
 
-  const setCursorEnvironment = (clientX: number, clientY: number) => {
-    const viewport = viewportRef.current;
-
-    if (!viewport) {
-      return;
+  const resetCamera = () => {
+    if (selectedStation) {
+      camera.travelTo(selectedStation.position, focusScale, 680);
     }
+  };
 
-    const worldPoint = camera.screenToWorld(clientX, clientY);
-    const dividerDistance = Math.abs(worldPoint.x - WORLD_DIVIDER_X);
-
-    viewport.dataset.cursorEnvironment =
-      dividerDistance < 85
-        ? "bridge"
-        : worldPoint.x < WORLD_DIVIDER_X
-          ? "verbal"
-          : "math";
+  const cancelPendingNavigationAndReset = () => {
+    if (navigationTimerRef.current !== null) {
+      window.clearTimeout(navigationTimerRef.current);
+      navigationTimerRef.current = null;
+    }
+    setActiveEffectSlug(null);
+    resetCamera();
   };
 
   const spawnEnergyTrail = (
@@ -173,27 +197,25 @@ export function MapCanvas({
     }
 
     const distanceFromLast = Math.hypot(
-      clientX - dragRef.current.lastTrailX,
-      clientY - dragRef.current.lastTrailY
+      clientX - dragRef.current.lastTrail.x,
+      clientY - dragRef.current.lastTrail.y
     );
 
-    if (distanceFromLast < 15) {
+    if (distanceFromLast < 16) {
       return;
     }
 
-    dragRef.current.lastTrailX = clientX;
-    dragRef.current.lastTrailY = clientY;
+    dragRef.current.lastTrail = { x: clientX, y: clientY };
 
     const rect = viewport.getBoundingClientRect();
     const speed = Math.hypot(deltaX, deltaY);
     const spark = document.createElement("i");
-    const environment = viewport.dataset.cursorEnvironment ?? "math";
-    spark.className = `math-drag-energy math-drag-energy-${environment}`;
+    spark.className = `math-drag-energy math-drag-energy-${world.id}`;
     spark.style.left = `${clientX - rect.left}px`;
     spark.style.top = `${clientY - rect.top}px`;
     spark.style.setProperty(
       "--energy-length",
-      `${Math.min(54, Math.max(18, speed * 2.6))}px`
+      `${Math.min(48, Math.max(16, speed * 2.4))}px`
     );
     spark.style.setProperty(
       "--energy-angle",
@@ -206,45 +228,152 @@ export function MapCanvas({
   };
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    const target = event.target as HTMLElement;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    pointersRef.current.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY
+    });
 
-    if (target.closest("button, a")) {
+    if (pointersRef.current.size === 1) {
+      dragRef.current = {
+        dragging: false,
+        last: { x: event.clientX, y: event.clientY },
+        lastTrail: { x: event.clientX, y: event.clientY },
+        moved: false,
+        pointerId: event.pointerId,
+        start: { x: event.clientX, y: event.clientY }
+      };
       return;
     }
 
-    event.currentTarget.setPointerCapture(event.pointerId);
-    dragRef.current = {
-      active: true,
-      lastTrailX: event.clientX,
-      lastTrailY: event.clientY,
-      lastX: event.clientX,
-      lastY: event.clientY
-    };
-    event.currentTarget.classList.add("is-dragging");
+    if (pointersRef.current.size === 2) {
+      const [first, second] = Array.from(pointersRef.current.values());
+      pinchRef.current = {
+        distance: distanceBetweenPointers(first, second),
+        scale: camera.camera.scale
+      };
+      dragRef.current.moved = true;
+      suppressClickRef.current = true;
+      event.currentTarget.classList.add("is-dragging");
+    }
   };
 
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    setCursorEnvironment(event.clientX, event.clientY);
-
-    if (!dragRef.current.active) {
+    if (!pointersRef.current.has(event.pointerId)) {
       return;
     }
 
-    const deltaX = event.clientX - dragRef.current.lastX;
-    const deltaY = event.clientY - dragRef.current.lastY;
-    dragRef.current.lastX = event.clientX;
-    dragRef.current.lastY = event.clientY;
+    pointersRef.current.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY
+    });
+
+    if (pointersRef.current.size >= 2 && pinchRef.current) {
+      const [first, second] = Array.from(pointersRef.current.values());
+      const distance = distanceBetweenPointers(first, second);
+      const centerX = (first.x + second.x) / 2;
+      const centerY = (first.y + second.y) / 2;
+      camera.zoomAt(
+        centerX,
+        centerY,
+        pinchRef.current.scale * (distance / pinchRef.current.distance)
+      );
+      return;
+    }
+
+    if (dragRef.current.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const totalDistance = Math.hypot(
+      event.clientX - dragRef.current.start.x,
+      event.clientY - dragRef.current.start.y
+    );
+
+    if (!dragRef.current.dragging && totalDistance >= DRAG_THRESHOLD) {
+      dragRef.current.dragging = true;
+      dragRef.current.moved = true;
+      suppressClickRef.current = true;
+      event.currentTarget.classList.add("is-dragging");
+    }
+
+    if (!dragRef.current.dragging) {
+      return;
+    }
+
+    const deltaX = event.clientX - dragRef.current.last.x;
+    const deltaY = event.clientY - dragRef.current.last.y;
+    dragRef.current.last = { x: event.clientX, y: event.clientY };
     camera.panBy(deltaX, deltaY);
     spawnEnergyTrail(event.clientX, event.clientY, deltaX, deltaY);
   };
 
-  const stopDragging = (event: PointerEvent<HTMLDivElement>) => {
-    dragRef.current.active = false;
-    event.currentTarget.classList.remove("is-dragging");
+  const stopPointer = (event: PointerEvent<HTMLDivElement>) => {
+    const didMove = dragRef.current.moved;
+    pointersRef.current.delete(event.pointerId);
+    pinchRef.current = null;
+
+    if (pointersRef.current.size === 0) {
+      event.currentTarget.classList.remove("is-dragging");
+      dragRef.current = { ...initialDragState };
+    }
+
+    if (
+      event.pointerType === "touch" &&
+      !didMove &&
+      pointersRef.current.size === 0
+    ) {
+      const previousTap = lastTapRef.current;
+      const now = performance.now();
+      const isDoubleTap =
+        previousTap &&
+        now - previousTap.at < 320 &&
+        Math.hypot(
+          event.clientX - previousTap.x,
+          event.clientY - previousTap.y
+        ) < 32;
+
+      if (isDoubleTap) {
+        resetCamera();
+        lastTapRef.current = null;
+      } else {
+        lastTapRef.current = {
+          at: now,
+          x: event.clientX,
+          y: event.clientY
+        };
+      }
+    }
 
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
+  };
+
+  const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const factor = Math.exp(-event.deltaY * 0.0012);
+    camera.zoomAt(
+      event.clientX,
+      event.clientY,
+      camera.camera.scale * factor
+    );
+  };
+
+  const handleDoubleClick = (event: MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    cancelPendingNavigationAndReset();
+  };
+
+  const handleClickCapture = (event: MouseEvent<HTMLDivElement>) => {
+    if (!suppressClickRef.current) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    suppressClickRef.current = false;
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -284,7 +413,7 @@ export function MapCanvas({
       navigationTimerRef.current = window.setTimeout(() => {
         navigateTo(topic.route);
         navigationTimerRef.current = null;
-      }, 560);
+      }, 520);
     }
 
     window.setTimeout(() => {
@@ -294,7 +423,7 @@ export function MapCanvas({
     }, 720);
   };
 
-  const enterSubtopic = (topicSlug: string, route: string) => {
+  const enterRoute = (topicSlug: string, route: string) => {
     setActiveEffectSlug(topicSlug);
 
     if (navigationTimerRef.current !== null) {
@@ -304,13 +433,13 @@ export function MapCanvas({
     navigationTimerRef.current = window.setTimeout(() => {
       navigateTo(route);
       navigationTimerRef.current = null;
-    }, 260);
+    }, 520);
   };
 
   const returnToHub = () => {
     setHoveredTopicSlug(null);
     setActiveEffectSlug(null);
-    camera.travelTo(MATH_HUB_POSITION, hubScale, 760);
+    camera.travelTo(MATH_HUB_POSITION, hubScale, 640);
 
     if (navigationTimerRef.current !== null) {
       window.clearTimeout(navigationTimerRef.current);
@@ -319,7 +448,29 @@ export function MapCanvas({
     navigationTimerRef.current = window.setTimeout(() => {
       navigateTo("/career");
       navigationTimerRef.current = null;
-    }, 720);
+    }, 600);
+  };
+
+  const switchWorld = (nextWorldId: CareerWorldId) => {
+    if (nextWorldId === world.id) {
+      camera.travelTo(MATH_HUB_POSITION, hubScale, 560);
+      return;
+    }
+
+    const nextWorld = findCareerWorld(nextWorldId);
+
+    if (!nextWorld) {
+      return;
+    }
+
+    camera.travelTo(MATH_HUB_POSITION, hubScale, 520);
+    if (navigationTimerRef.current !== null) {
+      window.clearTimeout(navigationTimerRef.current);
+    }
+    navigationTimerRef.current = window.setTimeout(() => {
+      navigateTo(nextWorld.topics[0].route);
+      navigationTimerRef.current = null;
+    }, 460);
   };
 
   const transformStyle = {
@@ -330,22 +481,25 @@ export function MapCanvas({
 
   return (
     <section
-      aria-label="عالم المحاور الكمية"
-      className="math-map-world"
+      aria-label={`عالم المحاور ${world.id === "math" ? "الكمية" : "اللفظية"}`}
+      className={`math-map-world learning-map-world learning-map-world-${world.id}`}
       data-traveling={camera.isTraveling ? "true" : "false"}
     >
       <div
-        aria-label="خريطة تفاعلية للمحاور الكمية. اسحب للتحرك واستخدم مفاتيح الأسهم للتنقل."
+        aria-label={`خريطة تفاعلية للعالم ${world.label}. اسحب للتحرك، استخدم عجلة الفأرة للتكبير، وانقر مرتين للعودة.`}
         className="math-map-viewport"
-        data-cursor-environment="math"
+        data-cursor-environment={world.id}
         ref={viewportRef}
         role="application"
         tabIndex={0}
+        onClickCapture={handleClickCapture}
+        onDoubleClick={handleDoubleClick}
         onKeyDown={handleKeyDown}
-        onPointerCancel={stopDragging}
+        onPointerCancel={stopPointer}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
-        onPointerUp={stopDragging}
+        onPointerUp={stopPointer}
+        onWheel={handleWheel}
       >
         <div
           className={`math-map-stage ${
@@ -353,7 +507,7 @@ export function MapCanvas({
           }`}
           style={transformStyle}
         >
-          <WorldBoundary />
+          <WorldBoundary worldId={world.id} />
 
           <svg
             aria-hidden="true"
@@ -370,18 +524,18 @@ export function MapCanvas({
                 endGap={trailGapForRectangle(
                   station.position,
                   MATH_HUB_POSITION,
-                  250,
-                  260,
-                  24
+                  320,
+                  300,
+                  28
                 )}
                 key={`hub-${station.topic.id}`}
                 start={MATH_HUB_POSITION}
                 startGap={trailGapForRectangle(
                   MATH_HUB_POSITION,
                   station.position,
-                  295,
-                  295,
-                  24
+                  300,
+                  300,
+                  28
                 )}
                 variant="hub"
               />
@@ -401,16 +555,16 @@ export function MapCanvas({
                   endGap={trailGapForRectangle(
                     nextStation.position,
                     station.position,
-                    250,
-                    260
+                    320,
+                    300
                   )}
                   key={`ring-${station.topic.id}`}
                   start={station.position}
                   startGap={trailGapForRectangle(
                     station.position,
                     nextStation.position,
-                    250,
-                    260
+                    320,
+                    300
                   )}
                   variant="ring"
                 />
@@ -422,6 +576,7 @@ export function MapCanvas({
             onSelectTopic={focusTopic}
             position={MATH_HUB_POSITION}
             topics={topics}
+            world={world}
           />
 
           {stationLayout.map((station) => (
@@ -440,7 +595,7 @@ export function MapCanvas({
               <TopicStation
                 active={station.topic.routeSlug === selectedTopic.routeSlug}
                 onEnterSubtopic={(route) =>
-                  enterSubtopic(station.topic.routeSlug, route)
+                  enterRoute(station.topic.routeSlug, route)
                 }
                 onFocus={() => focusTopic(station.topic)}
                 onHover={(isHovering) =>
@@ -448,8 +603,10 @@ export function MapCanvas({
                     isHovering ? station.topic.routeSlug : null
                   )
                 }
+                onResetGesture={cancelPendingNavigationAndReset}
                 position={{ x: 0, y: 0 }}
                 topic={station.topic}
+                worldId={world.id}
               />
             </div>
           ))}
@@ -461,7 +618,11 @@ export function MapCanvas({
           ref={energyLayerRef}
         />
         <WorldCursor viewportRef={viewportRef} />
-        <ReturnButton onReturn={returnToHub} />
+        <WorldSwitch activeWorld={world.id} onSwitch={switchWorld} />
+        <ReturnButton label="العودة إلى المركز" onReturn={returnToHub} />
+        <p className="learning-world-hint">
+          اسحب للاستكشاف · مرّر للتكبير · انقر مرتين للعودة
+        </p>
       </div>
     </section>
   );

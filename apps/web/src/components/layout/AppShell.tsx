@@ -17,19 +17,22 @@ export function AppShell({
 }) {
   const isCareerExperience = currentPath === "/career";
   const isExamExperience = currentPath === "/exam";
-  const isMathWorldExperience = currentPath.startsWith("/topic/math/");
+  const isLearningWorldExperience = currentPath.startsWith("/topic/");
   const shellClassName = [
     "app-shell",
     isCareerExperience ? "career-app-shell" : "",
-    isMathWorldExperience ? "math-world-app-shell" : "",
-    !isCareerExperience && !isExamExperience ? "product-app-shell" : ""
+    isExamExperience ? "exam-entry-app-shell" : "",
+    isLearningWorldExperience ? "learning-world-app-shell" : "",
+    !isCareerExperience && !isExamExperience && !isLearningWorldExperience
+      ? "product-app-shell"
+      : ""
   ]
     .filter(Boolean)
     .join(" ");
   const mainClassName = [
     "app-main",
     isCareerExperience ? "career-app-main" : "",
-    isMathWorldExperience ? "math-world-app-main" : ""
+    isLearningWorldExperience ? "learning-world-app-main" : ""
   ]
     .filter(Boolean)
     .join(" ");
@@ -39,7 +42,7 @@ export function AppShell({
       <header className="app-header">
         <div className="brand-mark" aria-label="عبقور">
           <strong>عبقور</strong>
-          <span>أساس الواجهة</span>
+          <span>ابنِ إتقانك</span>
         </div>
         <Navigation
           className="desktop-nav"

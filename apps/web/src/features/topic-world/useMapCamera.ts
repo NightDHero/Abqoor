@@ -120,6 +120,32 @@ export function useMapCamera(
     [clampCamera]
   );
 
+  const zoomAt = useCallback(
+    (clientX: number, clientY: number, requestedScale: number) => {
+      const rect = viewportRef.current?.getBoundingClientRect();
+
+      if (!rect) {
+        return;
+      }
+
+      setIsTraveling(false);
+      setCamera((current) => {
+        const nextScale = clamp(requestedScale, 0.42, 1.55);
+        const localX = clientX - rect.left;
+        const localY = clientY - rect.top;
+        const worldX = (localX - current.x) / current.scale;
+        const worldY = (localY - current.y) / current.scale;
+
+        return clampCamera({
+          scale: nextScale,
+          x: localX - worldX * nextScale,
+          y: localY - worldY * nextScale
+        });
+      });
+    },
+    [clampCamera, viewportRef]
+  );
+
   const screenToWorld = useCallback(
     (clientX: number, clientY: number) => {
       const rect = viewportRef.current?.getBoundingClientRect();
@@ -144,6 +170,7 @@ export function useMapCamera(
     panBy,
     screenToWorld,
     travelTo,
+    zoomAt,
     viewportSize
   };
 }

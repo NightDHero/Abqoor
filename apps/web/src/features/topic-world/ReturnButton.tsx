@@ -1,9 +1,15 @@
-export function ReturnButton({ onReturn }: { onReturn: () => void }) {
+export function ReturnButton({
+  label,
+  onReturn
+}: {
+  label: string;
+  onReturn: () => void;
+}) {
   return (
     <button
-      aria-label="العودة إلى المحور الكمي"
+      aria-label={label}
       className="math-world-return"
-      title="العودة إلى المحور الكمي"
+      title={label}
       type="button"
       onClick={onReturn}
     >
