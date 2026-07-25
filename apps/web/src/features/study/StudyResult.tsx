@@ -26,8 +26,18 @@ export function StudyResult({
           <small>{result.correctAnswers} إجابات صحيحة</small>
         </div>
         <div className="result-metrics">
-          <SummaryMetric label="تمت الإجابة" value={result.answeredQuestions} />
-          <SummaryMetric label="غير صحيحة" tone="attention" value={result.incorrectAnswers} />
+          <SummaryMetric
+            iconSrc="/assets/feedback/check.png"
+            label="صحيحة"
+            tone="positive"
+            value={result.correctAnswers}
+          />
+          <SummaryMetric
+            iconSrc="/assets/feedback/wrong.png"
+            label="غير صحيحة"
+            tone="attention"
+            value={result.incorrectAnswers}
+          />
           <SummaryMetric label="متروكة" value={result.unansweredQuestions} />
           <SummaryMetric label="إجمالي الأسئلة" value={result.totalQuestions} />
         </div>

@@ -194,7 +194,6 @@ export default function App() {
       <PageContainer
         eyebrow="أدوات الإدارة"
         title="صفحة إدارية"
-        description="هذا مسار إداري محفوظ. لوحة التحقق والاستيراد متاحتان من الروابط الإدارية."
       >
         <div className="action-row">
           <button type="button" onClick={() => navigateTo("/admin/validation")}>

@@ -3,7 +3,6 @@ import type {
   SessionQuestion,
   SubmitAnswerResponse
 } from "../../types/session";
-import { AnswerFeedback } from "../../components/ui/AnswerFeedback";
 import { toArabicAnswerLabel } from "../../utils/answerLabels";
 import { studyAnswers, toStudyImageSrc } from "./studyUtils";
 
@@ -35,7 +34,10 @@ export function StudyQuestion({
   totalQuestions: number;
 }) {
   return (
-    <section className="solving-workspace study-question" aria-labelledby="study-question-title">
+    <section
+      className="solving-workspace study-question"
+      aria-labelledby="study-question-title"
+    >
       <header className="solving-workspace-toolbar">
         <div>
           <p className="question-progress">
@@ -43,14 +45,15 @@ export function StudyQuestion({
           </p>
           <h2 id="study-question-title">حصة</h2>
           <span dir="ltr">{question.id}</span>
-          <span>الموضوع: {question.topic}</span>
         </div>
         <button
+          className="review-toggle"
           type="button"
           disabled={isInReview || isSavingReview}
           onClick={onSaveReview}
         >
-          {isInReview ? "محفوظ" : "حفظ للمراجعة"}
+          <img alt="" src="/assets/actions/save.png" />
+          <span>{isInReview ? "محفوظ" : "حفظ"}</span>
         </button>
       </header>
 
@@ -88,18 +91,26 @@ export function StudyQuestion({
                   onClick={() => onAnswer(answer)}
                 >
                   {toArabicAnswerLabel(answer)}
+                  {isAnswered && answer === response?.correctAnswer ? (
+                    <img
+                      alt=""
+                      className="answer-outcome-icon"
+                      src="/assets/feedback/check.png"
+                    />
+                  ) : null}
+                  {isAnswered &&
+                  isSelected &&
+                  answer !== response?.correctAnswer ? (
+                    <img
+                      alt=""
+                      className="answer-outcome-icon"
+                      src="/assets/feedback/wrong.png"
+                    />
+                  ) : null}
                 </button>
               );
             })}
           </div>
-
-          {response ? (
-            <AnswerFeedback
-              correctAnswer={response.correctAnswer}
-              isCorrect={response.isCorrect}
-              userAnswer={response.userAnswer}
-            />
-          ) : null}
 
           <div className="browser-navigation-row">
             <button
@@ -109,7 +120,7 @@ export function StudyQuestion({
               disabled={currentIndex === 0}
               onClick={onPrevious}
             >
-              <img alt="" src="/assets/navigation/previous.png" />
+              <img alt="" src="/assets/actions/previous.png" />
             </button>
             <button
               className={[

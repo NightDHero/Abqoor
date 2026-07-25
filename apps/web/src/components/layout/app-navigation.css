@@ -2,7 +2,7 @@
   --navigation-rail-width: 72px;
   position: relative;
   min-height: 100svh;
-  padding-inline-start: calc(var(--navigation-rail-width) + 28px);
+  padding-left: calc(var(--navigation-rail-width) + 28px);
 }
 
 .app-navigation {
@@ -124,7 +124,7 @@
 @media (max-width: 760px) {
   .navigation-app-shell {
     --navigation-height: 72px;
-    padding-inline-start: 0;
+    padding-left: 0;
     padding-bottom: calc(var(--navigation-height) + env(safe-area-inset-bottom));
   }
 

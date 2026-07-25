@@ -55,7 +55,6 @@ export function AdminImportPage() {
 
   return (
     <PageContainer
-      description="أداة إدارية لاستيراد PDF مع Excel. بقيت متاحة حتى لا تتعطل مسارات الإدارة أثناء تأسيس الواجهة."
       eyebrow="إدارة"
       title="استيراد الأسئلة"
     >

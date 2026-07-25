@@ -657,6 +657,28 @@
   }
 }
 
+@media (min-width: 621px) and (max-width: 900px) {
+  .hub-world-composition {
+    grid-template-rows: minmax(390px, 1fr) auto;
+    gap: 30px;
+    min-height: max(100svh, 980px);
+  }
+
+  .hub-world-destinations {
+    grid-auto-rows: 202px;
+    gap: 24px 30px;
+    padding-block: 10px;
+  }
+
+  .hub-world-destination {
+    min-height: 202px;
+  }
+
+  .hub-world-destination::before {
+    width: min(72%, 184px);
+  }
+}
+
 @media (max-width: 620px) {
   .career-app-shell,
   .career-app-shell .app-main,

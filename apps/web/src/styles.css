@@ -1,12 +1,10 @@
 @import url("https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@500;600;700;800;900&family=Noto+Sans+Arabic:wght@400;500;600;700;800;900&display=swap");
 
 :root {
-  color: #000;
-  background: #fff;
-  color-scheme: light;
-  font-family:
-    "Segoe UI", Tahoma, Arial, ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, sans-serif;
+  color: #f8fbff;
+  background: #04131f;
+  color-scheme: dark;
+  font-family: "Noto Sans Arabic", Tahoma, Arial, sans-serif;
   line-height: 1.5;
   --space-1: 4px;
   --space-2: 8px;
@@ -50,14 +48,25 @@
 }
 
 html {
+  min-width: 320px;
+  min-height: 100%;
   direction: rtl;
+  background: #04131f;
 }
 
 body {
   min-width: 320px;
+  min-height: 100svh;
   margin: 0;
-  background: #fff;
-  color: #000;
+  background: #04131f;
+  color: #f8fbff;
+  font-family: var(--font-arabic-body);
+}
+
+#root {
+  min-width: 320px;
+  min-height: 100svh;
+  background: #04131f;
 }
 
 button,
@@ -1119,13 +1128,11 @@ input:focus-visible {
   gap: var(--space-2);
 }
 
-.practice-session,
 .study-mode {
   display: grid;
   gap: var(--space-4);
 }
 
-.practice-panel,
 .question-card,
 .study-panel,
 .study-question,
@@ -1183,12 +1190,6 @@ input:focus-visible {
 
 .feedback-panel strong {
   font-size: 1.1rem;
-}
-
-.practice-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
 }
 
 .result-list {
@@ -1921,14 +1922,12 @@ input:focus-visible {
 
 .product-app-shell .app-main {
   position: relative;
-  width: min(100% - clamp(24px, 5vw, 80px), 1180px);
+  width: min(100% - clamp(24px, 4vw, 72px), 1720px);
   padding-block: clamp(28px, 5vh, 58px) clamp(104px, 11vh, 132px);
 }
 
 .product-app-shell .page-container,
 .product-app-shell .topic-world,
-.product-app-shell .practice-session,
-.product-app-shell .practice-result,
 .product-app-shell .study-mode,
 .product-app-shell .study-result,
 .product-app-shell .question-browser,
@@ -1952,8 +1951,6 @@ input:focus-visible {
 
 .product-app-shell .page-hero,
 .product-app-shell .topic-world-hero,
-.product-app-shell .practice-panel:first-child,
-.product-app-shell .practice-result-hero,
 .product-app-shell .study-mode > .study-panel:first-child,
 .product-app-shell .study-result-hero,
 .product-app-shell .question-browser > .browser-panel:first-child,
@@ -1975,8 +1972,6 @@ input:focus-visible {
 
 .product-app-shell .page-hero::before,
 .product-app-shell .topic-world-hero::before,
-.product-app-shell .practice-panel:first-child::before,
-.product-app-shell .practice-result-hero::before,
 .product-app-shell .study-mode > .study-panel:first-child::before,
 .product-app-shell .study-result-hero::before,
 .product-app-shell .question-browser > .browser-panel:first-child::before,
@@ -2002,7 +1997,6 @@ input:focus-visible {
 .product-app-shell .metric,
 .product-app-shell .placeholder-card,
 .product-app-shell .manifest-item,
-.product-app-shell .practice-panel,
 .product-app-shell .question-card,
 .product-app-shell .study-panel,
 .product-app-shell .study-result-block,
@@ -2133,8 +2127,6 @@ input:focus-visible {
 .onboarding-actions button:last-child,
 .product-app-shell .study-panel .action-row button,
 .product-app-shell .study-result .action-row button,
-.product-app-shell .practice-result .action-row button,
-.product-app-shell .practice-actions button,
 .product-app-shell .topic-entry-panel button,
 .product-app-shell .profile-form > .action-row button[type="submit"],
 .product-app-shell .admin-form > button[type="submit"] {
@@ -2428,8 +2420,6 @@ input:focus-visible {
 
   .product-app-shell .page-hero,
   .product-app-shell .topic-world-hero,
-  .product-app-shell .practice-panel:first-child,
-  .product-app-shell .practice-result-hero,
   .product-app-shell .study-mode > .study-panel:first-child,
   .product-app-shell .study-result-hero,
   .product-app-shell .question-browser > .browser-panel:first-child {

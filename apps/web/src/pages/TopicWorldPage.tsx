@@ -16,7 +16,6 @@ export function TopicWorldPage({
   if (!world || (topicSlug && !topic)) {
     return (
       <PlaceholderPage
-        description="هذا المسار غير معروف في هيكل المحاور الحالي."
         eyebrow="مسار غير متاح"
         title="لم يتم العثور على المحور"
       />

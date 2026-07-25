@@ -8,7 +8,7 @@ import {
   sortByImporterOrder
 } from "./browserUtils";
 
-export type BrowserDisplayMode = "question" | "gallery";
+export type BrowserDisplayMode = "question" | "gallery" | "immersive";
 
 const readErrorMessage = (caughtError: unknown, fallback: string) =>
   caughtError instanceof HttpError ? caughtError.message : fallback;
@@ -108,15 +108,27 @@ export function useQuestionBrowser({
 
   const currentQuestion = filteredQuestions[currentIndex] ?? null;
 
-  const answerQuestion = (answer: CorrectAnswer) => {
-    if (!currentQuestion) {
+  const answerQuestionById = (
+    questionId: string,
+    answer: CorrectAnswer
+  ) => {
+    if (
+      !filteredQuestions.some((question) => question.id === questionId) ||
+      answersByQuestionId[questionId]
+    ) {
       return;
     }
 
     setAnswersByQuestionId((existing) => ({
       ...existing,
-      [currentQuestion.id]: answer
+      [questionId]: answer
     }));
+  };
+
+  const answerQuestion = (answer: CorrectAnswer) => {
+    if (currentQuestion) {
+      answerQuestionById(currentQuestion.id, answer);
+    }
   };
 
   const goToPrevious = () => {
@@ -140,8 +152,15 @@ export function useQuestionBrowser({
     }
   };
 
+  const goToIndex = (index: number) => {
+    setCurrentIndex(
+      Math.min(Math.max(index, 0), Math.max(filteredQuestions.length - 1, 0))
+    );
+  };
+
   return {
     answerQuestion,
+    answerQuestionById,
     answersByQuestionId,
     currentIndex,
     currentQuestion,
@@ -149,6 +168,7 @@ export function useQuestionBrowser({
     error,
     filteredQuestions,
     goToNext,
+    goToIndex,
     goToPrevious,
     goToQuestion,
     isLoading,

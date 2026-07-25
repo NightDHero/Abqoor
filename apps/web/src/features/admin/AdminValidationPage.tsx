@@ -45,7 +45,6 @@ export function AdminValidationPage() {
 
   return (
     <PageContainer
-      description="أداة إدارية للقراءة فقط للتأكد من سلامة الأسئلة المستوردة."
       eyebrow="إدارة"
       title="لوحة التحقق"
     >

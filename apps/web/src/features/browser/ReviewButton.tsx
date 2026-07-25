@@ -12,7 +12,8 @@ export function ReviewButton({
       disabled={isInReview}
       onClick={onAdd}
     >
-      {isInReview ? "محفوظ" : "حفظ للمراجعة"}
+      <img alt="" src="/assets/actions/save.png" />
+      <span>{isInReview ? "محفوظ" : "حفظ"}</span>
     </button>
   );
 }

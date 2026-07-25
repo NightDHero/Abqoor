@@ -48,6 +48,19 @@ export function BrowserControls({
         >
           معرض
         </button>
+        <button
+          aria-pressed={displayMode === "immersive"}
+          className={displayMode === "immersive" ? "selected" : undefined}
+          type="button"
+          onClick={() => setDisplayMode("immersive")}
+        >
+          <img
+            alt=""
+            className="browser-mode-icon"
+            src="/assets/modes/immersive-scroll.png"
+          />
+          تدفق
+        </button>
       </div>
 
       <div
@@ -64,7 +77,11 @@ export function BrowserControls({
           type="button"
           onClick={expandSearch}
         >
-          <span aria-hidden="true" className="browser-search-icon" />
+          <img
+            alt=""
+            className="browser-search-icon"
+            src="/assets/actions/search.png"
+          />
         </button>
         <label className="browser-search">
           <span className="visually-hidden">ابحث عن سؤال</span>

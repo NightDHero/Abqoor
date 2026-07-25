@@ -5,7 +5,7 @@ export function PlaceholderPage({
   eyebrow,
   title
 }: {
-  description: string;
+  description?: string;
   eyebrow: string;
   title: string;
 }) {

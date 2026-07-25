@@ -1,5 +1,4 @@
 import type { CorrectAnswer, Question } from "../../types/question";
-import { AnswerFeedback } from "../../components/ui/AnswerFeedback";
 import { toArabicAnswerLabel } from "../../utils/answerLabels";
 import {
   answers,
@@ -35,7 +34,10 @@ export function QuestionMode({
   const questionNumber = toQuestionNumber(question.id);
 
   return (
-    <section className="solving-workspace browser-question-mode" aria-labelledby="browser-question-title">
+    <section
+      className="solving-workspace browser-question-mode"
+      aria-labelledby="browser-question-title"
+    >
       <header className="solving-workspace-toolbar">
         <div>
           <p className="question-progress">
@@ -91,18 +93,26 @@ export function QuestionMode({
                       src={toMediaSrc(answerImageUrl)}
                     />
                   ) : null}
+                  {isAnswered && answer === question.correctAnswer ? (
+                    <img
+                      alt=""
+                      className="answer-outcome-icon"
+                      src="/assets/feedback/check.png"
+                    />
+                  ) : null}
+                  {isAnswered &&
+                  isSelected &&
+                  answer !== question.correctAnswer ? (
+                    <img
+                      alt=""
+                      className="answer-outcome-icon"
+                      src="/assets/feedback/wrong.png"
+                    />
+                  ) : null}
                 </button>
               );
             })}
           </div>
-
-          {isAnswered ? (
-            <AnswerFeedback
-              correctAnswer={question.correctAnswer}
-              isCorrect={isCorrect}
-              userAnswer={selectedAnswer!}
-            />
-          ) : null}
 
           <div className="browser-navigation-row">
             <button
@@ -112,7 +122,7 @@ export function QuestionMode({
               disabled={currentIndex === 0}
               onClick={onPrevious}
             >
-              <img alt="" src="/assets/navigation/previous.png" />
+              <img alt="" src="/assets/actions/previous.png" />
             </button>
             <button
               className={[

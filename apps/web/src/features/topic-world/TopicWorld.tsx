@@ -12,14 +12,10 @@ export function TopicWorld({
 }) {
   const isMath = world.id === "math";
   const isTopicDirectory = isMath && topic;
-  const eyebrow = isTopicDirectory
-    ? `الكمي / ${topic.name}`
-    : "مسارات الإتقان";
+  const eyebrow = isTopicDirectory ? `الكمي / ${topic.name}` : null;
   const title = isTopicDirectory
     ? topic.name
-    : isMath
-      ? "المحاور الكمية"
-      : "المحاور اللفظية";
+    : world.label;
 
   const items = isTopicDirectory ? topic.subtopics ?? [] : world.topics;
 
@@ -30,7 +26,7 @@ export function TopicWorld({
     >
       <header className="topic-directory-hero">
         <div>
-          <p>{eyebrow}</p>
+          {eyebrow ? <p>{eyebrow}</p> : null}
           <h1 id="topic-directory-title">{title}</h1>
           <span className="topic-directory-mastery">٠٪ إتقان</span>
         </div>

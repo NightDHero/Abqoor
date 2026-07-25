@@ -72,11 +72,16 @@ export function useStudySession() {
     }
   };
 
-  const answerQuestion = async (answer: CorrectAnswer) => {
+  const answerQuestionById = async (
+    questionId: string,
+    answer: CorrectAnswer
+  ) => {
+    const question = questions.find((candidate) => candidate.id === questionId);
+
     if (
       !sessionId ||
-      !currentQuestion ||
-      responsesByQuestionId[currentQuestion.id]
+      !question ||
+      responsesByQuestionId[question.id]
     ) {
       return;
     }
@@ -86,7 +91,7 @@ export function useStudySession() {
 
     try {
       const response = await sessionService.submitAnswer({
-        questionId: currentQuestion.id,
+        questionId: question.id,
         sessionId,
         userAnswer: answer
       });
@@ -102,8 +107,14 @@ export function useStudySession() {
     }
   };
 
-  const saveCurrentQuestion = async () => {
-    if (!currentQuestion) {
+  const answerQuestion = async (answer: CorrectAnswer) => {
+    if (currentQuestion) {
+      await answerQuestionById(currentQuestion.id, answer);
+    }
+  };
+
+  const saveQuestion = async (questionId: string) => {
+    if (!questions.some((question) => question.id === questionId)) {
       return;
     }
 
@@ -111,11 +122,11 @@ export function useStudySession() {
     setError("");
 
     try {
-      await reviewBankService.addQuestion(currentQuestion.id, "manual");
+      await reviewBankService.addQuestion(questionId, "manual");
       setManualReviewQuestionIds((existing) =>
-        existing.includes(currentQuestion.id)
+        existing.includes(questionId)
           ? existing
-          : [...existing, currentQuestion.id]
+          : [...existing, questionId]
       );
     } catch (caughtError) {
       setError(
@@ -123,6 +134,12 @@ export function useStudySession() {
       );
     } finally {
       setIsSavingReview(false);
+    }
+  };
+
+  const saveCurrentQuestion = async () => {
+    if (currentQuestion) {
+      await saveQuestion(currentQuestion.id);
     }
   };
 
@@ -147,6 +164,12 @@ export function useStudySession() {
     setCurrentIndex((value) => Math.max(value - 1, 0));
   };
 
+  const goToIndex = (index: number) => {
+    setCurrentIndex(
+      Math.min(Math.max(index, 0), Math.max(questions.length - 1, 0))
+    );
+  };
+
   const goToNext = async () => {
     if (isLastQuestion) {
       await loadResult();
@@ -162,11 +185,13 @@ export function useStudySession() {
 
   return {
     answerQuestion,
+    answerQuestionById,
     currentIndex,
     currentQuestion,
     currentResponse,
     error,
     goToNext,
+    goToIndex,
     goToPrevious,
     isActive,
     isCurrentQuestionInManualReview,
@@ -179,6 +204,8 @@ export function useStudySession() {
     questions,
     responsesByQuestionId,
     result,
+    loadResult,
+    saveQuestion,
     saveCurrentQuestion,
     start,
     weakTopics

@@ -21,7 +21,6 @@ export function BrowsePage({
   if (!world || !topic || (subjectSlug === "math" && !subtopic)) {
     return (
       <PlaceholderPage
-        description="هذا المسار غير معروف في نظام التصفح الحالي."
         eyebrow="مسار غير متاح"
         title="لم يتم العثور على المتصفح"
       />

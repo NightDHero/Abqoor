@@ -83,12 +83,26 @@ body:has(.onboarding-shell) {
 }
 
 .product-app-shell .summary-metric {
+  position: relative;
   display: grid;
   gap: 8px;
   align-content: space-between;
   min-width: 0;
   min-height: 132px;
   padding: 22px;
+}
+
+.summary-metric-icon {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+}
+
+.summary-metric-attention .summary-metric-icon {
+  opacity: 0.82;
 }
 
 .product-app-shell .summary-metric > span,
