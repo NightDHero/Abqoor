@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import type { BrowserDisplayMode } from "./useQuestionBrowser";
 
 export function BrowserControls({
@@ -15,6 +16,19 @@ export function BrowserControls({
   setSearchText: (value: string) => void;
   totalCount: number;
 }) {
+  const [isSearchExpanded, setIsSearchExpanded] = useState(Boolean(searchText));
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const expandSearch = () => {
+    if (!isSearchExpanded) {
+      setIsSearchExpanded(true);
+      requestAnimationFrame(() => searchInputRef.current?.focus());
+      return;
+    }
+
+    searchInputRef.current?.focus();
+  };
+
   return (
     <section className="browser-toolbar" aria-label="أدوات التصفح">
       <div className="browser-mode-switch" aria-label="طريقة العرض">
@@ -24,7 +38,7 @@ export function BrowserControls({
           type="button"
           onClick={() => setDisplayMode("question")}
         >
-          وضع السؤال
+          سؤال
         </button>
         <button
           aria-pressed={displayMode === "gallery"}
@@ -32,23 +46,53 @@ export function BrowserControls({
           type="button"
           onClick={() => setDisplayMode("gallery")}
         >
-          وضع التصفح
+          معرض
         </button>
       </div>
 
-      <label className="browser-search">
-        <span>ابحث عن سؤال</span>
-        <input
-          dir="ltr"
-          placeholder="رقم السؤال أو Q-001"
-          type="search"
-          value={searchText}
-          onChange={(event) => setSearchText(event.target.value)}
-        />
-        <small>
-          {searchText ? `${resultCount} نتيجة` : `${totalCount} سؤال متاح`}
-        </small>
-      </label>
+      <div
+        className={
+          isSearchExpanded
+            ? "browser-search-control expanded"
+            : "browser-search-control"
+        }
+      >
+        <button
+          aria-expanded={isSearchExpanded}
+          aria-label="فتح البحث برقم السؤال"
+          className="browser-search-trigger"
+          type="button"
+          onClick={expandSearch}
+        >
+          <span aria-hidden="true" className="browser-search-icon" />
+        </button>
+        <label className="browser-search">
+          <span className="visually-hidden">ابحث عن سؤال</span>
+          <input
+            ref={searchInputRef}
+            dir="ltr"
+            placeholder="رقم السؤال"
+            tabIndex={isSearchExpanded ? 0 : -1}
+            type="search"
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Escape") {
+                return;
+              }
+
+              if (searchText) {
+                setSearchText("");
+              } else {
+                setIsSearchExpanded(false);
+              }
+            }}
+          />
+          <small aria-live="polite">
+            {searchText ? `${resultCount} نتيجة` : `${totalCount} سؤال متاح`}
+          </small>
+        </label>
+      </div>
     </section>
   );
 }

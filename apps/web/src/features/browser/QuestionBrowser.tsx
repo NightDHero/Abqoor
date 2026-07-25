@@ -33,25 +33,26 @@ export function QuestionBrowser({
   };
 
   return (
-    <section className="question-browser" aria-labelledby="browser-title">
-      <div className="browser-panel">
-        <p className="page-eyebrow">{world.label}</p>
-        <h1 className="page-title" id="browser-title">
-          {subtopic ? subtopic.name : topic.name}
-        </h1>
-        <p className="page-description">
-          تصفح حر للأسئلة بترتيب الاستيراد. هذا الوضع غير تكيفي وغير اختباري.
-        </p>
-      </div>
-
-      <BrowserControls
-        displayMode={browser.displayMode}
-        resultCount={browser.filteredQuestions.length}
-        searchText={browser.searchText}
-        setDisplayMode={browser.setDisplayMode}
-        setSearchText={browser.setSearchText}
-        totalCount={browser.questions.length}
-      />
+    <section
+      className={`question-browser question-browser-${world.id}`}
+      aria-labelledby="browser-title"
+    >
+      <header className="browser-context">
+        <div>
+          <p className="page-eyebrow">{world.label}</p>
+          <h1 className="page-title" id="browser-title">
+            {subtopic ? subtopic.name : topic.name}
+          </h1>
+        </div>
+        <BrowserControls
+          displayMode={browser.displayMode}
+          resultCount={browser.filteredQuestions.length}
+          searchText={browser.searchText}
+          setDisplayMode={browser.setDisplayMode}
+          setSearchText={browser.setSearchText}
+          totalCount={browser.questions.length}
+        />
+      </header>
 
       {browser.isLoading ? (
         <p className="status-message">جاري تحميل الأسئلة...</p>
@@ -59,7 +60,7 @@ export function QuestionBrowser({
       {browser.error ? <p className="error-message">{browser.error}</p> : null}
 
       {!browser.isLoading && browser.filteredQuestions.length === 0 ? (
-        <div className="browser-panel">
+        <div className="workspace-empty-state">
           لا توجد أسئلة مطابقة لهذا المسار أو البحث الحالي.
         </div>
       ) : null}

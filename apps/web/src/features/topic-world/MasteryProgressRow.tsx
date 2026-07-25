@@ -1,15 +1,15 @@
 import type { CSSProperties, ReactNode } from "react";
 
 export function MasteryProgressRow({
+  animationIndex,
   icon,
-  index,
   masteryPercent,
   name,
   onActivate,
   variant
 }: {
+  animationIndex: number;
   icon?: ReactNode;
-  index: number;
   masteryPercent: number;
   name: string;
   onActivate: () => void;
@@ -21,15 +21,12 @@ export function MasteryProgressRow({
       style={
         {
           "--mastery-progress": `${masteryPercent}%`,
-          "--row-delay": `${Math.min(index * 45, 360)}ms`
+          "--row-delay": `${Math.min(animationIndex * 45, 360)}ms`
         } as CSSProperties
       }
       type="button"
       onClick={onActivate}
     >
-      <span className="mastery-progress-index" aria-hidden="true">
-        {String(index).padStart(2, "0")}
-      </span>
       {icon ? <span className="mastery-progress-icon">{icon}</span> : null}
       <span className="mastery-progress-content">
         <span className="mastery-progress-heading">

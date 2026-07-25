@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { HubReturnControl } from "./HubReturnControl";
+import { AppNavigation } from "./AppNavigation";
 
 export function AppShell({
   children,
@@ -15,6 +15,7 @@ export function AppShell({
     "app-shell",
     isCareerExperience ? "career-app-shell" : "",
     !isCareerExperience ? "focused-app-shell" : "",
+    !isCareerExperience ? "navigation-app-shell" : "",
     isExamExperience ? "exam-entry-app-shell" : "",
     isTopicDirectoryExperience ? "topic-directory-app-shell" : "",
     !isCareerExperience && !isExamExperience
@@ -33,7 +34,7 @@ export function AppShell({
 
   return (
     <div className={shellClassName} dir="rtl">
-      {!isCareerExperience ? <HubReturnControl /> : null}
+      {!isCareerExperience ? <AppNavigation currentPath={currentPath} /> : null}
       <main className={mainClassName}>{children}</main>
     </div>
   );

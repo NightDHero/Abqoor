@@ -7,11 +7,13 @@ const worldEntrances = [
   {
     className: "verbal",
     label: "اللفظي",
+    masteryPercent: 0,
     route: "/topic/arabic"
   },
   {
     className: "math",
     label: "الكمي",
+    masteryPercent: 0,
     route: "/topic/math"
   }
 ] as const;
@@ -107,16 +109,19 @@ export function CareerDashboard({
       />
 
       <div className="hub-world-composition">
-        <div className="hub-world-entrances" aria-label="عوالم التعلم">
+        <div className="hub-world-collision" aria-label="عوالم التعلم">
           {worldEntrances.map((entrance) => (
             <button
               aria-label={`دخول عالم ${entrance.label}`}
-              className={`hub-world-entrance hub-world-entrance-${entrance.className}`}
+              className={`hub-world-force hub-world-force-${entrance.className}`}
               key={entrance.route}
               type="button"
               onClick={() => navigateTo(entrance.route)}
             >
-              <strong>{entrance.label}</strong>
+              <span className="hub-world-force-title">
+                <strong>{entrance.label}</strong>
+                <b>{entrance.masteryPercent.toLocaleString("ar-SA")}%</b>
+              </span>
             </button>
           ))}
         </div>

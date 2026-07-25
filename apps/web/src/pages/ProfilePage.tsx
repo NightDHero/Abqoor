@@ -152,44 +152,47 @@ export function ProfilePage({
 
   return (
     <PageContainer
-      eyebrow="الملف الشخصي"
-      title="ملفك الدراسي"
-      description="راجع بيانات الحساب وأهداف الدراسة وتفضيلاتك. تحديث هذه الإجابات يساعد أبقور على تحسين الجلسات والتوصيات القادمة."
+      eyebrow="الحساب"
+      title="ملفي"
     >
       {isLoading ? <p className="status-message">جاري تحميل الملف الدراسي...</p> : null}
       {error ? <p className="error-message">{error}</p> : null}
       {message ? <p className="status-message">{message}</p> : null}
 
-      <section className="profile-overview" aria-label="ملخص الملف الدراسي">
-        <SummaryMetric
-          detail="هدفك في القدرات"
-          label="الدرجة المستهدفة"
-          value={form.targetScore}
-        />
-        <SummaryMetric
-          detail="موعد الاختبار القادم"
-          label="الاختبار"
-          value={examDateLabel}
-        />
-        <SummaryMetric
-          detail="الوقت المتاح أسبوعيًا"
-          label="إيقاع الدراسة"
-          value={weeklyHoursLabel}
-        />
-        <SummaryMetric
-          detail="لتحسين اختيار الأسئلة"
-          label="التحدي الأكبر"
-          value={weakerSectionLabel}
-        />
+      <section className="profile-dashboard-head" aria-label="هوية وملخص الملف الدراسي">
+        <div className="profile-identity">
+          <span className="profile-identity-avatar">
+            <img alt="" src="/assets/hub/avatar.png" />
+          </span>
+          <div>
+            <strong>{form.username || "مستخدم عبقور"}</strong>
+            <span dir="ltr">{user.email}</span>
+          </div>
+        </div>
+
+        <div className="profile-overview">
+          <SummaryMetric
+            label="الدرجة المستهدفة"
+            value={form.targetScore}
+          />
+          <SummaryMetric
+            label="الاختبار"
+            value={examDateLabel}
+          />
+          <SummaryMetric
+            label="إيقاع الدراسة"
+            value={weeklyHoursLabel}
+          />
+          <SummaryMetric
+            label="التحدي الأكبر"
+            value={weakerSectionLabel}
+          />
+        </div>
       </section>
 
       <form className="profile-form" id="settings" onSubmit={handleSubmit}>
         <header className="profile-editor-heading">
-          <div>
-            <p className="page-eyebrow">تحديث الملف</p>
-            <h2>عدّل ما تغيّر فقط</h2>
-          </div>
-          <p>تُحفظ هذه البيانات مع حسابك وتستخدم في الجلسات القادمة.</p>
+          <h2>إعدادات الملف</h2>
         </header>
         <section className="profile-section" aria-labelledby="account-section">
           <h2 id="account-section">الحساب</h2>
@@ -207,7 +210,7 @@ export function ProfilePage({
                   updateForm({ username: event.target.value })
                 }
               />
-              <small>هويتك العامة داخل أبقور.</small>
+              <small>هويتك العامة داخل أبقور</small>
             </label>
             <div>
               <span>البريد الإلكتروني</span>

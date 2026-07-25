@@ -49,11 +49,7 @@ export function StudyResult({
       </section>
 
       <section className="study-result-block">
-        <h2>الجلسة المقترحة التالية</h2>
-        <p>
-          ابدأ جلسة دراسة تكيفية جديدة. سيستخدم النظام سجل إجاباتك السابق
-          والأسئلة الخاطئة وغير المجابة لاختيار المجموعة التالية.
-        </p>
+        <h2>الجلسة التالية</h2>
         <div className="action-row">
           <button type="button" onClick={onStartNextSession}>
             ابدأ جلسة جديدة

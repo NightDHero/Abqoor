@@ -19,16 +19,14 @@ export function StudyMode() {
 
   return (
     <section className="study-mode" aria-labelledby="study-title">
-      <div className="study-panel">
-        <p className="page-eyebrow">وضع الدراسة</p>
-        <h1 className="page-title" id="study-title">
-          جلسة دراسة تكيفية
-        </h1>
-        <p className="page-description">
-          يختار النظام الأسئلة لك بناءً على سجل الإجابات السابق، والأخطاء،
-          والأسئلة التي لم تتم الإجابة عنها.
-        </p>
-        {!study.isActive ? (
+      {!study.isActive ? (
+        <div className="study-launch">
+          <div>
+            <p className="page-eyebrow">حصة</p>
+            <h1 className="page-title" id="study-title">
+              ابدأ من حيث تحتاج
+            </h1>
+          </div>
           <div className="action-row">
             <button
               type="button"
@@ -37,11 +35,11 @@ export function StudyMode() {
                 void study.start();
               }}
             >
-              {study.isStarting ? "جاري البدء..." : "ابدأ جلسة دراسة"}
+              {study.isStarting ? "جاري البدء..." : "ابدأ الحصة"}
             </button>
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       {study.error ? <p className="error-message">{study.error}</p> : null}
 
@@ -69,7 +67,7 @@ export function StudyMode() {
       ) : null}
 
       {study.isLoadingResult ? (
-        <p className="status-message">جاري تحميل نتيجة الجلسة...</p>
+        <p className="status-message">جاري تحميل النتيجة...</p>
       ) : null}
     </section>
   );

@@ -6,8 +6,13 @@ export function ReviewButton({
   onAdd: () => void;
 }) {
   return (
-    <button type="button" disabled={isInReview} onClick={onAdd}>
-      {isInReview ? "مضاف للمراجعة" : "أضف للمراجعة"}
+    <button
+      className="review-toggle"
+      type="button"
+      disabled={isInReview}
+      onClick={onAdd}
+    >
+      {isInReview ? "محفوظ" : "حفظ للمراجعة"}
     </button>
   );
 }

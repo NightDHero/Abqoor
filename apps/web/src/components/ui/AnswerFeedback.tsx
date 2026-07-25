@@ -1,10 +1,6 @@
 import type { CorrectAnswer } from "../../types/session";
-import { toArabicAnswerLabel } from "../../utils/answerLabels";
-
 export function AnswerFeedback({
-  correctAnswer,
-  isCorrect,
-  userAnswer
+  isCorrect
 }: {
   correctAnswer: CorrectAnswer;
   isCorrect: boolean;
@@ -22,17 +18,12 @@ export function AnswerFeedback({
           ))}
         </span>
       ) : null}
-      <span className="answer-feedback-mark" aria-hidden="true">
-        {isCorrect ? "✓" : "×"}
-      </span>
-      <div>
-        <strong>{isCorrect ? "إجابة صحيحة" : "ليست الإجابة الصحيحة"}</strong>
-        <p>
-          {isCorrect
-            ? `أحسنت، الإجابة ${toArabicAnswerLabel(correctAnswer)} صحيحة.`
-            : `اخترت ${toArabicAnswerLabel(userAnswer)}، والإجابة الصحيحة هي ${toArabicAnswerLabel(correctAnswer)}.`}
-        </p>
-      </div>
+      <img
+        alt=""
+        className="answer-feedback-icon"
+        src={isCorrect ? "/assets/feedback/check.png" : "/assets/feedback/wrong.png"}
+      />
+      <strong>{isCorrect ? "إجابة صحيحة" : "راجع الإجابة الصحيحة"}</strong>
     </section>
   );
 }

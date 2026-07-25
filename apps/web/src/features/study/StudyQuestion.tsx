@@ -35,15 +35,14 @@ export function StudyQuestion({
   totalQuestions: number;
 }) {
   return (
-    <section className="study-question" aria-labelledby="study-question-title">
-      <div className="study-question-heading">
+    <section className="solving-workspace study-question" aria-labelledby="study-question-title">
+      <header className="solving-workspace-toolbar">
         <div>
           <p className="question-progress">
             السؤال {currentIndex + 1} / {totalQuestions}
           </p>
-          <h2 id="study-question-title" dir="ltr">
-            {question.id}
-          </h2>
+          <h2 id="study-question-title">حصة</h2>
+          <span dir="ltr">{question.id}</span>
           <span>الموضوع: {question.topic}</span>
         </div>
         <button
@@ -51,62 +50,82 @@ export function StudyQuestion({
           disabled={isInReview || isSavingReview}
           onClick={onSaveReview}
         >
-          {isInReview ? "مضاف للمراجعة" : "أضف للمراجعة"}
+          {isInReview ? "محفوظ" : "حفظ للمراجعة"}
         </button>
-      </div>
+      </header>
 
-      <img
-        alt={`Question ${question.id}`}
-        className="question-image"
-        src={toStudyImageSrc(question.questionImageUrl)}
-      />
+      <div className="solving-workspace-grid">
+        <figure className="solving-question-stage">
+          <img
+            alt={`Question ${question.id}`}
+            className="question-image"
+            src={toStudyImageSrc(question.questionImageUrl)}
+          />
+        </figure>
 
-      <div className="answer-options" role="group" aria-label="خيارات الإجابة">
-        {studyAnswers.map((answer) => {
-          const isSelected = response?.userAnswer === answer;
-          const isAnswered = Boolean(response);
+        <aside className="solving-answer-dock">
+          <div className="answer-options" role="group" aria-label="خيارات الإجابة">
+            {studyAnswers.map((answer) => {
+              const isSelected = response?.userAnswer === answer;
+              const isAnswered = Boolean(response);
 
-          return (
+              return (
+                <button
+                  aria-pressed={isSelected}
+                  className={[
+                    "answer-option",
+                    isSelected ? "selected" : "",
+                    isAnswered && answer === response?.correctAnswer ? "answer-correct" : "",
+                    isAnswered && isSelected && answer !== response?.correctAnswer
+                      ? "answer-wrong"
+                      : ""
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  disabled={Boolean(response) || isSubmitting}
+                  key={answer}
+                  type="button"
+                  onClick={() => onAnswer(answer)}
+                >
+                  {toArabicAnswerLabel(answer)}
+                </button>
+              );
+            })}
+          </div>
+
+          {response ? (
+            <AnswerFeedback
+              correctAnswer={response.correctAnswer}
+              isCorrect={response.isCorrect}
+              userAnswer={response.userAnswer}
+            />
+          ) : null}
+
+          <div className="browser-navigation-row">
             <button
-              aria-pressed={isSelected}
+              aria-label="السؤال السابق"
+              className="question-previous-button"
+              type="button"
+              disabled={currentIndex === 0}
+              onClick={onPrevious}
+            >
+              <img alt="" src="/assets/navigation/previous.png" />
+            </button>
+            <button
               className={[
-                "answer-option",
-                isSelected ? "selected" : "",
-                isAnswered && answer === response?.correctAnswer ? "answer-correct" : "",
-                isAnswered && isSelected && answer !== response?.correctAnswer
-                  ? "answer-wrong"
-                  : ""
+                "question-next-button",
+                response?.isCorrect ? "answer-next-success" : "",
+                response && !response.isCorrect ? "answer-next-error" : ""
               ]
                 .filter(Boolean)
                 .join(" ")}
-              disabled={Boolean(response) || isSubmitting}
-              key={answer}
               type="button"
-              onClick={() => onAnswer(answer)}
+              onClick={onNext}
             >
-              {toArabicAnswerLabel(answer)}
+              {isLastQuestion ? "عرض النتائج" : "التالي"}
             </button>
-          );
-        })}
-      </div>
-
-      {response ? (
-        <AnswerFeedback
-          correctAnswer={response.correctAnswer}
-          isCorrect={response.isCorrect}
-          userAnswer={response.userAnswer}
-        />
-      ) : (
-        <p className="status-message">يمكنك الإجابة الآن أو تخطي السؤال والعودة لاحقًا.</p>
-      )}
-
-      <div className="browser-navigation-row">
-        <button type="button" disabled={currentIndex === 0} onClick={onPrevious}>
-          السابق
-        </button>
-        <button type="button" onClick={onNext}>
-          {isLastQuestion ? "عرض النتائج" : "التالي"}
-        </button>
+          </div>
+        </aside>
       </div>
     </section>
   );

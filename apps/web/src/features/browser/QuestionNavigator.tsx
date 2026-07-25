@@ -13,10 +13,7 @@ export function QuestionNavigator({
   return (
     <nav className="question-finder" aria-label="الانتقال بين الأسئلة">
       <div className="question-finder-heading">
-        <div>
-          <strong>انتقل إلى سؤال</strong>
-          <span>الأسئلة مرتبة حسب ترتيب الاستيراد</span>
-        </div>
+        <strong>الأسئلة</strong>
         <span>{questions.length} سؤال</span>
       </div>
       <div className="question-finder-list">

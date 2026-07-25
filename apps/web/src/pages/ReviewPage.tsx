@@ -166,27 +166,23 @@ export function ReviewPage() {
 
   return (
     <PageContainer
-      description="مساحة دائمة للأسئلة المحفوظة يدويًا والأسئلة التي تمت الإجابة عنها بشكل خاطئ."
-      eyebrow="بنك المراجعة"
-      title="المراجعة"
+      eyebrow="المراجعة"
+      title="بنك الأخطاء"
     >
       {isLoading ? <p className="status-message">جاري تحميل بنك المراجعة...</p> : null}
       {error ? <p className="error-message">{error}</p> : null}
 
       <section className="review-overview" aria-label="ملخص بنك المراجعة">
         <SummaryMetric
-          detail="اخترتها للعودة إليها"
           label="محفوظة يدويًا"
           value={reviewBank.savedQuestions.length}
         />
         <SummaryMetric
-          detail="تحتاج محاولة جديدة"
           label="إجابات خاطئة"
           tone="attention"
           value={reviewBank.wrongQuestions.length}
         />
         <SummaryMetric
-          detail="كل ما ينتظرك هنا"
           label="إجمالي المراجعة"
           value={reviewBank.savedQuestions.length + reviewBank.wrongQuestions.length}
         />

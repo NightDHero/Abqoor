@@ -20,11 +20,6 @@ export function TopicWorld({
     : isMath
       ? "المحاور الكمية"
       : "المحاور اللفظية";
-  const description = isTopicDirectory
-    ? "اختر المهارة التي تريد تطويرها. تقدمك في كل مهارة يظهر هنا بصورة مستقلة."
-    : isMath
-      ? "ابدأ من المحور الأقرب إلى هدفك، ثم انتقل إلى مهاراته التفصيلية."
-      : "اختر المحور اللفظي الذي تريد تدريبه وابدأ التصفح مباشرة.";
 
   const items = isTopicDirectory ? topic.subtopics ?? [] : world.topics;
 
@@ -37,18 +32,8 @@ export function TopicWorld({
         <div>
           <p>{eyebrow}</p>
           <h1 id="topic-directory-title">{title}</h1>
-          <span>{description}</span>
+          <span className="topic-directory-mastery">٠٪ إتقان</span>
         </div>
-        <dl className="topic-directory-summary">
-          <div>
-            <dt>{isTopicDirectory ? "المهارات" : "المحاور"}</dt>
-            <dd>{items.length}</dd>
-          </div>
-          <div>
-            <dt>الإتقان الحالي</dt>
-            <dd>٠٪</dd>
-          </div>
-        </dl>
       </header>
 
       <div className="topic-directory-list">
@@ -62,7 +47,7 @@ export function TopicWorld({
 
           return (
             <MasteryProgressRow
-              index={index + 1}
+              animationIndex={index}
               key={item.id}
               masteryPercent={item.masteryPercent}
               name={item.name}
