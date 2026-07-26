@@ -15,10 +15,11 @@ export const authRouter = Router();
 
 const sessionCookieOptions: CookieOptions = {
   httpOnly: true,
-  sameSite: "lax",
+  sameSite: env.sessionCookieSameSite,
   secure: env.isProduction,
   maxAge: 7 * 24 * 60 * 60 * 1000,
-  path: "/"
+  path: "/",
+  domain: env.sessionCookieDomain
 };
 
 const setSessionCookie = (response: Response, user: { id: string; email: string }) => {

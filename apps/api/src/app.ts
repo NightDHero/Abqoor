@@ -32,7 +32,23 @@ const jsonErrorHandler: ErrorRequestHandler = (error, _request, response, next) 
 export const createApp = () => {
   const app = express();
 
-  app.use(cors({ origin: env.corsOrigins, credentials: true }));
+  if (env.isProduction) {
+    app.set("trust proxy", 1);
+  }
+
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin || env.frontendOrigins.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+
+        callback(new Error("Origin is not allowed by CORS."));
+      },
+      credentials: true
+    })
+  );
   app.use(cookieParser());
   app.use(express.json());
   ensureQuestionMediaDirectory();
