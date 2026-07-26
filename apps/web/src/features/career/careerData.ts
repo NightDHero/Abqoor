@@ -227,8 +227,8 @@ export const careerWorlds: CareerWorld[] = [
     description:
       "درّب لغتك في مسارات لفظية واضحة، وكل محور يبدأ من 0% حتى تتكون صورة الإتقان مع الوقت.",
     id: "arabic",
-    label: "العربي",
-    title: "عالم العربي",
+    label: "اللفظي",
+    title: "عالم اللفظي",
     topics: arabicTopics
   }
 ];
