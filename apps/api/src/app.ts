@@ -1,5 +1,5 @@
 import cookieParser from "cookie-parser";
-import cors from "cors";
+import cors, { type CorsOptions } from "cors";
 import type { ErrorRequestHandler } from "express";
 import express from "express";
 import { env } from "./config/env.js";
@@ -29,6 +29,21 @@ const jsonErrorHandler: ErrorRequestHandler = (error, _request, response, next) 
   next(error);
 };
 
+const corsOptions: CorsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || env.frontendOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error("Origin is not allowed by CORS."));
+  },
+  credentials: true,
+  methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Accept", "Authorization", "Content-Type"],
+  optionsSuccessStatus: 204
+};
+
 export const createApp = () => {
   const app = express();
 
@@ -36,19 +51,8 @@ export const createApp = () => {
     app.set("trust proxy", 1);
   }
 
-  app.use(
-    cors({
-      origin: (origin, callback) => {
-        if (!origin || env.frontendOrigins.includes(origin)) {
-          callback(null, true);
-          return;
-        }
-
-        callback(new Error("Origin is not allowed by CORS."));
-      },
-      credentials: true
-    })
-  );
+  app.options("*", cors(corsOptions));
+  app.use(cors(corsOptions));
   app.use(cookieParser());
   app.use(express.json());
   ensureQuestionMediaDirectory();

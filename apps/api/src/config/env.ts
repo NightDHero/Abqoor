@@ -30,6 +30,40 @@ const toOptionalString = (value: string | undefined) => {
   return normalized ? normalized : undefined;
 };
 
+const toFrontendOrigins = (value: string | undefined) => {
+  return (value ?? "")
+    .split(",")
+    .map((origin) => origin.trim().replace(/^['"]|['"]$/g, ""))
+    .filter(Boolean)
+    .map((origin) => {
+      let parsed: URL;
+
+      try {
+        parsed = new URL(origin);
+      } catch {
+        throw new Error(
+          `Invalid frontend origin "${origin}". Use an absolute http(s) origin.`
+        );
+      }
+
+      if (
+        (parsed.protocol !== "http:" && parsed.protocol !== "https:") ||
+        parsed.username ||
+        parsed.password ||
+        (parsed.pathname !== "/" && parsed.pathname !== "") ||
+        parsed.search ||
+        parsed.hash
+      ) {
+        throw new Error(
+          `Invalid frontend origin "${origin}". Paths, credentials, query strings, and fragments are not allowed.`
+        );
+      }
+
+      return parsed.origin;
+    })
+    .filter((origin, index, origins) => origins.indexOf(origin) === index);
+};
+
 const nodeEnv = process.env.NODE_ENV ?? "development";
 const jwtSecret = process.env.JWT_SECRET ?? "development-only-change-me";
 const frontendOriginValue =
@@ -38,10 +72,7 @@ const frontendOriginValue =
   (nodeEnv === "production"
     ? undefined
     : "http://localhost:5173,http://127.0.0.1:5173");
-const frontendOrigins = (frontendOriginValue ?? "")
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+const frontendOrigins = toFrontendOrigins(frontendOriginValue);
 const adminEmails = (process.env.ADMIN_EMAILS ?? "")
   .split(",")
   .map((email) => email.trim().toLowerCase())
