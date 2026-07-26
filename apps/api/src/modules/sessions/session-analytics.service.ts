@@ -2,6 +2,7 @@ import {
   findSessionAnswerAnalytics,
   insertExamResult
 } from "./session-analytics.repository.js";
+import type { SessionAnswerAnalyticsRecord } from "./session-analytics.repository.js";
 import type { SessionRecord } from "./session.repository.js";
 import type { SessionResult } from "./session.types.js";
 
@@ -19,15 +20,22 @@ export const recordExamResultAfterCompletion = (
 
   const answers = findSessionAnswerAnalytics(session.session_id);
   const mathAnswers = answers.filter(
-    (answer) => answer.subject === "quantitative"
+    (answer: SessionAnswerAnalyticsRecord) =>
+      answer.subject === "quantitative"
   );
-  const arabicAnswers = answers.filter((answer) => answer.subject === "verbal");
+  const arabicAnswers = answers.filter(
+    (answer: SessionAnswerAnalyticsRecord) => answer.subject === "verbal"
+  );
   const mathScore = toPercentage(
-    mathAnswers.filter((answer) => answer.is_correct === 1).length,
+    mathAnswers.filter(
+      (answer: SessionAnswerAnalyticsRecord) => answer.is_correct === 1
+    ).length,
     mathAnswers.length
   );
   const arabicScore = toPercentage(
-    arabicAnswers.filter((answer) => answer.is_correct === 1).length,
+    arabicAnswers.filter(
+      (answer: SessionAnswerAnalyticsRecord) => answer.is_correct === 1
+    ).length,
     arabicAnswers.length
   );
   const finalScore = (mathScore + arabicScore) / 2;
