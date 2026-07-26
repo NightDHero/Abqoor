@@ -1,4 +1,4 @@
-import { Router, type Response } from "express";
+import { Router, type Request, type Response } from "express";
 import { requireAuth } from "../auth/auth.middleware.js";
 import {
   getSessionResult,
@@ -18,7 +18,7 @@ const handleSessionError = (error: unknown, response: Response) => {
   response.status(500).json({ message: "Session request failed." });
 };
 
-sessionRouter.post("/start", requireAuth, (request, response) => {
+sessionRouter.post("/start", requireAuth, (request: Request, response: Response) => {
   try {
     const body = (request.body ?? {}) as {
       questionLimit?: unknown;
@@ -34,7 +34,7 @@ sessionRouter.post("/start", requireAuth, (request, response) => {
   }
 });
 
-sessionRouter.post("/submit", requireAuth, (request, response) => {
+sessionRouter.post("/submit", requireAuth, (request: Request, response: Response) => {
   try {
     const body = request.body as {
       sessionId?: unknown;
@@ -62,7 +62,7 @@ sessionRouter.post("/submit", requireAuth, (request, response) => {
   }
 });
 
-sessionRouter.get("/:id/result", requireAuth, (request, response) => {
+sessionRouter.get("/:id/result", requireAuth, (request: Request, response: Response) => {
   try {
     const sessionId = request.params.id;
 
