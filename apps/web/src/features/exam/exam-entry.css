@@ -7,6 +7,11 @@
   color: var(--world-white);
 }
 
+.exam-entry-app-shell.navigation-app-shell {
+  padding-left: 0;
+  padding-bottom: 0;
+}
+
 .exam-entry-app-shell .app-main {
   width: 100%;
   max-width: none;
@@ -15,9 +20,11 @@
 }
 
 .exam-entry-app-shell .exam-entry-page {
+  display: grid;
   min-height: 100svh;
   background: transparent;
   padding: clamp(24px, 4vw, 52px);
+  place-items: center;
 }
 
 .exam-entry-app-shell .exam-entry-page::before {
@@ -39,7 +46,7 @@
 .exam-entry-app-shell .exam-entry-layout {
   grid-template-columns: minmax(0, 0.96fr) minmax(0, 1.04fr);
   gap: 1px;
-  width: min(100%, 1440px);
+  width: min(calc(100% - clamp(96px, 8vw, 144px)), 1440px);
   min-height: min(720px, calc(100svh - 104px));
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 12%);
@@ -149,8 +156,8 @@
 }
 
 .exam-entry-app-shell .exam-entry-start {
-  min-width: 150px;
-  min-height: 52px;
+  min-width: min(100%, 220px);
+  min-height: 56px;
   border: 1px solid rgb(16 128 148 / 45%);
   border-radius: 13px;
   background: linear-gradient(135deg, #1db7af, #188da5);
@@ -168,21 +175,50 @@
 @media (max-width: 1050px) {
   .exam-entry-app-shell .exam-entry-layout {
     grid-template-columns: 1fr;
+    width: min(calc(100% - 92px), 760px);
   }
 }
 
 @media (max-width: 719px) {
+  .exam-entry-app-shell.navigation-app-shell {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+
   .exam-entry-app-shell .exam-entry-page {
-    padding: 72px 14px 24px;
+    min-height: calc(100svh - 72px - env(safe-area-inset-bottom));
+    padding: 20px 14px 24px;
   }
 
   .exam-entry-app-shell .exam-entry-layout {
+    width: 100%;
     border-radius: 18px;
   }
 
   .exam-entry-app-shell .exam-entry-instructions,
   .exam-entry-app-shell .exam-entry-history {
     padding: 28px 20px;
+  }
+
+  .exam-entry-app-shell .exam-entry-instructions h1 {
+    margin-bottom: 20px;
+    font-size: 1.45rem;
+  }
+
+  .exam-entry-app-shell .exam-entry-instruction-list {
+    gap: 7px;
+    margin-top: 0;
+    font-size: 0.8rem;
+    line-height: 1.72;
+  }
+
+  .exam-entry-app-shell .exam-entry-goodluck {
+    margin-top: 18px;
+    font-size: 0.82rem;
+  }
+
+  .exam-entry-app-shell .exam-entry-start {
+    min-height: 52px;
+    margin-top: 14px;
   }
 
   .exam-entry-app-shell .exam-entry-history-header,

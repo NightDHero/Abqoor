@@ -291,7 +291,7 @@
   position: relative;
   display: grid;
   min-width: 0;
-  min-height: clamp(320px, 40vh, 480px);
+  min-height: clamp(440px, 62vh, 820px);
   margin: 0;
   background:
     radial-gradient(circle at 50% 18%, rgb(103 220 231 / 5%), transparent 34rem),
@@ -304,7 +304,7 @@
   display: block;
   width: min(100%, 1480px);
   max-width: 100%;
-  max-height: min(40vh, 480px);
+  max-height: min(68vh, 820px);
   margin: 0;
   border: 0;
   border-radius: 10px;
@@ -852,7 +852,7 @@
 
   .product-app-shell .solving-question-stage .question-image {
     width: 100%;
-    max-height: 58vh;
+    max-height: 64svh;
     border-radius: 8px;
   }
 
