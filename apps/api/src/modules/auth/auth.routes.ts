@@ -1,6 +1,7 @@
 import type { CookieOptions, Request, Response } from "express";
 import { Router } from "express";
 import { env } from "../../config/env.js";
+import { isUserAdministrator } from "../admin/admin.service.js";
 import { getStudentProfileIdentity } from "../profile/profile.repository.js";
 import { requireAuth } from "./auth.middleware.js";
 import {
@@ -32,7 +33,8 @@ const toAuthResponseUser = (user: UserRecord) => {
   return toPublicUser(
     user,
     profileIdentity.profileCompleted,
-    profileIdentity.username
+    profileIdentity.username,
+    isUserAdministrator(user.id, user.email)
   );
 };
 

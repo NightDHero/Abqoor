@@ -130,7 +130,164 @@ const migrateStudentProfileIdentity = (db: Database.Database) => {
   `);
 };
 
+const migrateAdminAccounts = (db: Database.Database) => {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS admin_accounts (
+      user_id TEXT PRIMARY KEY,
+      granted_by TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (granted_by) REFERENCES users(id) ON DELETE SET NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_admin_accounts_created_at
+    ON admin_accounts(created_at);
+  `);
+};
+
+const createAdminImportTables = (db: Database.Database) => {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS import_jobs (
+      id TEXT PRIMARY KEY,
+      source_type TEXT NOT NULL CHECK (source_type IN ('pdf', 'images')),
+      status TEXT NOT NULL CHECK (status IN (
+        'analyzing', 'ready', 'importing', 'completed', 'failed', 'cancelled', 'rolled_back'
+      )),
+      start_question_number INTEGER,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      created_by TEXT NOT NULL,
+      excel_filename TEXT NOT NULL,
+      media_filename TEXT NOT NULL,
+      total_pages INTEGER NOT NULL,
+      total_questions INTEGER NOT NULL,
+      success_count INTEGER NOT NULL,
+      failure_count INTEGER NOT NULL,
+      new_count INTEGER NOT NULL,
+      duplicate_count INTEGER NOT NULL,
+      created_count INTEGER NOT NULL,
+      replaced_count INTEGER NOT NULL,
+      skipped_count INTEGER NOT NULL,
+      processed_count INTEGER NOT NULL,
+      error_count INTEGER NOT NULL,
+      sheet_summary_json TEXT NOT NULL,
+      media_summary_json TEXT NOT NULL,
+      issues_json TEXT NOT NULL,
+      error_message TEXT,
+      confirmed_at TEXT,
+      completed_at TEXT,
+      rolled_back_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS import_job_items (
+      import_job_id TEXT NOT NULL,
+      question_number INTEGER NOT NULL,
+      question_id TEXT NOT NULL,
+      sheet_name TEXT NOT NULL,
+      excel_row_number INTEGER NOT NULL,
+      question_text TEXT NOT NULL,
+      options_json TEXT NOT NULL,
+      correct_answer TEXT,
+      subject TEXT NOT NULL,
+      topic TEXT NOT NULL,
+      topic_id TEXT NOT NULL,
+      difficulty INTEGER NOT NULL,
+      page_number INTEGER,
+      source_image_name TEXT,
+      image_status TEXT NOT NULL CHECK (image_status IN ('matched', 'missing')),
+      validation_status TEXT NOT NULL CHECK (validation_status IN ('valid', 'error')),
+      errors_json TEXT NOT NULL,
+      is_duplicate INTEGER NOT NULL CHECK (is_duplicate IN (0, 1)),
+      duplicate_action TEXT CHECK (duplicate_action IS NULL OR duplicate_action IN ('replace', 'skip', 'stop')),
+      outcome TEXT NOT NULL CHECK (outcome IN ('pending', 'created', 'replaced', 'skipped', 'failed')),
+      previous_question_json TEXT,
+      applied_question_json TEXT,
+      previous_image_existed INTEGER NOT NULL DEFAULT 0 CHECK (previous_image_existed IN (0, 1)),
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (import_job_id, question_number),
+      FOREIGN KEY (import_job_id) REFERENCES import_jobs(id) ON DELETE CASCADE
+    );
+  `);
+};
+
+const migrateAdminImportSystem = (db: Database.Database) => {
+  addColumnIfMissing(db, "questions", "import_job_id", "TEXT");
+
+  const importJobColumns = getColumns(db, "import_jobs");
+  const isLegacyImportTable =
+    importJobColumns.length > 0 &&
+    !importJobColumns.some((column) => column.name === "updated_at");
+
+  if (isLegacyImportTable) {
+    const migrate = db.transaction(() => {
+      db.exec("DROP TABLE IF EXISTS import_job_items");
+      db.exec("ALTER TABLE import_jobs RENAME TO import_jobs_legacy");
+      createAdminImportTables(db);
+      db.exec(`
+        INSERT INTO import_jobs (
+          id, source_type, status, start_question_number, created_at, updated_at,
+          created_by, excel_filename, media_filename, total_pages, total_questions,
+          success_count, failure_count, new_count, duplicate_count, created_count,
+          replaced_count, skipped_count, processed_count, error_count,
+          sheet_summary_json, media_summary_json, issues_json, error_message,
+          confirmed_at, completed_at, rolled_back_at
+        )
+        SELECT
+          id,
+          CASE WHEN source_type = 'pdf' THEN 'pdf' ELSE 'images' END,
+          CASE
+            WHEN status = 'preview' THEN 'ready'
+            WHEN status = 'committed' THEN 'completed'
+            ELSE status
+          END,
+          start_question_number,
+          created_at,
+          created_at,
+          created_by,
+          '',
+          '',
+          total_pages,
+          total_pages,
+          success_count,
+          failure_count,
+          success_count,
+          0,
+          CASE WHEN status = 'committed' THEN success_count ELSE 0 END,
+          0,
+          0,
+          success_count + failure_count,
+          failure_count,
+          '{}',
+          '{}',
+          '[]',
+          NULL,
+          CASE WHEN status = 'committed' THEN created_at ELSE NULL END,
+          CASE WHEN status = 'committed' THEN created_at ELSE NULL END,
+          NULL
+        FROM import_jobs_legacy;
+
+        DROP TABLE import_jobs_legacy;
+      `);
+    });
+
+    migrate();
+  } else {
+    createAdminImportTables(db);
+  }
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_questions_import_job_id ON questions(import_job_id);
+    CREATE INDEX IF NOT EXISTS idx_import_jobs_created_at ON import_jobs(created_at);
+    CREATE INDEX IF NOT EXISTS idx_import_job_items_question_id ON import_job_items(question_id);
+    CREATE INDEX IF NOT EXISTS idx_import_job_items_outcome ON import_job_items(outcome);
+  `);
+};
+
 export const runDatabaseMigrations = (db: Database.Database) => {
   migrateStudentProfileIdentity(db);
+  migrateAdminAccounts(db);
+  migrateAdminImportSystem(db);
   migrateQuestionLearningFields(db);
 };

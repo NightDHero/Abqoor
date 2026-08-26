@@ -15,6 +15,13 @@ const createUserStatement = db.prepare(`
   VALUES (@id, @email, @passwordHash, @createdAt, @updatedAt)
 `);
 
+const updateUserPasswordHashStatement = db.prepare(`
+  UPDATE users
+  SET password_hash = @passwordHash,
+      updated_at = @updatedAt
+  WHERE id = @id
+`);
+
 export const findUserByEmail = (email: string) => {
   return findUserByEmailStatement.get(email.toLowerCase()) ?? null;
 };
@@ -43,3 +50,17 @@ export const createUser = (email: string, passwordHash: string) => {
   return createdUser;
 };
 
+export const updateUserPasswordHash = (userId: string, passwordHash: string) => {
+  updateUserPasswordHashStatement.run({
+    id: userId,
+    passwordHash,
+    updatedAt: new Date().toISOString()
+  });
+
+  const updatedUser = findUserById(userId);
+  if (!updatedUser) {
+    throw new Error("User password update failed.");
+  }
+
+  return updatedUser;
+};

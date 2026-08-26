@@ -1,9 +1,13 @@
 import { useState, type ReactNode } from "react";
 import { AppShell } from "./components/layout/AppShell";
-import { PageContainer } from "./components/layout/PageContainer";
 import { ProtectedRoute } from "./components/routing/ProtectedRoute";
 import { RedirectTo } from "./components/routing/RedirectTo";
+import { AdminAccountsPage } from "./features/admin/AdminAccountsPage";
 import { AdminImportPage } from "./features/admin/AdminImportPage";
+import { AdminImportDetailPage } from "./features/admin/AdminImportDetailPage";
+import { AdminImportHistoryPage } from "./features/admin/AdminImportHistoryPage";
+import { AdminOverviewPage } from "./features/admin/AdminOverviewPage";
+import { AdminQuestionBankPage } from "./features/admin/AdminQuestionBankPage";
 import { AdminValidationPage } from "./features/admin/AdminValidationPage";
 import { AuthPage } from "./features/auth/AuthPage";
 import { ExamEntryDialog } from "./features/exam/ExamEntryDialog";
@@ -108,6 +112,9 @@ export default function App() {
     </ProtectedRoute>
   );
 
+  const renderAdminPage = (children: ReactNode) =>
+    renderProtectedPage(auth.user?.isAdmin ? children : <NotFoundPage />);
+
   if (path === "/career") {
     return renderProtectedPage(
       <CareerPage onLogout={auth.logout} user={auth.user} />
@@ -182,29 +189,38 @@ export default function App() {
   }
 
   if (path === "/admin/validation") {
-    return renderProtectedPage(<AdminValidationPage />);
+    return renderAdminPage(<AdminValidationPage />);
   }
 
   if (path === "/admin/import") {
-    return renderProtectedPage(<AdminImportPage />);
+    return renderAdminPage(<AdminImportPage />);
+  }
+
+  if (path === "/admin/questions") {
+    return renderAdminPage(<AdminQuestionBankPage />);
+  }
+
+  if (path === "/admin/imports") {
+    return renderAdminPage(<AdminImportHistoryPage />);
+  }
+
+  if (path === "/admin/accounts") {
+    return renderAdminPage(<AdminAccountsPage />);
+  }
+
+  const adminImportDetailMatch = /^\/admin\/imports\/([A-Za-z0-9-]+)$/.exec(path);
+  if (adminImportDetailMatch) {
+    return renderAdminPage(
+      <AdminImportDetailPage jobId={adminImportDetailMatch[1]} />
+    );
+  }
+
+  if (path === "/admin") {
+    return renderAdminPage(<AdminOverviewPage />);
   }
 
   if (path.startsWith("/admin")) {
-    return renderProtectedPage(
-      <PageContainer
-        eyebrow="أدوات الإدارة"
-        title="صفحة إدارية"
-      >
-        <div className="action-row">
-          <button type="button" onClick={() => navigateTo("/admin/validation")}>
-            لوحة التحقق
-          </button>
-          <button type="button" onClick={() => navigateTo("/admin/import")}>
-            الاستيراد
-          </button>
-        </div>
-      </PageContainer>
-    );
+    return renderAdminPage(<NotFoundPage />);
   }
 
   return <NotFoundPage />;

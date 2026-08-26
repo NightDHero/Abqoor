@@ -12,6 +12,7 @@ export type PublicUser = {
   createdAt: string;
   profileCompleted: boolean;
   username: string | null;
+  isAdmin: boolean;
 };
 
 export type AuthTokenPayload = {
@@ -22,11 +23,13 @@ export type AuthTokenPayload = {
 export const toPublicUser = (
   user: UserRecord,
   profileCompleted = false,
-  username: string | null = null
+  username: string | null = null,
+  isAdmin = false
 ): PublicUser => ({
   id: user.id,
   email: user.email,
   createdAt: user.created_at,
   profileCompleted,
-  username
+  username,
+  isAdmin
 });

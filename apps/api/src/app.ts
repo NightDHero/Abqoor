@@ -3,7 +3,9 @@ import cors, { type CorsOptions } from "cors";
 import type { ErrorRequestHandler } from "express";
 import express from "express";
 import { env } from "./config/env.js";
+import { adminRouter } from "./modules/admin/admin.routes.js";
 import { importerRouter } from "./modules/admin/importer/importer.routes.js";
+import { recoverInterruptedImportJobs } from "./modules/admin/importer/import-job.repository.js";
 import { validationRouter } from "./modules/admin/validation/validation.routes.js";
 import { requireAuth } from "./modules/auth/auth.middleware.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
@@ -47,6 +49,8 @@ const corsOptions: CorsOptions = {
 export const createApp = () => {
   const app = express();
 
+  recoverInterruptedImportJobs();
+
   if (env.isProduction) {
     app.set("trust proxy", 1);
   }
@@ -65,6 +69,7 @@ export const createApp = () => {
   app.use("/review", requireAuth, requireCompletedProfile, reviewRouter);
   app.use("/sessions", requireAuth, requireCompletedProfile, sessionRouter);
   app.use("/exams", requireAuth, requireCompletedProfile, examRouter);
+  app.use("/admin", adminRouter);
   app.use("/admin/import", importerRouter);
   app.use("/admin/validation", validationRouter);
   app.use(jsonErrorHandler);

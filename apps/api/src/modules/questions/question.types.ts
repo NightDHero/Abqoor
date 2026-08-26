@@ -24,6 +24,7 @@ export type QuestionRecord = {
   source: QuestionSource;
   version: number;
   explanation_video_url: string | null;
+  import_job_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -46,6 +47,7 @@ export type Question = {
   source: QuestionSource;
   version: number;
   explanationVideoUrl?: string;
+  importJobId?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -64,6 +66,7 @@ export type QuestionWriteInput = {
   difficultyScore?: number;
   source: QuestionSource;
   version: number;
+  importJobId?: string;
 };
 
 export type QuestionFilters = {
@@ -94,6 +97,7 @@ export const toQuestion = (record: QuestionRecord): Question => ({
   source: record.source,
   version: record.version,
   explanationVideoUrl: record.explanation_video_url ?? undefined,
+  importJobId: record.import_job_id ?? undefined,
   createdAt: record.created_at,
   updatedAt: record.updated_at
 });

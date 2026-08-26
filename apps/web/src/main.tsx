@@ -11,6 +11,7 @@ import "./features/browser/solving-workspace.css";
 import "./components/ui/immersive-question-feed.css";
 import "./experience-system.css";
 import "./features/exam/exam-entry.css";
+import "./features/admin/admin-question-management.css";
 
 createRoot(document.getElementById("root") as HTMLElement).render(
   <StrictMode>

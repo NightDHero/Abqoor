@@ -49,7 +49,7 @@ export const parseQuestionNumber = (value: unknown) => {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 };
 
-const parseCorrectAnswer = (value: unknown) => {
+export const parseCorrectAnswer = (value: unknown) => {
   const answer = String(value ?? "")
     .trim()
     .toUpperCase();

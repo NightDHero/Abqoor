@@ -4,6 +4,7 @@ export type User = {
   createdAt: string;
   profileCompleted: boolean;
   username: string | null;
+  isAdmin: boolean;
 };
 
 export type AuthMode = "login" | "register";

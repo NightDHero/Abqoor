@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import { isUserAdministrator } from "../admin/admin.service.js";
 import { env } from "../../config/env.js";
 import { getStudentProfileIdentity } from "../profile/profile.repository.js";
 import { getUserFromToken } from "./auth.service.js";
@@ -37,7 +38,8 @@ export const requireAuth = (
     request.user = toPublicUser(
       user,
       profileIdentity.profileCompleted,
-      profileIdentity.username
+      profileIdentity.username,
+      isUserAdministrator(user.id, user.email)
     );
     next();
   } catch {

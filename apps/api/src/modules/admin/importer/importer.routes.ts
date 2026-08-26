@@ -1,205 +1,240 @@
-import { Router, type Response } from "express";
-import multer from "multer";
-import { requireImportAdmin } from "./admin-import.middleware.js";
-import { ImporterError, importPdfQuestions } from "./question-importer.service.js";
+import { randomUUID } from "node:crypto";
 import {
-  findTopicDefinition,
-  isLearningSubject,
-  toLegacyQuestionSubject,
-  toLearningSubject
-} from "../../learning-taxonomy/taxonomy.js";
+  closeSync,
+  openSync,
+  readFileSync,
+  readSync,
+  unlinkSync
+} from "node:fs";
+import { Router, type NextFunction, type Request, type Response } from "express";
+import multer from "multer";
+import {
+  ensureQuestionImportUploadDirectory,
+  questionImportUploadDirectory
+} from "../../media/media.service.js";
+import {
+  AdminImportError,
+  analyzeQuestionImport,
+  cancelQuestionImport,
+  confirmQuestionImport,
+  getAdminQuestionBank,
+  getImportHistory,
+  getImportJobDetail,
+  rollbackQuestionImport
+} from "./admin-import.service.js";
+import { requireImportAdmin } from "./admin-import.middleware.js";
 import type {
-  ImportMode,
-  MetadataSourceType,
-  PageRange
+  ConfirmImportRequest,
+  UploadedImportFile
 } from "./importer.types.js";
 
 export const importerRouter = Router();
 
 const importerUploadFileSizeLimitBytes = 120 * 1024 * 1024;
+ensureQuestionImportUploadDirectory();
 
 const upload = multer({
-  storage: multer.memoryStorage(),
+  storage: multer.diskStorage({
+    destination: (_request, _file, callback) => {
+      ensureQuestionImportUploadDirectory();
+      callback(null, questionImportUploadDirectory);
+    },
+    filename: (_request, _file, callback) => callback(null, randomUUID())
+  }),
   limits: {
-    files: 2,
+    fields: 20,
+    files: 2002,
     fileSize: importerUploadFileSizeLimitBytes
   }
 });
 
-const fields = upload.fields([
-  { name: "pdf", maxCount: 1 },
+const analyzeFields = upload.fields([
   { name: "excel", maxCount: 1 },
-  { name: "excelFile", maxCount: 1 }
+  { name: "excelFile", maxCount: 1 },
+  { name: "pdf", maxCount: 1 },
+  { name: "images", maxCount: 2000 }
 ]);
 
-const getField = (body: Record<string, unknown>, key: string) => {
-  const value = body[key];
-  return typeof value === "string" ? value.trim() : undefined;
+const readFileHeader = (path: string, byteCount: number) => {
+  const descriptor = openSync(path, "r");
+  const header = Buffer.alloc(byteCount);
+  try {
+    const bytesRead = readSync(descriptor, header, 0, byteCount, 0);
+    return header.subarray(0, bytesRead);
+  } finally {
+    closeSync(descriptor);
+  }
 };
+
+const toUploadedFile = (
+  file: Express.Multer.File,
+  options: { headerOnly?: boolean } = {}
+): UploadedImportFile => ({
+  buffer: options.headerOnly
+    ? readFileHeader(file.path, 8)
+    : readFileSync(file.path),
+  mimetype: file.mimetype,
+  originalname: file.originalname,
+  temporaryPath: file.path
+});
+
+const uploadedFiles = (request: Request) => {
+  const files = request.files as
+    | Record<string, Express.Multer.File[]>
+    | undefined;
+  return Object.values(files ?? {}).flat();
+};
+
+const cleanupUploadedFiles = (request: Request) => {
+  for (const file of uploadedFiles(request)) {
+    try {
+      unlinkSync(file.path);
+    } catch {
+      // The upload may already have been removed after a failed multipart request.
+    }
+  }
+};
+
+const getField = (
+  files: Record<string, Express.Multer.File[]> | undefined,
+  name: string
+) => files?.[name]?.[0];
 
 const toPositiveInteger = (value: unknown) => {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 };
 
-const toBoolean = (value: unknown) => {
-  if (typeof value === "boolean") {
-    return value;
-  }
-
-  if (typeof value !== "string") {
-    return false;
-  }
-
-  return ["true", "1", "yes", "on"].includes(value.toLowerCase());
-};
-
-const parsePageRange = (body: Record<string, unknown>): PageRange | undefined => {
-  const pageRange = getField(body, "pageRange");
-
-  if (pageRange) {
-    const parsed = JSON.parse(pageRange) as { from?: unknown; to?: unknown };
-    const from = toPositiveInteger(parsed.from);
-    const to = toPositiveInteger(parsed.to);
-
-    if (from === null || to === null) {
-      throw new ImporterError("pageRange.from and pageRange.to must be positive integers.");
-    }
-
-    return { from, to };
-  }
-
-  const from = toPositiveInteger(getField(body, "pageRangeFrom"));
-  const to = toPositiveInteger(getField(body, "pageRangeTo"));
-
-  if (from === null && to === null) {
-    return undefined;
-  }
-
-  if (from === null || to === null) {
-    throw new ImporterError("Both pageRangeFrom and pageRangeTo are required.");
-  }
-
-  return { from, to };
-};
-
-const getUploadedFile = (
-  files: Record<string, Express.Multer.File[]> | undefined,
-  field: string
-) => {
-  return files?.[field]?.[0];
-};
-
-const getMetadataSource = (
-  body: Record<string, unknown>,
-  files: Record<string, Express.Multer.File[]> | undefined
-): MetadataSourceType => {
-  const requestedSource = getField(body, "metadataSource");
-
-  if (requestedSource === "excel") {
-    return requestedSource;
-  }
-
-  if (requestedSource && requestedSource !== "excel") {
-    throw new ImporterError("Excel is the only spreadsheet import source for the MVP.");
-  }
-
-  if (getUploadedFile(files, "excel") || getUploadedFile(files, "excelFile")) {
-    return "excel";
-  }
-
-  throw new ImporterError("An Excel workbook is required for spreadsheet metadata.");
-};
-
 const handleRouteError = (error: unknown, response: Response) => {
-  if (error instanceof ImporterError) {
+  if (error instanceof AdminImportError) {
     response.status(error.statusCode).json({ message: error.message });
     return;
   }
 
-  if (error instanceof SyntaxError) {
-    response.status(400).json({ message: "Invalid pageRange JSON." });
+  if (error instanceof multer.MulterError) {
+    const message =
+      error.code === "LIMIT_FILE_SIZE"
+        ? "حجم الملف يتجاوز الحد الأقصى المسموح وهو 120MB."
+        : `تعذر قبول الملفات المرفوعة: ${error.message}`;
+    response.status(400).json({ message });
     return;
   }
 
-  response.status(500).json({ message: "Import request failed." });
+  console.error("Admin import request failed", error);
+  response.status(500).json({ message: "تعذر تنفيذ طلب الاستيراد." });
 };
 
-importerRouter.post("/pdf", requireImportAdmin, fields, async (request, response) => {
+importerRouter.use(requireImportAdmin);
+
+const acceptAnalyzeUpload = (
+  request: Request,
+  response: Response,
+  next: NextFunction
+) => {
+  analyzeFields(request, response, (error) => {
+    if (error) {
+      cleanupUploadedFiles(request);
+      handleRouteError(error, response);
+      return;
+    }
+    next();
+  });
+};
+
+importerRouter.post("/analyze", acceptAnalyzeUpload, async (request, response) => {
   try {
     const files = request.files as
       | Record<string, Express.Multer.File[]>
       | undefined;
-    const pdf = getUploadedFile(files, "pdf");
+    const excel = getField(files, "excel") ?? getField(files, "excelFile");
+    const pdf = getField(files, "pdf");
+    const images = files?.images ?? [];
 
-    if (!pdf) {
-      throw new ImporterError("PDF file is required.");
+    if (!excel) {
+      throw new AdminImportError("ملف Excel مطلوب.");
     }
 
-    const body = request.body as Record<string, unknown>;
-    const mode = getField(body, "mode") as ImportMode | undefined;
     const startQuestionNumber = toPositiveInteger(
-      getField(body, "startQuestionNumber")
+      (request.body as Record<string, unknown>).startQuestionNumber
     );
-    const difficulty = toPositiveInteger(
-      getField(body, "difficultyScore") ?? getField(body, "difficulty")
-    );
-    const requestedSubject =
-      getField(body, "subjectId") ?? getField(body, "subject") ?? "arabic";
-    const subjectId = toLearningSubject(requestedSubject);
-    const topicId = getField(body, "topicId");
-    const topic = getField(body, "topic");
-    const subtopicId = getField(body, "subtopicId");
-    const metadataSource = getMetadataSource(body, files);
-    const excel = getUploadedFile(files, "excel") ?? getUploadedFile(files, "excelFile");
-
-    if (!mode) {
-      throw new ImporterError("mode is required.");
-    }
-
-    if (startQuestionNumber === null) {
-      throw new ImporterError("startQuestionNumber must be a positive integer.");
-    }
-
-    if (!subjectId || !isLearningSubject(subjectId)) {
-      throw new ImporterError("subjectId must be math or arabic.");
-    }
-
-    if (!topic && !topicId) {
-      throw new ImporterError("topic or topicId is required.");
-    }
-
-    if (difficulty === null) {
-      throw new ImporterError("difficulty must be an integer from 1 to 10.");
-    }
-
-    const topicDefinition = findTopicDefinition(subjectId, topicId ?? topic);
-    const resolvedTopic = topic ?? topicDefinition?.displayNameAr ?? topicId;
-
-    if (!resolvedTopic) {
-      throw new ImporterError("topic or topicId is required.");
-    }
-
-    const result = await importPdfQuestions({
-      pdfBuffer: pdf.buffer,
-      startQuestionNumber,
-      pageRange: parsePageRange(body),
-      overwriteExisting: toBoolean(getField(body, "overwriteExisting")),
-      mode,
-      metadataSource,
-      excelBuffer: excel?.buffer,
-      subject: toLegacyQuestionSubject(subjectId),
-      subjectId,
-      topic: resolvedTopic,
-      topicId: topicDefinition?.slug ?? topicId,
-      subtopicId,
-      difficulty,
-      difficultyScore: difficulty,
-      createdBy: request.user?.email ?? "unknown"
+    const detail = await analyzeQuestionImport({
+      createdBy: request.user?.email ?? "unknown",
+      excel: toUploadedFile(excel),
+      pdf: pdf ? toUploadedFile(pdf) : undefined,
+      images: images.map((image) =>
+        toUploadedFile(image, { headerOnly: true })
+      ),
+      startQuestionNumber: startQuestionNumber ?? undefined
     });
 
-    response.status(200).json(result);
+    response.status(200).json(detail);
+  } catch (error) {
+    handleRouteError(error, response);
+  } finally {
+    cleanupUploadedFiles(request);
+  }
+});
+
+importerRouter.get("/questions", (request, response) => {
+  try {
+    const page = toPositiveInteger(request.query.page) ?? 1;
+    const requestedPageSize = toPositiveInteger(request.query.pageSize) ?? 50;
+    const pageSize = Math.min(requestedPageSize, 100);
+    const sort = request.query.sort === "desc" ? "desc" : "asc";
+    const query =
+      typeof request.query.query === "string" ? request.query.query : undefined;
+
+    response.status(200).json(
+      getAdminQuestionBank({ page, pageSize, query, sort })
+    );
   } catch (error) {
     handleRouteError(error, response);
   }
+});
+
+importerRouter.get("/jobs", (_request, response) => {
+  response.status(200).json(getImportHistory());
+});
+
+importerRouter.get("/jobs/:id", (request, response) => {
+  try {
+    response.status(200).json(getImportJobDetail(request.params.id));
+  } catch (error) {
+    handleRouteError(error, response);
+  }
+});
+
+importerRouter.post("/jobs/:id/confirm", (request, response) => {
+  try {
+    const detail = confirmQuestionImport(
+      request.params.id,
+      (request.body ?? {}) as ConfirmImportRequest
+    );
+    response.status(202).json(detail);
+  } catch (error) {
+    handleRouteError(error, response);
+  }
+});
+
+importerRouter.post("/jobs/:id/cancel", (request, response) => {
+  try {
+    response.status(200).json(cancelQuestionImport(request.params.id));
+  } catch (error) {
+    handleRouteError(error, response);
+  }
+});
+
+importerRouter.post("/jobs/:id/rollback", (request, response) => {
+  try {
+    response.status(200).json(rollbackQuestionImport(request.params.id));
+  } catch (error) {
+    handleRouteError(error, response);
+  }
+});
+
+importerRouter.post("/pdf", (_request, response) => {
+  response.status(410).json({
+    message:
+      "تم استبدال الاستيراد المباشر بمسار التحليل والتأكيد الآمن. استخدم /admin/import/analyze ثم أكّد العملية."
+  });
 });

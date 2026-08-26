@@ -24,6 +24,7 @@ const insertQuestionStatement = db.prepare(`
     difficulty_score,
     source,
     version,
+    import_job_id,
     created_at,
     updated_at
   )
@@ -41,6 +42,7 @@ const insertQuestionStatement = db.prepare(`
     @difficultyScore,
     @source,
     @version,
+    @importJobId,
     @createdAt,
     @updatedAt
   )
@@ -61,6 +63,7 @@ const upsertQuestionStatement = db.prepare(`
     difficulty_score,
     source,
     version,
+    import_job_id,
     created_at,
     updated_at
   )
@@ -78,6 +81,7 @@ const upsertQuestionStatement = db.prepare(`
     @difficultyScore,
     @source,
     @version,
+    @importJobId,
     @createdAt,
     @updatedAt
   )
@@ -94,7 +98,84 @@ const upsertQuestionStatement = db.prepare(`
     difficulty_score = excluded.difficulty_score,
     source = excluded.source,
     version = excluded.version,
+    import_job_id = excluded.import_job_id,
     updated_at = excluded.updated_at
+`);
+
+const restoreQuestionStatement = db.prepare(`
+  INSERT INTO questions (
+    id,
+    question_image_url,
+    correct_answer,
+    subject,
+    subject_id,
+    topic,
+    topic_id,
+    subtopic,
+    subtopic_id,
+    difficulty,
+    difficulty_score,
+    estimated_time_seconds,
+    skill_tags,
+    importance_weight,
+    source,
+    version,
+    explanation_video_url,
+    import_job_id,
+    created_at,
+    updated_at
+  )
+  VALUES (
+    @id,
+    @question_image_url,
+    @correct_answer,
+    @subject,
+    @subject_id,
+    @topic,
+    @topic_id,
+    @subtopic,
+    @subtopic_id,
+    @difficulty,
+    @difficulty_score,
+    @estimated_time_seconds,
+    @skill_tags,
+    @importance_weight,
+    @source,
+    @version,
+    @explanation_video_url,
+    @import_job_id,
+    @created_at,
+    @updated_at
+  )
+  ON CONFLICT(id) DO UPDATE SET
+    question_image_url = excluded.question_image_url,
+    correct_answer = excluded.correct_answer,
+    subject = excluded.subject,
+    subject_id = excluded.subject_id,
+    topic = excluded.topic,
+    topic_id = excluded.topic_id,
+    subtopic = excluded.subtopic,
+    subtopic_id = excluded.subtopic_id,
+    difficulty = excluded.difficulty,
+    difficulty_score = excluded.difficulty_score,
+    estimated_time_seconds = excluded.estimated_time_seconds,
+    skill_tags = excluded.skill_tags,
+    importance_weight = excluded.importance_weight,
+    source = excluded.source,
+    version = excluded.version,
+    explanation_video_url = excluded.explanation_video_url,
+    import_job_id = excluded.import_job_id,
+    created_at = excluded.created_at,
+    updated_at = excluded.updated_at
+`);
+
+const deleteQuestionStatement = db.prepare("DELETE FROM questions WHERE id = ?");
+
+const questionReferenceCountStatement = db.prepare(`
+  SELECT
+    (SELECT COUNT(*) FROM session_answers WHERE question_id = @id) +
+    (SELECT COUNT(*) FROM official_exam_questions WHERE question_id = @id) +
+    (SELECT COUNT(*) FROM review_items WHERE question_id = @id) AS count
 `);
 
 export const findQuestionById = (id: string) => {
@@ -152,6 +233,7 @@ export const insertQuestion = (question: QuestionWriteInput) => {
   insertQuestionStatement.run({
     ...question,
     difficultyScore: question.difficultyScore ?? question.difficulty,
+    importJobId: question.importJobId ?? null,
     subjectId: question.subjectId ?? null,
     subtopicId: question.subtopicId ?? null,
     subtopic: question.subtopic ?? null,
@@ -170,6 +252,7 @@ export const upsertQuestion = (question: QuestionWriteInput) => {
   upsertQuestionStatement.run({
     ...question,
     difficultyScore: question.difficultyScore ?? question.difficulty,
+    importJobId: question.importJobId ?? null,
     subjectId: question.subjectId ?? null,
     subtopicId: question.subtopicId ?? null,
     subtopic: question.subtopic ?? null,
@@ -179,4 +262,18 @@ export const upsertQuestion = (question: QuestionWriteInput) => {
   });
 
   return findQuestionById(question.id);
+};
+
+export const restoreQuestionRecord = (question: QuestionRecord) => {
+  restoreQuestionStatement.run(question);
+  return findQuestionById(question.id);
+};
+
+export const deleteQuestion = (id: string) => {
+  return deleteQuestionStatement.run(id).changes > 0;
+};
+
+export const countQuestionReferences = (id: string) => {
+  const result = questionReferenceCountStatement.get({ id }) as { count: number };
+  return result.count;
 };

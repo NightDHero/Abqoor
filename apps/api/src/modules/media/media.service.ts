@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync
+} from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,6 +20,23 @@ export const questionMediaDirectory = resolve(
 );
 
 export const questionImagesPublicPath = "/question-images";
+
+export const questionImportMediaDirectory = resolve(
+  workspaceRoot,
+  "media",
+  "imports"
+);
+
+export const questionImportUploadDirectory = resolve(
+  questionImportMediaDirectory,
+  "_uploads"
+);
+
+const assertStorageIdentifier = (value: string, label: string) => {
+  if (!/^[A-Za-z0-9-]+$/.test(value)) {
+    throw new Error(`Invalid ${label}.`);
+  }
+};
 
 export const ensureQuestionMediaDirectory = () => {
   mkdirSync(questionMediaDirectory, { recursive: true });
@@ -48,4 +73,140 @@ export const writeQuestionImage = (
 
   mkdirSync(dirname(imagePath), { recursive: true });
   writeFileSync(imagePath, image);
+};
+
+export const readQuestionImage = (questionId: string) => {
+  const imagePath = getQuestionImagePath(questionId);
+  return existsSync(imagePath) ? readFileSync(imagePath) : null;
+};
+
+export const removeQuestionImage = (questionId: string) => {
+  const imagePath = getQuestionImagePath(questionId);
+  if (existsSync(imagePath)) {
+    unlinkSync(imagePath);
+  }
+};
+
+export const getImportMediaDirectory = (importJobId: string) => {
+  assertStorageIdentifier(importJobId, "import job id");
+  return resolve(questionImportMediaDirectory, importJobId);
+};
+
+export const getStagedQuestionImagePath = (
+  importJobId: string,
+  questionId: string
+) => {
+  assertStorageIdentifier(questionId, "question id");
+  return resolve(
+    getImportMediaDirectory(importJobId),
+    "staged",
+    getQuestionImageFileName(questionId)
+  );
+};
+
+export const getImportBackupImagePath = (
+  importJobId: string,
+  questionId: string
+) => {
+  assertStorageIdentifier(questionId, "question id");
+  return resolve(
+    getImportMediaDirectory(importJobId),
+    "backup",
+    getQuestionImageFileName(questionId)
+  );
+};
+
+export const stageQuestionImage = (
+  importJobId: string,
+  questionId: string,
+  image: Buffer
+) => {
+  const target = getStagedQuestionImagePath(importJobId, questionId);
+  mkdirSync(dirname(target), { recursive: true });
+  writeFileSync(target, image);
+  return target;
+};
+
+export const stageQuestionImageFile = (
+  importJobId: string,
+  questionId: string,
+  sourcePath: string
+) => {
+  const target = getStagedQuestionImagePath(importJobId, questionId);
+  mkdirSync(dirname(target), { recursive: true });
+  copyFileSync(sourcePath, target);
+  return target;
+};
+
+export const ensureQuestionImportUploadDirectory = () => {
+  mkdirSync(questionImportUploadDirectory, { recursive: true });
+};
+
+export const stagedQuestionImageExists = (
+  importJobId: string,
+  questionId: string
+) => existsSync(getStagedQuestionImagePath(importJobId, questionId));
+
+export const commitStagedQuestionImage = (
+  importJobId: string,
+  questionId: string
+) => {
+  const source = getStagedQuestionImagePath(importJobId, questionId);
+  if (!existsSync(source)) {
+    throw new Error(`Staged question image is missing: ${questionId}.png`);
+  }
+
+  ensureQuestionMediaDirectory();
+  copyFileSync(source, getQuestionImagePath(questionId));
+};
+
+export const backupQuestionImage = (
+  importJobId: string,
+  questionId: string
+) => {
+  const source = getQuestionImagePath(questionId);
+  if (!existsSync(source)) {
+    return false;
+  }
+
+  const backup = getImportBackupImagePath(importJobId, questionId);
+  mkdirSync(dirname(backup), { recursive: true });
+  copyFileSync(source, backup);
+  return true;
+};
+
+export const restoreQuestionImageBackup = (
+  importJobId: string,
+  questionId: string
+) => {
+  const backup = getImportBackupImagePath(importJobId, questionId);
+  if (!existsSync(backup)) {
+    throw new Error(`Question image backup is missing: ${questionId}.png`);
+  }
+
+  ensureQuestionMediaDirectory();
+  copyFileSync(backup, getQuestionImagePath(questionId));
+};
+
+export const removeImportMedia = (importJobId: string) => {
+  rmSync(getImportMediaDirectory(importJobId), {
+    force: true,
+    recursive: true
+  });
+};
+
+export const removeImportStaging = (importJobId: string) => {
+  rmSync(resolve(getImportMediaDirectory(importJobId), "staged"), {
+    force: true,
+    recursive: true
+  });
+};
+
+export const isPngBuffer = (buffer: Buffer) => {
+  return (
+    buffer.length >= 8 &&
+    buffer.subarray(0, 8).equals(
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+    )
+  );
 };

@@ -104,6 +104,7 @@ export function CareerDashboard({
 
       <HubAvatar
         email={user?.email}
+        isAdmin={user?.isAdmin}
         onLogout={onLogout}
         username={user?.username}
       />

@@ -3,10 +3,12 @@ import { navigateTo } from "../../utils/router";
 
 export function HubAvatar({
   email,
+  isAdmin,
   onLogout,
   username
 }: {
   email?: string;
+  isAdmin?: boolean;
   onLogout: () => void | Promise<void>;
   username?: string | null;
 }) {
@@ -91,6 +93,15 @@ export function HubAvatar({
           >
             زيارة الموقع
           </button>
+          {isAdmin ? (
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() => navigateFromMenu("/admin")}
+            >
+              لوحة الإدارة
+            </button>
+          ) : null}
           <button
             className="hub-profile-menu-logout"
             role="menuitem"

@@ -82,10 +82,10 @@ const getJobStatus = (
   successCount: number
 ): ImportJobStatus => {
   if (mode === "preview") {
-    return "preview";
+    return "ready";
   }
 
-  return successCount > 0 ? "committed" : "failed";
+  return successCount > 0 ? "completed" : "failed";
 };
 
 const failPage = (

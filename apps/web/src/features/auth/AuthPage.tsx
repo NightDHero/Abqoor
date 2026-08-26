@@ -13,7 +13,7 @@ const labels = {
   },
   register: {
     action: "إنشاء الحساب",
-    alternate: "لديك حساب؟ سجل الدخول",
+    alternate: "لدي حساب",
     eyebrow: "حساب جديد",
     title: "إنشاء حساب"
   }
