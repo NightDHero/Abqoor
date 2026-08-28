@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { authService } from "../../services/authService";
 import { HttpError } from "../../services/http";
 import type { AuthMode, User } from "../../types/auth";
@@ -7,17 +7,20 @@ import { navigateTo } from "../../utils/router";
 const labels = {
   login: {
     action: "تسجيل الدخول",
-    alternate: "إنشاء حساب جديد",
     eyebrow: "الدخول",
     title: "تسجيل الدخول"
   },
   register: {
     action: "إنشاء الحساب",
-    alternate: "لدي حساب",
     eyebrow: "حساب جديد",
     title: "إنشاء حساب"
   }
 };
+
+const authModeOptions: Array<{ label: string; value: AuthMode }> = [
+  { label: "تسجيل الدخول", value: "login" },
+  { label: "إنشاء حساب", value: "register" }
+];
 
 export function AuthPage({
   mode,
@@ -31,6 +34,19 @@ export function AuthPage({
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const copy = labels[mode];
+
+  useEffect(() => {
+    setError("");
+    setIsSubmitting(false);
+  }, [mode]);
+
+  const handleModeSelect = (nextMode: AuthMode) => {
+    if (nextMode === mode) {
+      return;
+    }
+
+    navigateTo(nextMode === "login" ? "/login" : "/register");
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -71,6 +87,23 @@ export function AuthPage({
           </header>
 
         <form className="auth-form" onSubmit={handleSubmit}>
+          <div className="auth-mode-switch" role="group" aria-label="اختيار طريقة الحساب">
+            {authModeOptions.map((option) => (
+              <button
+                aria-pressed={mode === option.value}
+                className={
+                  mode === option.value
+                    ? "auth-mode-switch-option selected"
+                    : "auth-mode-switch-option"
+                }
+                key={option.value}
+                type="button"
+                onClick={() => handleModeSelect(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
           <label className="form-field">
             البريد الإلكتروني
             <input
@@ -99,14 +132,6 @@ export function AuthPage({
             {isSubmitting ? "جاري الإرسال..." : copy.action}
           </button>
         </form>
-
-        <button
-          className="secondary"
-          type="button"
-          onClick={() => navigateTo(mode === "login" ? "/register" : "/login")}
-        >
-          {copy.alternate}
-        </button>
         </section>
       </section>
     </main>

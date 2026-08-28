@@ -398,6 +398,14 @@ export function SetupProfilePage({
           </p>
           </div>
 
+          <button
+            className="secondary onboarding-auth-return"
+            type="button"
+            onClick={() => navigateTo("/login")}
+          >
+            ← العودة إلى تسجيل الدخول / إنشاء حساب
+          </button>
+
           <div className="onboarding-progress">
           <span>
             السؤال {arabicNumber(stepIndex + 1)} من {arabicNumber(steps.length)}
