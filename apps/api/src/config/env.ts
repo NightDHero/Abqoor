@@ -77,6 +77,8 @@ const adminEmails = (process.env.ADMIN_EMAILS ?? "")
   .split(",")
   .map((email) => email.trim().toLowerCase())
   .filter(Boolean);
+const initialAdminEmail = toOptionalString(process.env.INITIAL_ADMIN_EMAIL);
+const initialAdminPassword = toOptionalString(process.env.INITIAL_ADMIN_PASSWORD);
 
 if (nodeEnv === "production" && jwtSecret === "development-only-change-me") {
   throw new Error("JWT_SECRET must be set in production.");
@@ -99,6 +101,8 @@ export const env = {
     nodeEnv === "production" ? "none" : "lax"
   ),
   adminEmails,
+  initialAdminEmail,
+  initialAdminPassword,
   pdftoppmPath: process.env.PDFTOPPM_PATH,
   isProduction: nodeEnv === "production"
 };

@@ -287,16 +287,45 @@ export const ensureSeedAdminAccount = async (input: {
     password: input.password,
     passwordConfirmation: input.password
   });
-  const passwordHash = await bcrypt.hash(validated.password, 12);
+  const existingUser = findUserByEmail(validated.email);
+  const existingPasswordHash = existingUser?.password_hash ?? null;
+  const passwordMatches = existingPasswordHash
+    ? await bcrypt.compare(validated.password, existingPasswordHash)
+    : false;
+  const passwordHash = passwordMatches && existingPasswordHash
+    ? existingPasswordHash
+    : await bcrypt.hash(validated.password, 12);
 
   return adminAccountTransaction<UserRecord>(() => {
-    const existingUser = findUserByEmail(validated.email);
     const user = existingUser
-      ? updateUserPasswordHash(existingUser.id, passwordHash)
+      ? passwordMatches
+        ? existingUser
+        : updateUserPasswordHash(existingUser.id, passwordHash)
       : createUser(validated.email, passwordHash);
 
-    grantManagedAdmin(user.id, null);
+    if (!isManagedAdminUser(user.id)) {
+      grantManagedAdmin(user.id, null);
+    }
+
     ensureSeedAdminProfile(user);
     return user;
+  });
+};
+
+export const ensureConfiguredSeedAdminAccount = async () => {
+  if (!env.initialAdminEmail && !env.initialAdminPassword) {
+    return null;
+  }
+
+  if (!env.initialAdminEmail || !env.initialAdminPassword) {
+    throw new AdminAccountError(
+      "INITIAL_ADMIN_EMAIL and INITIAL_ADMIN_PASSWORD must be set together.",
+      500
+    );
+  }
+
+  return ensureSeedAdminAccount({
+    email: env.initialAdminEmail,
+    password: env.initialAdminPassword
   });
 };

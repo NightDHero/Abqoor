@@ -173,6 +173,90 @@ test("manages administrator accounts without exposing password data", async () =
   assert.equal(finalRemovalResponse.status, 409);
 });
 
+test("seed administrator setup is idempotent and keeps login usable", async () => {
+  await ensureSeedAdminAccount({
+    email: "boot-admin@example.com",
+    password: "oldpass123"
+  });
+
+  const firstStored = db
+    .prepare(
+      `
+        SELECT
+          users.id,
+          users.password_hash,
+          users.updated_at AS user_updated_at,
+          admin_accounts.updated_at AS admin_updated_at
+        FROM users
+        INNER JOIN admin_accounts ON admin_accounts.user_id = users.id
+        WHERE users.email = ?
+      `
+    )
+    .get("boot-admin@example.com") as
+    | {
+        id: string;
+        password_hash: string;
+        user_updated_at: string;
+        admin_updated_at: string;
+      }
+    | undefined;
+  assert.ok(firstStored);
+
+  await ensureSeedAdminAccount({
+    email: "boot-admin@example.com",
+    password: "oldpass123"
+  });
+
+  const secondStored = db
+    .prepare(
+      `
+        SELECT
+          users.id,
+          users.password_hash,
+          users.updated_at AS user_updated_at,
+          admin_accounts.updated_at AS admin_updated_at,
+          COUNT(admin_accounts.user_id) AS admin_count
+        FROM users
+        INNER JOIN admin_accounts ON admin_accounts.user_id = users.id
+        WHERE users.email = ?
+      `
+    )
+    .get("boot-admin@example.com") as {
+    admin_count: number;
+    admin_updated_at: string;
+    id: string;
+    password_hash: string;
+    user_updated_at: string;
+  };
+  assert.equal(secondStored.id, firstStored.id);
+  assert.equal(secondStored.password_hash, firstStored.password_hash);
+  assert.equal(secondStored.user_updated_at, firstStored.user_updated_at);
+  assert.equal(secondStored.admin_updated_at, firstStored.admin_updated_at);
+  assert.equal(secondStored.admin_count, 1);
+
+  await ensureSeedAdminAccount({
+    email: "boot-admin@example.com",
+    password: "newpass123"
+  });
+
+  const updatedStored = db
+    .prepare("SELECT password_hash FROM users WHERE email = ?")
+    .get("boot-admin@example.com") as { password_hash: string };
+  assert.notEqual(updatedStored.password_hash, firstStored.password_hash);
+  assert.equal(await bcrypt.compare("newpass123", updatedStored.password_hash), true);
+
+  const oldLogin = await login("boot-admin@example.com", "oldpass123");
+  assert.equal(oldLogin.response.status, 401);
+
+  const newLogin = await login("boot-admin@example.com", "newpass123");
+  assert.equal(newLogin.response.status, 200);
+  const loginPayload = await readJson<{ user: { isAdmin: boolean } }>(
+    newLogin.response
+  );
+  assert.equal(loginPayload.user.isAdmin, true);
+  assert.equal(JSON.stringify(loginPayload).includes("password"), false);
+});
+
 after(async () => {
   await new Promise<void>((resolve, reject) =>
     server.close((error) => (error ? reject(error) : resolve()))
