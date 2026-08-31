@@ -1,12 +1,13 @@
 import type { ReactNode } from "react";
+import { SystemIcon, type SystemIconName } from "../../components/ui/SystemIcon";
 import { navigateTo } from "../../utils/router";
 
 const adminDestinations = [
-  { label: "نظرة عامة", route: "/admin" },
-  { label: "استيراد الأسئلة", route: "/admin/import" },
-  { label: "بنك الأسئلة", route: "/admin/questions" },
-  { label: "سجل الاستيراد", route: "/admin/imports" },
-  { label: "إدارة المدراء", route: "/admin/accounts" }
+  { icon: "status", label: "نظرة عامة", route: "/admin" },
+  { icon: "upload", label: "رفع الأسئلة", route: "/admin/import" },
+  { icon: "bank", label: "بنك الأسئلة", route: "/admin/questions" },
+  { icon: "history", label: "سجل الرفع", route: "/admin/imports" },
+  { icon: "users", label: "إدارة المدراء", route: "/admin/accounts" }
 ] as const;
 
 export function AdminShell({
@@ -51,6 +52,7 @@ export function AdminShell({
                 navigateTo(destination.route);
               }}
             >
+              <SystemIcon name={destination.icon as SystemIconName} />
               {destination.label}
             </a>
           );

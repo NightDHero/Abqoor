@@ -1,6 +1,7 @@
 import type {
   CorrectAnswer,
   SessionResult,
+  StudyProgressResponse,
   StartSessionResponse,
   SubmitAnswerResponse
 } from "../types/session";
@@ -14,6 +15,7 @@ export const sessionService = {
     }),
 
   submitAnswer: (input: {
+    activeDurationSeconds?: number;
     questionId: string;
     sessionId: string;
     userAnswer: CorrectAnswer;
@@ -24,5 +26,18 @@ export const sessionService = {
     }),
 
   getResult: (sessionId: string) =>
-    apiRequest<SessionResult>(`/sessions/${sessionId}/result`)
+    apiRequest<SessionResult>(`/sessions/${sessionId}/result`),
+
+  getProgress: (timeZone?: string) => {
+    const params = new URLSearchParams();
+
+    if (timeZone) {
+      params.set("timeZone", timeZone);
+    }
+
+    const query = params.toString();
+    return apiRequest<StudyProgressResponse>(
+      `/sessions/progress${query ? `?${query}` : ""}`
+    );
+  }
 };

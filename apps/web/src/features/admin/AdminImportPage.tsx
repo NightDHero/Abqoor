@@ -11,7 +11,7 @@ import { AdminShell } from "./AdminShell";
 const duplicateOptions: Array<{ label: string; value: DuplicateAction }> = [
   { label: "استبدال السؤال والمتابعة", value: "replace" },
   { label: "تخطي السؤال والمتابعة", value: "skip" },
-  { label: "إيقاف الاستيراد", value: "stop" }
+  { label: "إيقاف الرفع", value: "stop" }
 ];
 
 export function AdminImportPage() {
@@ -40,12 +40,12 @@ export function AdminImportPage() {
         .then((nextDetail) => {
           setDetail(nextDetail);
           if (nextDetail.job.status === "completed") {
-            setMessage("اكتملت عملية الاستيراد وسُجلت في السجل.");
+            setMessage("اكتملت عملية الرفع وسُجلت في السجل.");
           } else if (nextDetail.job.status === "failed") {
-            setError(nextDetail.job.errorMessage ?? "فشلت عملية الاستيراد.");
+            setError(nextDetail.job.errorMessage ?? "فشلت عملية الرفع.");
           }
         })
-        .catch(() => setError("تعذر تحديث تقدم الاستيراد."));
+        .catch(() => setError("تعذر تحديث تقدم الرفع."));
     }, 700);
 
     return () => window.clearInterval(timer);
@@ -96,10 +96,10 @@ export function AdminImportPage() {
       setMessage(
         response.job.errorCount === 0
           ? "اكتمل التحليل. راجع المعاينة قبل التأكيد."
-          : "اكتمل التحليل مع أخطاء يجب معالجتها قبل الاستيراد."
+          : "اكتمل التحليل مع أخطاء يجب معالجتها قبل الرفع."
       );
     } catch (caught) {
-      setError(caught instanceof HttpError ? caught.message : "تعذر تحليل ملفات الاستيراد.");
+      setError(caught instanceof HttpError ? caught.message : "تعذر تحليل ملفات الرفع.");
     } finally {
       setIsSubmitting(false);
     }
@@ -126,7 +126,7 @@ export function AdminImportPage() {
       setShowConfirmation(false);
       setMessage("بدأ حفظ الأسئلة. يمكنك متابعة التقدم أدناه.");
     } catch (caught) {
-      setError(caught instanceof HttpError ? caught.message : "تعذر تأكيد الاستيراد.");
+      setError(caught instanceof HttpError ? caught.message : "تعذر تأكيد الرفع.");
     } finally {
       setIsSubmitting(false);
     }
@@ -139,7 +139,7 @@ export function AdminImportPage() {
       setDetail(await adminService.cancelImport(detail.job.id));
       setMessage("تم إلغاء العملية وتنظيف الملفات المؤقتة.");
     } catch (caught) {
-      setError(caught instanceof HttpError ? caught.message : "تعذر إلغاء الاستيراد.");
+      setError(caught instanceof HttpError ? caught.message : "تعذر إلغاء الرفع.");
     } finally {
       setIsSubmitting(false);
     }
@@ -154,7 +154,7 @@ export function AdminImportPage() {
     <AdminShell
       currentPath="/admin/import"
       description="لا يتغير بنك الأسئلة حتى تراجع المعاينة وتؤكدها صراحة."
-      title="استيراد الأسئلة"
+      title="رفع الأسئلة"
     >
       <form className="admin-panel admin-import-form" onSubmit={handleAnalyze}>
         <header className="admin-panel-heading">
@@ -214,7 +214,7 @@ export function AdminImportPage() {
             <header className="admin-panel-heading">
               <div>
                 <h2>٢. نتيجة التحليل</h2>
-                <p>استيراد #{job.id.slice(0, 8)} · {importStatusLabels[job.status]}</p>
+                <p>رفع #{job.id.slice(0, 8)} · {importStatusLabels[job.status]}</p>
               </div>
               <b className="admin-status" data-status={job.status}>{importStatusLabels[job.status]}</b>
             </header>
@@ -304,29 +304,29 @@ export function AdminImportPage() {
 
           {job.status === "importing" ? (
             <section className="admin-panel admin-progress-panel">
-              <h2>استيراد الأسئلة...</h2>
+              <h2>رفع الأسئلة...</h2>
               <strong>{job.processedCount.toLocaleString("ar-SA")} / {job.totalQuestions.toLocaleString("ar-SA")}</strong>
               <progress max={100} value={progress}>{progress}%</progress>
-              <p>✓ قراءة Excel · ✓ مطابقة الصور · ✓ التحقق من البيانات · حفظ الأسئلة</p>
+              <p>قراءة Excel · مطابقة الصور · التحقق من البيانات · حفظ الأسئلة</p>
             </section>
           ) : null}
 
           {job.status === "ready" ? (
             <div className="admin-confirm-actions">
               <button className="secondary" disabled={isSubmitting} type="button" onClick={handleCancel}>إلغاء</button>
-              <button disabled={job.errorCount > 0 || isSubmitting} type="button" onClick={() => setShowConfirmation(true)}>تأكيد الاستيراد</button>
+              <button disabled={job.errorCount > 0 || isSubmitting} type="button" onClick={() => setShowConfirmation(true)}>تأكيد الرفع</button>
             </div>
           ) : null}
 
           {showConfirmation ? (
             <section className="admin-confirmation" role="alertdialog" aria-modal="true">
               <div>
-                <h2>تأكيد الاستيراد</h2>
+                <h2>تأكيد الرفع</h2>
                 <p>سيتم إضافة {job.newCount.toLocaleString("ar-SA")} سؤال.</p>
                 {plannedReplacementCount > 0 ? <p className="destructive-copy">سيتم استبدال {plannedReplacementCount.toLocaleString("ar-SA")} سؤالاً موجوداً مسبقاً.</p> : null}
                 <div className="admin-confirm-actions">
                   <button className="secondary" type="button" onClick={() => setShowConfirmation(false)}>إلغاء</button>
-                  <button disabled={isSubmitting} type="button" onClick={() => void handleConfirm()}>تأكيد والاستمرار</button>
+                  <button disabled={isSubmitting} type="button" onClick={() => void handleConfirm()}>تأكيد الرفع</button>
                 </div>
               </div>
             </section>

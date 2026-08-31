@@ -23,7 +23,16 @@ export function StudyMode() {
   }
 
   return (
-    <section className="study-mode" aria-labelledby="study-title">
+    <section
+      className={[
+        "study-mode",
+        study.isActive ? "study-mode-active" : "",
+        isImmersive ? "study-mode-immersive" : ""
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      aria-labelledby="study-title"
+    >
       {!study.isActive ? (
         <StudyWorldSelector
           isStarting={study.isStarting}
@@ -53,7 +62,7 @@ export function StudyMode() {
               onClick={() => setIsImmersive(true)}
             >
               <img alt="" src="/assets/modes/immersive-scroll.png" />
-              تدفق
+              سحب
             </button>
           </div>
           {isImmersive ? (

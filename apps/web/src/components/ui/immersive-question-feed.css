@@ -12,17 +12,22 @@ body.immersive-question-active .app-navigation {
   z-index: 90;
   inset: 0;
   height: 100svh;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
   background:
     radial-gradient(circle at 78% 14%, rgb(85 207 224 / 12%), transparent 34rem),
     radial-gradient(circle at 18% 84%, rgb(103 220 231 / 7%), transparent 30rem),
     linear-gradient(145deg, #04111b 0%, #071d2a 52%, #061722 100%);
   outline: none;
   overscroll-behavior: contain;
-  scroll-behavior: smooth;
-  scroll-snap-type: y mandatory;
   scrollbar-width: none;
+  touch-action: none;
+}
+
+.immersive-question-track {
+  display: block;
+  width: 100%;
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
 }
 
 .immersive-question-feed::-webkit-scrollbar {
@@ -47,16 +52,14 @@ body.immersive-question-active .app-navigation {
   position: relative;
   display: grid;
   width: 100%;
-  height: 100svh;
-  min-height: 100svh;
+  height: var(--immersive-slide-height, 100svh);
+  min-height: var(--immersive-slide-height, 100svh);
   overflow: hidden;
   padding:
     clamp(54px, 6svh, 74px)
     clamp(14px, 2.4vw, 42px)
     clamp(12px, 2svh, 22px);
   isolation: isolate;
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
 }
 
 .immersive-question-slide::before {
@@ -445,8 +448,8 @@ body.immersive-question-active .app-navigation {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .immersive-question-feed {
-    scroll-behavior: auto;
+  .immersive-question-track {
+    transition: none;
   }
 
   .product-app-shell button.immersive-answer-option {

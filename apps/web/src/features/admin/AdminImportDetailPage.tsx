@@ -15,7 +15,7 @@ export function AdminImportDetailPage({ jobId }: { jobId: string }) {
     void adminService
       .getImportJob(jobId)
       .then(setDetail)
-      .catch((caught) => setError(caught instanceof HttpError ? caught.message : "تعذر تحميل تفاصيل الاستيراد."));
+      .catch((caught) => setError(caught instanceof HttpError ? caught.message : "تعذر تحميل تفاصيل الرفع."));
   }, [jobId]);
 
   const rollback = async () => {
@@ -25,7 +25,7 @@ export function AdminImportDetailPage({ jobId }: { jobId: string }) {
       setDetail(await adminService.rollbackImport(jobId));
       setShowRollback(false);
     } catch (caught) {
-      setError(caught instanceof HttpError ? caught.message : "تعذر التراجع عن الاستيراد.");
+      setError(caught instanceof HttpError ? caught.message : "تعذر التراجع عن الرفع.");
     } finally {
       setIsSubmitting(false);
     }
@@ -33,7 +33,7 @@ export function AdminImportDetailPage({ jobId }: { jobId: string }) {
 
   const job = detail?.job;
   return (
-    <AdminShell currentPath={`/admin/imports/${jobId}`} title={job ? `استيراد #${job.id.slice(0, 8)}` : "تفاصيل الاستيراد"}>
+    <AdminShell currentPath={`/admin/imports/${jobId}`} title={job ? `رفع #${job.id.slice(0, 8)}` : "تفاصيل الرفع"}>
       {error ? <p className="admin-alert error">{error}</p> : null}
       {!job ? <p className="admin-empty">جاري تحميل التفاصيل...</p> : (
         <>
@@ -49,7 +49,7 @@ export function AdminImportDetailPage({ jobId }: { jobId: string }) {
               <div><dt>فاشل</dt><dd>{job.failureCount.toLocaleString("ar-SA")}</dd></div>
             </dl>
             {job.errorMessage ? <p className="admin-alert error">{job.errorMessage}</p> : null}
-            {job.status === "completed" ? <button className="danger" type="button" onClick={() => setShowRollback(true)}>التراجع عن الاستيراد</button> : null}
+            {job.status === "completed" ? <button className="danger" type="button" onClick={() => setShowRollback(true)}>التراجع عن الرفع</button> : null}
           </section>
 
           <section className="admin-panel">
@@ -62,7 +62,7 @@ export function AdminImportDetailPage({ jobId }: { jobId: string }) {
             </div>
           </section>
 
-          {showRollback ? <section className="admin-confirmation" role="alertdialog" aria-modal="true"><div><h2>هل أنت متأكد من التراجع عن هذا الاستيراد؟</h2><p>سيتم التراجع عن {job.createdCount.toLocaleString("ar-SA")} سؤال مضاف و{job.replacedCount.toLocaleString("ar-SA")} سؤال مستبدل.</p><div className="admin-confirm-actions"><button className="secondary" type="button" onClick={() => setShowRollback(false)}>إلغاء</button><button className="danger" disabled={isSubmitting} type="button" onClick={() => void rollback()}>تأكيد التراجع</button></div></div></section> : null}
+          {showRollback ? <section className="admin-confirmation" role="alertdialog" aria-modal="true"><div><h2>هل أنت متأكد من التراجع عن هذا الرفع؟</h2><p>سيتم التراجع عن {job.createdCount.toLocaleString("ar-SA")} سؤال مضاف و{job.replacedCount.toLocaleString("ar-SA")} سؤال مستبدل.</p><div className="admin-confirm-actions"><button className="secondary" type="button" onClick={() => setShowRollback(false)}>إلغاء</button><button className="danger" disabled={isSubmitting} type="button" onClick={() => void rollback()}>تأكيد التراجع</button></div></div></section> : null}
         </>
       )}
     </AdminShell>

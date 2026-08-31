@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import type { User } from "../../types/auth";
 import { navigateTo } from "../../utils/router";
 import { HubAvatar } from "./HubAvatar";
+import { StudyProgressTracker } from "./StudyProgressTracker";
 
 const worldEntrances = [
   {
@@ -109,39 +110,43 @@ export function CareerDashboard({
         username={user?.username}
       />
 
-      <div className="hub-world-composition">
-        <div className="hub-world-collision" aria-label="عوالم التعلم">
-          {worldEntrances.map((entrance) => (
-            <button
-              aria-label={`دخول عالم ${entrance.label}`}
-              className={`hub-world-force hub-world-force-${entrance.className}`}
-              key={entrance.route}
-              type="button"
-              onClick={() => navigateTo(entrance.route)}
-            >
-              <span className="hub-world-force-title">
-                <strong>{entrance.label}</strong>
-                <b>{entrance.masteryPercent.toLocaleString("ar-SA")}%</b>
-              </span>
-            </button>
-          ))}
-        </div>
+      <div className="hub-home-stage">
+        <StudyProgressTracker />
 
-        <nav className="hub-world-destinations" aria-label="وجهات مركز عبقور">
-          {hubDestinations.map((destination) => (
-            <a
-              className="hub-world-destination"
-              href={destination.route}
-              key={destination.route}
-              onClick={(event) => {
-                event.preventDefault();
-                navigateTo(destination.route);
-              }}
-            >
-              <strong>{destination.label}</strong>
-            </a>
-          ))}
-        </nav>
+        <div className="hub-world-composition">
+          <div className="hub-world-collision" aria-label="عوالم التعلم">
+            {worldEntrances.map((entrance) => (
+              <button
+                aria-label={`دخول عالم ${entrance.label}`}
+                className={`hub-world-force hub-world-force-${entrance.className}`}
+                key={entrance.route}
+                type="button"
+                onClick={() => navigateTo(entrance.route)}
+              >
+                <span className="hub-world-force-title">
+                  <strong>{entrance.label}</strong>
+                  <b>{entrance.masteryPercent.toLocaleString("ar-SA")}%</b>
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <nav className="hub-world-destinations" aria-label="وجهات مركز عبقور">
+            {hubDestinations.map((destination) => (
+              <a
+                className="hub-world-destination"
+                href={destination.route}
+                key={destination.route}
+                onClick={(event) => {
+                  event.preventDefault();
+                  navigateTo(destination.route);
+                }}
+              >
+                <strong>{destination.label}</strong>
+              </a>
+            ))}
+          </nav>
+        </div>
       </div>
     </section>
   );

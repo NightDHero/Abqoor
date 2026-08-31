@@ -54,7 +54,7 @@ export function AdminValidationPage() {
       {summary ? (
         <section className="admin-summary" aria-label="ملخص التحقق">
           <SummaryMetric label="إجمالي الأسئلة" value={summary.totalQuestions} />
-          <SummaryMetric label="المستوردة" tone="positive" value={summary.importedQuestions} />
+          <SummaryMetric label="المرفوعة" tone="positive" value={summary.importedQuestions} />
           <SummaryMetric label="الفاشلة" tone="attention" value={summary.failedQuestions} />
           <SummaryMetric label="إجابات ناقصة" tone="attention" value={summary.missingCorrectAnswers} />
           <SummaryMetric label="صور ناقصة" tone="attention" value={summary.missingImages} />

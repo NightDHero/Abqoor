@@ -183,6 +183,9 @@ db.exec(`
     question_id TEXT NOT NULL,
     user_answer TEXT NOT NULL CHECK (user_answer IN ('A', 'B', 'C', 'D')),
     is_correct INTEGER NOT NULL CHECK (is_correct IN (0, 1)),
+    active_duration_seconds INTEGER CHECK (
+      active_duration_seconds IS NULL OR active_duration_seconds >= 0
+    ),
     created_at TEXT NOT NULL,
     PRIMARY KEY (session_id, question_id),
     FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE,

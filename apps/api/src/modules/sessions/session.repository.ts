@@ -17,6 +17,7 @@ export type SessionAnswerRecord = {
   question_id: string;
   user_answer: CorrectAnswer;
   is_correct: 0 | 1;
+  active_duration_seconds: number | null;
   created_at: string;
 };
 
@@ -51,6 +52,7 @@ const upsertAnswerStatement = db.prepare(`
     question_id,
     user_answer,
     is_correct,
+    active_duration_seconds,
     created_at
   )
   VALUES (
@@ -58,11 +60,13 @@ const upsertAnswerStatement = db.prepare(`
     @questionId,
     @userAnswer,
     @isCorrect,
+    @activeDurationSeconds,
     @createdAt
   )
   ON CONFLICT(session_id, question_id) DO UPDATE SET
     user_answer = excluded.user_answer,
     is_correct = excluded.is_correct,
+    active_duration_seconds = excluded.active_duration_seconds,
     created_at = excluded.created_at
 `);
 
@@ -97,6 +101,7 @@ const findUserAnswerHistoryStatement = db.prepare<string, SessionAnswerRecord>(`
     session_answers.question_id,
     session_answers.user_answer,
     session_answers.is_correct,
+    session_answers.active_duration_seconds,
     session_answers.created_at
   FROM session_answers
   INNER JOIN sessions ON sessions.session_id = session_answers.session_id
@@ -109,6 +114,7 @@ const writeSessionAnswer = (input: {
   questionId: string;
   userAnswer: CorrectAnswer;
   isCorrect: boolean;
+  activeDurationSeconds: number | null;
   createdAt: string;
 }) => {
   upsertAnswerStatement.run({
@@ -145,6 +151,7 @@ export const saveSessionAnswer = (input: {
   questionId: string;
   userAnswer: CorrectAnswer;
   isCorrect: boolean;
+  activeDurationSeconds: number | null;
   createdAt: string;
 }) => {
   const transaction = db.transaction(() => {
@@ -160,6 +167,7 @@ export const saveSessionAnswerAndThen = <T>(
     questionId: string;
     userAnswer: CorrectAnswer;
     isCorrect: boolean;
+    activeDurationSeconds: number | null;
     createdAt: string;
   },
   afterSave: () => T

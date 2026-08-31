@@ -24,6 +24,7 @@ export type SubmitAnswerResponse = {
   userAnswer: CorrectAnswer;
   correctAnswer: CorrectAnswer;
   isCorrect: boolean;
+  activeDurationSeconds: number | null;
   answeredAt: string;
 };
 
@@ -35,4 +36,33 @@ export type SessionResult = {
   incorrectAnswers: number;
   unansweredQuestions: number;
   finalScorePercentage: number;
+};
+
+export type StudyProgressIntensity = 0 | 1 | 2 | 3;
+
+export type StudyProgressDay = {
+  date: string;
+  answeredQuestions: number;
+  correctAnswers: number;
+  approximateStudySeconds: number;
+  intensity: StudyProgressIntensity;
+};
+
+export type StudyProgressPeriod = {
+  startDate: string;
+  endDate: string;
+  answeredQuestions: number;
+  correctAnswers: number;
+  approximateStudySeconds: number;
+  activeDays: number;
+  days: StudyProgressDay[];
+};
+
+export type StudyProgressResponse = {
+  generatedAt: string;
+  timeZone: string;
+  activeStudyDay: number;
+  today: StudyProgressDay;
+  week: StudyProgressPeriod;
+  month: StudyProgressPeriod;
 };

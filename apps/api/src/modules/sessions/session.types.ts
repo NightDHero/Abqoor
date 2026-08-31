@@ -21,6 +21,7 @@ export type SessionAnswer = {
   userAnswer: CorrectAnswer;
   correctAnswer: CorrectAnswer;
   isCorrect: boolean;
+  activeDurationSeconds: number | null;
   answeredAt: string;
 };
 

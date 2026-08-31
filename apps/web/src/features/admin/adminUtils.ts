@@ -3,7 +3,7 @@ import type { ImportJobStatus } from "../../types/admin";
 export const importStatusLabels: Record<ImportJobStatus, string> = {
   analyzing: "جاري التحليل",
   ready: "جاهز للتأكيد",
-  importing: "جاري الاستيراد",
+  importing: "جاري الرفع",
   completed: "مكتمل",
   failed: "فشل",
   cancelled: "ملغي",

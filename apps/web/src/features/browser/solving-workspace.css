@@ -423,6 +423,113 @@
   background: rgb(85 207 224 / 13%);
 }
 
+@media (min-width: 901px) {
+  .product-app-shell .solving-answer-dock .answer-options {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .product-app-shell
+    .study-mode.study-mode-active:not(.study-mode-immersive) {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: clamp(8px, 1.4vh, 14px);
+    height: calc(100svh - clamp(92px, 12vh, 132px));
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .product-app-shell
+    .study-mode.study-mode-active:not(.study-mode-immersive)
+    .study-view-switch {
+    align-self: start;
+    justify-self: end;
+  }
+
+  .product-app-shell
+    .study-mode.study-mode-active:not(.study-mode-immersive)
+    .study-question {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .product-app-shell
+    .study-mode.study-mode-active:not(.study-mode-immersive)
+    .solving-workspace-toolbar {
+    min-height: 58px;
+    padding: 7px clamp(2px, 0.8vw, 10px) 11px;
+  }
+
+  .product-app-shell
+    .study-mode.study-mode-active:not(.study-mode-immersive)
+    .solving-workspace-grid {
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: clamp(8px, 1.4vh, 13px);
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .product-app-shell
+    .study-mode.study-mode-active:not(.study-mode-immersive)
+    .solving-question-stage {
+    min-height: 0;
+    padding: clamp(8px, 1.5vh, 14px) clamp(2px, 0.8vw, 10px);
+  }
+
+  .product-app-shell
+    .study-mode.study-mode-active:not(.study-mode-immersive)
+    .solving-question-stage
+    .question-image {
+    width: min(100%, 1320px);
+    max-height: min(48svh, 540px);
+  }
+
+  .product-app-shell
+    .study-mode.study-mode-active:not(.study-mode-immersive)
+    .solving-answer-dock {
+    gap: 10px;
+    padding: 10px clamp(2px, 0.8vw, 10px) 0;
+  }
+
+  .product-app-shell
+    .study-mode.study-mode-active:not(.study-mode-immersive)
+    .answer-options {
+    gap: clamp(8px, 1vw, 12px);
+  }
+
+  .product-app-shell
+    .study-mode.study-mode-active:not(.study-mode-immersive)
+    .answer-option {
+    min-height: clamp(50px, 5.9svh, 72px);
+    padding: 10px clamp(16px, 1.8vw, 26px);
+  }
+
+  .product-app-shell
+    .study-mode.study-mode-active:not(.study-mode-immersive)
+    .browser-navigation-row {
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .product-app-shell
+    .study-mode.study-mode-active:not(.study-mode-immersive)
+    .browser-navigation-row
+    button {
+    min-height: 48px;
+  }
+
+  .product-app-shell
+    .study-mode.study-mode-active:not(.study-mode-immersive)
+    .question-previous-button {
+    width: 54px;
+    border-radius: 15px;
+    padding: 13px;
+  }
+}
+
 .product-app-shell .solving-answer-dock .answer-next-success {
   animation: next-answer-success 720ms cubic-bezier(0.22, 1, 0.36, 1);
 }

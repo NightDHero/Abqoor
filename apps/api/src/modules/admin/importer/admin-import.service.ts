@@ -21,6 +21,11 @@ import {
   restoreQuestionRecord
 } from "../../questions/question.repository.js";
 import { saveQuestion } from "../../questions/question.service.js";
+import {
+  legacySubjectToSubject,
+  topicTaxonomy,
+  type LearningSubject
+} from "../../learning-taxonomy/taxonomy.js";
 import { readAdminWorkbook } from "./adapters/excel.adapter.js";
 import { matchUploadedImages } from "./adapters/image.adapter.js";
 import {
@@ -36,6 +41,7 @@ import {
   failImportJob,
   findImportJob,
   insertImportItems,
+  listAdminQuestionTopicCounts,
   listAdminQuestions,
   listImportJobItems,
   listImportJobs,
@@ -65,6 +71,38 @@ export class AdminImportError extends Error {
 }
 
 const activeProgress = new Map<string, number>();
+const questionCountSubjectOrder: LearningSubject[] = ["arabic", "math"];
+const questionCountSubjectLabels: Record<LearningSubject, string> = {
+  arabic: "اللفظي",
+  math: "الكمي"
+};
+
+type AdminQuestionSubtopicCount = {
+  subtopicId: string | null;
+  subtopicLabel: string;
+  count: number;
+};
+
+type AdminQuestionTopicCount = {
+  topicId: string | null;
+  topicLabel: string;
+  count: number;
+  subtopics: AdminQuestionSubtopicCount[];
+};
+
+type MutableAdminQuestionTopicCount = Omit<
+  AdminQuestionTopicCount,
+  "subtopics"
+> & {
+  subtopicsById: Map<string, AdminQuestionSubtopicCount>;
+};
+
+type AdminQuestionSubjectCount = {
+  subjectId: LearningSubject;
+  subjectLabel: string;
+  total: number;
+  topics: AdminQuestionTopicCount[];
+};
 
 const errorIssue = (
   code: string,
@@ -595,6 +633,117 @@ export const rollbackQuestionImport = (jobId: string) => {
 
 export const getImportHistory = () => ({ jobs: listImportJobs() });
 
+const normalizeTopicCountKey = (
+  subjectId: LearningSubject,
+  topicId: string | null,
+  topicLabel: string
+) => {
+  return `${subjectId}:${topicId ?? topicLabel}`;
+};
+
+const toQuestionCountOverview = () => {
+  const topicMaps = new Map<
+    LearningSubject,
+    Map<string, MutableAdminQuestionTopicCount>
+  >();
+
+  for (const subjectId of questionCountSubjectOrder) {
+    const topics = new Map<string, MutableAdminQuestionTopicCount>();
+
+    for (const topic of topicTaxonomy.filter(
+      (candidate) => candidate.subject === subjectId
+    )) {
+      const subtopicsById = new Map<string, AdminQuestionSubtopicCount>();
+
+      for (const subtopic of topic.subtopics) {
+        subtopicsById.set(subtopic.slug, {
+          count: 0,
+          subtopicId: subtopic.slug,
+          subtopicLabel: subtopic.displayNameAr
+        });
+      }
+
+      topics.set(normalizeTopicCountKey(subjectId, topic.slug, topic.slug), {
+        count: 0,
+        subtopicsById,
+        topicId: topic.slug,
+        topicLabel: topic.displayNameAr
+      });
+    }
+
+    topicMaps.set(subjectId, topics);
+  }
+
+  for (const row of listAdminQuestionTopicCounts()) {
+    const subjectId = row.subject_id ?? legacySubjectToSubject[row.subject];
+    const topics = topicMaps.get(subjectId);
+
+    if (!topics) {
+      continue;
+    }
+
+    const topicDefinition = topicTaxonomy.find(
+      (topic) => topic.subject === subjectId && topic.slug === row.topic_id
+    );
+    const topicId = topicDefinition?.slug ?? row.topic_id;
+    const topicLabel = topicDefinition?.displayNameAr ?? row.topic;
+    const topicKey = normalizeTopicCountKey(subjectId, topicId, topicLabel);
+    let topic = topics.get(topicKey);
+
+    if (!topic) {
+      topic = {
+        count: 0,
+        subtopicsById: new Map<string, AdminQuestionSubtopicCount>(),
+        topicId,
+        topicLabel
+      };
+      topics.set(topicKey, topic);
+    }
+
+    topic.count += row.question_count;
+
+    const subtopicDefinition = topicDefinition?.subtopics.find(
+      (subtopic) => subtopic.slug === row.subtopic_id
+    );
+    const subtopicId = subtopicDefinition?.slug ?? row.subtopic_id;
+    const subtopicLabel =
+      subtopicDefinition?.displayNameAr ?? row.subtopic ?? "";
+
+    if (subtopicLabel) {
+      const subtopicKey = subtopicId ?? subtopicLabel;
+      const existingSubtopic = topic.subtopicsById.get(subtopicKey);
+
+      topic.subtopicsById.set(subtopicKey, {
+        count: (existingSubtopic?.count ?? 0) + row.question_count,
+        subtopicId,
+        subtopicLabel
+      });
+    }
+  }
+
+  const subjects: AdminQuestionSubjectCount[] = questionCountSubjectOrder.map(
+    (subjectId) => {
+      const topics = [...(topicMaps.get(subjectId)?.values() ?? [])].map(
+        (topic) => ({
+          count: topic.count,
+          subtopics: [...topic.subtopicsById.values()],
+          topicId: topic.topicId,
+          topicLabel: topic.topicLabel
+        })
+      );
+
+      return {
+        subjectId,
+        subjectLabel: questionCountSubjectLabels[subjectId],
+        total: topics.reduce((total, topic) => total + topic.count, 0),
+        topics
+      };
+    }
+  );
+
+  return { subjects };
+};
+
 export const getAdminQuestionBank = (input: {
   query?: string;
   page: number;
@@ -609,6 +758,7 @@ export const getAdminQuestionBank = (input: {
   };
   return {
     ...result,
+    questionCounts: toQuestionCountOverview(),
     questions: result.questions.map((question) => ({
       ...question,
       imageExists: questionImageExists(question.id),

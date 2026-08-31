@@ -24,6 +24,7 @@ const bootstrapQuestionIds = Array.from({ length: 49 }, (_value, index) => {
 });
 const adaptiveSessionQuestionLimit = 15;
 const minimumSessionQuestionLimit = 1;
+const maxActiveDurationSecondsPerAnswer = 24 * 60 * 60;
 
 export class SessionError extends Error {
   constructor(
@@ -109,6 +110,21 @@ const parseQuestionOrder = (questionOrder: string) => {
   } catch {
     return [];
   }
+};
+
+const normalizeActiveDurationSeconds = (value: unknown) => {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    throw new SessionError("activeDurationSeconds must be a non-negative number.");
+  }
+
+  return Math.min(
+    Math.round(value),
+    maxActiveDurationSecondsPerAnswer
+  );
 };
 
 const getSessionQuestionIds = (questionOrder: string) => {
@@ -290,6 +306,7 @@ export const submitSessionAnswer = (
     sessionId: string;
     questionId: string;
     userAnswer: unknown;
+    activeDurationSeconds?: unknown;
   }
 ) => {
   if (!input.sessionId.trim()) {
@@ -334,11 +351,15 @@ export const submitSessionAnswer = (
   }
 
   const userAnswer = input.userAnswer as CorrectAnswer;
+  const activeDurationSeconds = normalizeActiveDurationSeconds(
+    input.activeDurationSeconds
+  );
   const answer: SessionAnswer = {
     questionId: input.questionId,
     userAnswer,
     correctAnswer: question.correctAnswer,
     isCorrect: userAnswer === question.correctAnswer,
+    activeDurationSeconds,
     answeredAt: new Date().toISOString()
   };
 
@@ -348,6 +369,7 @@ export const submitSessionAnswer = (
       questionId: answer.questionId,
       userAnswer: answer.userAnswer,
       isCorrect: answer.isCorrect,
+      activeDurationSeconds: answer.activeDurationSeconds,
       createdAt: answer.answeredAt
     },
     () => {

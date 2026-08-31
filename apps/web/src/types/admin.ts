@@ -119,10 +119,33 @@ export type AdminQuestion = {
   imageExists: boolean;
 };
 
+export type AdminQuestionSubtopicCount = {
+  subtopicId: string | null;
+  subtopicLabel: string;
+  count: number;
+};
+
+export type AdminQuestionTopicCount = {
+  topicId: string | null;
+  topicLabel: string;
+  count: number;
+  subtopics: AdminQuestionSubtopicCount[];
+};
+
+export type AdminQuestionSubjectCount = {
+  subjectId: "arabic" | "math";
+  subjectLabel: string;
+  total: number;
+  topics: AdminQuestionTopicCount[];
+};
+
 export type AdminQuestionBankResponse = {
   page: number;
   pageSize: number;
   total: number;
+  questionCounts: {
+    subjects: AdminQuestionSubjectCount[];
+  };
   questions: AdminQuestion[];
 };
 

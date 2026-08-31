@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HttpError } from "../../services/http";
 import { reviewBankService } from "../../services/reviewBankService";
 import { sessionService } from "../../services/sessionService";
@@ -11,9 +11,122 @@ import type {
 import { getWeakTopics } from "./studyUtils";
 
 const studyQuestionLimit = 15;
+const maxActiveDurationSecondsPerAnswer = 24 * 60 * 60;
 
 const readErrorMessage = (caughtError: unknown, fallback: string) =>
   caughtError instanceof HttpError ? caughtError.message : fallback;
+
+const getTimerNow = () =>
+  typeof performance === "undefined" ? Date.now() : performance.now();
+
+const isDocumentActive = () => {
+  if (typeof document === "undefined") {
+    return true;
+  }
+
+  return (
+    document.visibilityState === "visible" &&
+    (typeof document.hasFocus !== "function" || document.hasFocus())
+  );
+};
+
+const useActiveQuestionTimer = (questionId: string | null) => {
+  const questionIdRef = useRef(questionId);
+  const activeQuestionIdRef = useRef<string | null>(null);
+  const activeStartedAtRef = useRef<number | null>(null);
+  const elapsedMsByQuestionIdRef = useRef(new Map<string, number>());
+
+  const pause = useCallback(() => {
+    const activeQuestionId = activeQuestionIdRef.current;
+    const activeStartedAt = activeStartedAtRef.current;
+
+    if (!activeQuestionId || activeStartedAt === null) {
+      return;
+    }
+
+    const elapsed = Math.max(0, getTimerNow() - activeStartedAt);
+    elapsedMsByQuestionIdRef.current.set(
+      activeQuestionId,
+      (elapsedMsByQuestionIdRef.current.get(activeQuestionId) ?? 0) + elapsed
+    );
+    activeQuestionIdRef.current = null;
+    activeStartedAtRef.current = null;
+  }, []);
+
+  const resume = useCallback(() => {
+    const activeQuestionId = questionIdRef.current;
+
+    if (!activeQuestionId || !isDocumentActive()) {
+      return;
+    }
+
+    if (
+      activeQuestionIdRef.current === activeQuestionId &&
+      activeStartedAtRef.current !== null
+    ) {
+      return;
+    }
+
+    pause();
+    activeQuestionIdRef.current = activeQuestionId;
+    activeStartedAtRef.current = getTimerNow();
+  }, [pause]);
+
+  useEffect(() => {
+    questionIdRef.current = questionId;
+    pause();
+    resume();
+
+    return pause;
+  }, [pause, questionId, resume]);
+
+  useEffect(() => {
+    const syncActivity = () => {
+      if (isDocumentActive()) {
+        resume();
+        return;
+      }
+
+      pause();
+    };
+
+    window.addEventListener("focus", syncActivity);
+    window.addEventListener("blur", syncActivity);
+    document.addEventListener("visibilitychange", syncActivity);
+    syncActivity();
+
+    return () => {
+      window.removeEventListener("focus", syncActivity);
+      window.removeEventListener("blur", syncActivity);
+      document.removeEventListener("visibilitychange", syncActivity);
+      pause();
+    };
+  }, [pause, resume]);
+
+  const getDurationSeconds = useCallback((targetQuestionId: string) => {
+    let elapsedMs = elapsedMsByQuestionIdRef.current.get(targetQuestionId) ?? 0;
+
+    if (
+      activeQuestionIdRef.current === targetQuestionId &&
+      activeStartedAtRef.current !== null
+    ) {
+      elapsedMs += Math.max(0, getTimerNow() - activeStartedAtRef.current);
+    }
+
+    return Math.min(
+      Math.round(elapsedMs / 1000),
+      maxActiveDurationSecondsPerAnswer
+    );
+  }, []);
+
+  const reset = useCallback(() => {
+    activeQuestionIdRef.current = null;
+    activeStartedAtRef.current = null;
+    elapsedMsByQuestionIdRef.current.clear();
+  }, []);
+
+  return { getDurationSeconds, reset };
+};
 
 export function useStudySession() {
   const [sessionId, setSessionId] = useState("");
@@ -38,6 +151,11 @@ export function useStudySession() {
     : undefined;
   const isActive = Boolean(sessionId) && questions.length > 0 && !result;
   const isLastQuestion = currentIndex >= questions.length - 1;
+  const activeQuestionTimer = useActiveQuestionTimer(
+    isActive && currentQuestion && !responsesByQuestionId[currentQuestion.id]
+      ? currentQuestion.id
+      : null
+  );
 
   const weakTopics = useMemo(
     () =>
@@ -60,6 +178,7 @@ export function useStudySession() {
     setQuestions([]);
     setResponsesByQuestionId({});
     setManualReviewQuestionIds([]);
+    activeQuestionTimer.reset();
 
     try {
       const response = await sessionService.startSession(studyQuestionLimit);
@@ -91,6 +210,7 @@ export function useStudySession() {
 
     try {
       const response = await sessionService.submitAnswer({
+        activeDurationSeconds: activeQuestionTimer.getDurationSeconds(question.id),
         questionId: question.id,
         sessionId,
         userAnswer: answer
@@ -98,7 +218,7 @@ export function useStudySession() {
 
       setResponsesByQuestionId((existing) => ({
         ...existing,
-        [currentQuestion.id]: response
+        [question.id]: response
       }));
     } catch (caughtError) {
       setError(readErrorMessage(caughtError, "تعذر إرسال الإجابة."));

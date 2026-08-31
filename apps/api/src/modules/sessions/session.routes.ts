@@ -6,6 +6,10 @@ import {
   startLearningSession,
   submitSessionAnswer
 } from "./session.service.js";
+import {
+  getStudyProgress,
+  SessionProgressError
+} from "./session-progress.service.js";
 
 export const sessionRouter = Router();
 
@@ -16,6 +20,15 @@ const handleSessionError = (error: unknown, response: Response) => {
   }
 
   response.status(500).json({ message: "Session request failed." });
+};
+
+const handleSessionProgressError = (error: unknown, response: Response) => {
+  if (error instanceof SessionProgressError) {
+    response.status(error.statusCode).json({ message: error.message });
+    return;
+  }
+
+  handleSessionError(error, response);
 };
 
 sessionRouter.post("/start", requireAuth, (request: Request, response: Response) => {
@@ -40,6 +53,7 @@ sessionRouter.post("/submit", requireAuth, (request: Request, response: Response
       sessionId?: unknown;
       questionId?: unknown;
       userAnswer?: unknown;
+      activeDurationSeconds?: unknown;
     };
 
     if (typeof body.sessionId !== "string") {
@@ -53,12 +67,25 @@ sessionRouter.post("/submit", requireAuth, (request: Request, response: Response
     const result = submitSessionAnswer(request.user?.id ?? "", {
       sessionId: body.sessionId,
       questionId: body.questionId,
-      userAnswer: body.userAnswer
+      userAnswer: body.userAnswer,
+      activeDurationSeconds: body.activeDurationSeconds
     });
 
     response.status(200).json(result);
   } catch (error) {
     handleSessionError(error, response);
+  }
+});
+
+sessionRouter.get("/progress", requireAuth, (request: Request, response: Response) => {
+  try {
+    response.status(200).json(
+      getStudyProgress(request.user?.id ?? "", {
+        timeZone: request.query.timeZone
+      })
+    );
+  } catch (error) {
+    handleSessionProgressError(error, response);
   }
 });
 

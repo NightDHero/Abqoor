@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { db } from "../../../database/client.js";
+import type {
+  LearningSubject,
+  LegacyQuestionSubject
+} from "../../learning-taxonomy/taxonomy.js";
 import type { QuestionRecord } from "../../questions/question.types.js";
 import type {
   DuplicateAction,
@@ -69,6 +73,16 @@ type ImportJobItemRecord = {
   previous_image_existed: number;
   created_at: string;
   updated_at: string;
+};
+
+export type AdminQuestionTopicCountRecord = {
+  subject: LegacyQuestionSubject;
+  subject_id: LearningSubject | null;
+  topic: string;
+  topic_id: string | null;
+  subtopic: string | null;
+  subtopic_id: string | null;
+  question_count: number;
 };
 
 const parseJson = <T>(value: string, fallback: T): T => {
@@ -424,6 +438,22 @@ export const recoverInterruptedImportJobs = () => {
 
 export const runImportTransaction = <T>(operation: () => T) =>
   db.transaction(operation)();
+
+export const listAdminQuestionTopicCounts = () => {
+  return db.prepare<[], AdminQuestionTopicCountRecord>(`
+    SELECT
+      subject,
+      subject_id,
+      topic,
+      topic_id,
+      subtopic,
+      subtopic_id,
+      COUNT(*) AS question_count
+    FROM questions
+    GROUP BY subject, subject_id, topic, topic_id, subtopic, subtopic_id
+    ORDER BY subject_id ASC, topic_id ASC, subtopic_id ASC
+  `).all();
+};
 
 export const listAdminQuestions = (input: {
   query?: string;

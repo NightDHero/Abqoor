@@ -157,16 +157,28 @@
   animation: hub-energy-crossing 9s ease-in-out var(--hub-streak-delay) infinite;
 }
 
-.hub-world-composition {
+.hub-home-stage {
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-rows: minmax(390px, 1.35fr) minmax(150px, 0.65fr);
-  gap: clamp(20px, 4vh, 50px);
-  width: min(100% - clamp(32px, 6vw, 124px), 1820px);
+  direction: ltr;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  gap: clamp(26px, 4vh, 46px);
+  align-content: start;
+  width: min(100% - clamp(32px, 6vw, 124px), 1760px);
   min-height: 100svh;
   margin-inline: auto;
-  padding-block: clamp(64px, 8vh, 110px) clamp(32px, 5vh, 66px);
+  padding-block: clamp(72px, 8vh, 112px) clamp(34px, 6vh, 72px);
+}
+
+.hub-world-composition {
+  display: grid;
+  direction: rtl;
+  grid-template-rows: minmax(250px, min(38svh, 430px)) minmax(88px, auto);
+  gap: clamp(14px, 2vh, 24px);
+  min-width: 0;
+  min-height: 0;
 }
 
 .hub-world-collision {
@@ -219,7 +231,7 @@
   display: grid;
   align-content: center;
   min-width: 0;
-  min-height: clamp(330px, 50vh, 610px);
+  min-height: clamp(230px, 38svh, 430px);
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -348,15 +360,10 @@
   position: relative;
   display: grid;
   min-width: 0;
-  min-height: 145px;
+  min-height: clamp(82px, 11vh, 132px);
   border: 0;
   border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgb(255 255 255 / 8%) 0 37%,
-    rgb(255 255 255 / 3%) 38% 58%,
-    transparent 59%
-  );
+  background: transparent;
   color: var(--world-white);
   place-items: center;
   text-decoration: none;
@@ -420,6 +427,7 @@
   z-index: 50;
   top: clamp(18px, 3vw, 34px);
   right: clamp(18px, 3vw, 38px);
+  pointer-events: auto;
 }
 
 .career-app-shell .hub-avatar-trigger {
@@ -551,6 +559,438 @@
   color: #f1a0a0;
 }
 
+.study-progress-journey {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  direction: rtl;
+  gap: clamp(14px, 2vw, 22px);
+  width: min(100%, 1020px);
+  min-width: 0;
+  margin-inline: auto;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 14% 0%, rgb(103 220 231 / 14%), transparent 42%),
+    radial-gradient(circle at 86% 12%, rgb(216 170 79 / 10%), transparent 40%),
+    linear-gradient(180deg, rgb(4 21 31 / 84%), rgb(3 16 27 / 70%));
+  box-shadow:
+    0 32px 84px rgb(0 7 14 / 26%),
+    inset 0 1px 0 rgb(255 255 255 / 8%);
+  padding: clamp(18px, 2.2vw, 28px);
+  color: var(--world-white);
+  backdrop-filter: blur(18px);
+}
+
+.study-progress-journey::before {
+  position: absolute;
+  right: clamp(22px, 3vw, 48px);
+  bottom: -1px;
+  left: clamp(22px, 3vw, 48px);
+  display: block;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(103 220 231 / 24%),
+    rgb(216 170 79 / 22%),
+    transparent
+  );
+  content: "";
+}
+
+.study-progress-header {
+  display: grid;
+  gap: 12px;
+  align-items: stretch;
+  justify-items: center;
+  text-align: center;
+}
+
+.study-progress-header p,
+.study-progress-header h2,
+.study-progress-empty {
+  margin: 0;
+}
+
+.study-progress-header p {
+  margin-top: 4px;
+  color: var(--world-muted);
+  font-size: clamp(0.82rem, 1.2vw, 0.95rem);
+  font-weight: 800;
+}
+
+.study-progress-header h2 {
+  margin: 0;
+  font-family: var(--font-arabic-display);
+  font-size: clamp(1.65rem, 2.6vw, 2.7rem);
+  line-height: 1.18;
+}
+
+.study-progress-switch {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: min(100%, 330px);
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 999px;
+  background: rgb(4 21 31 / 50%);
+  padding: 4px;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 7%);
+  backdrop-filter: blur(14px);
+}
+
+.career-app-shell .study-progress-switch button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--world-muted);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 850;
+  transition:
+    background-color 170ms ease,
+    color 170ms ease,
+    box-shadow 170ms ease;
+}
+
+.career-app-shell .study-progress-switch button.selected {
+  background:
+    linear-gradient(135deg, rgb(103 220 231 / 22%), rgb(216 170 79 / 14%)),
+    rgb(255 255 255 / 7%);
+  color: var(--world-white);
+  box-shadow:
+    0 10px 24px rgb(0 7 14 / 18%),
+    inset 0 1px 0 rgb(255 255 255 / 10%);
+}
+
+.career-app-shell .study-progress-switch button:focus-visible {
+  outline: 2px solid var(--world-cyan);
+  outline-offset: 3px;
+}
+
+.study-progress-body {
+  display: grid;
+  gap: clamp(12px, 2vw, 18px);
+  min-width: 0;
+  animation: study-progress-arrive 220ms ease both;
+}
+
+.study-progress-view-meta,
+.study-progress-selected-day {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  color: var(--world-muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.study-progress-view-meta strong,
+.study-progress-selected-day strong {
+  overflow: hidden;
+  color: var(--world-white);
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.study-progress-empty {
+  color: var(--world-muted);
+}
+
+.study-progress-selected-day {
+  justify-content: center;
+  margin: 0;
+  border-top: 1px solid rgb(255 255 255 / 8%);
+  padding-top: 12px;
+}
+
+.study-progress-selected-day span {
+  color: var(--world-muted);
+}
+
+.study-progress-today-view {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) minmax(0, 1fr);
+  gap: clamp(16px, 3vw, 28px);
+  align-items: stretch;
+}
+
+.study-progress-today-diary {
+  display: grid;
+  align-content: center;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid rgb(255 255 255 / 9%);
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 7%), rgb(255 255 255 / 2%)),
+    rgb(5 26 39 / 48%);
+  padding: clamp(18px, 3vw, 30px);
+}
+
+.study-progress-today-diary span,
+.study-progress-today-diary p {
+  margin: 0;
+  color: var(--world-muted);
+  font-weight: 800;
+}
+
+.study-progress-today-diary strong {
+  color: var(--world-white);
+  font-family: var(--font-arabic-display);
+  font-size: clamp(1.9rem, 4vw, 3.4rem);
+  line-height: 1.12;
+}
+
+.study-progress-week-calendar,
+.study-progress-month-calendar,
+.study-progress-month-weekdays {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.study-progress-week-calendar,
+.study-progress-month-calendar {
+  display: grid;
+  gap: 8px;
+}
+
+.study-progress-month-weekdays {
+  display: grid;
+  gap: 8px;
+  color: var(--world-muted);
+  font-size: 0.74rem;
+  font-weight: 850;
+  text-align: center;
+}
+
+.study-progress-day {
+  position: relative;
+  display: grid;
+  gap: 7px;
+  align-content: center;
+  justify-items: center;
+  min-width: 0;
+  min-height: 96px;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 6%), rgb(255 255 255 / 2%)),
+    rgb(5 26 39 / 44%);
+  padding: 12px 8px;
+  color: var(--world-muted);
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: center;
+  isolation: isolate;
+  overflow: visible;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.study-progress-day::before {
+  position: absolute;
+  z-index: -1;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: var(--study-progress-fill);
+  max-height: 100%;
+  border-radius: inherit;
+  background:
+    linear-gradient(180deg, rgb(103 220 231 / 24%), rgb(103 220 231 / 9%)),
+    rgb(103 220 231 / 10%);
+  opacity: 0.82;
+  content: "";
+  transition: height 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.study-progress-day:hover,
+.study-progress-day:focus {
+  z-index: 5;
+  border-color: rgb(103 220 231 / 28%);
+  box-shadow:
+    0 18px 42px rgb(0 7 14 / 22%),
+    0 0 24px rgb(103 220 231 / 10%);
+  transform: translateY(-1px);
+}
+
+.study-progress-day.selected {
+  border-color: rgb(216 170 79 / 42%);
+  box-shadow:
+    0 18px 42px rgb(0 7 14 / 22%),
+    inset 0 1px 0 rgb(255 255 255 / 12%);
+}
+
+.study-progress-day:focus-visible {
+  outline: 2px solid var(--world-cyan);
+  outline-offset: 2px;
+}
+
+.study-progress-day-name {
+  overflow: hidden;
+  max-width: 100%;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.study-progress-day strong {
+  color: var(--world-white);
+  font-family: var(--font-arabic-display);
+  font-size: clamp(1.25rem, 2.2vw, 2.05rem);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.study-progress-day-activity {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: 72px;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 12%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 6%);
+}
+
+.study-progress-day-activity span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--study-progress-fill);
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--world-cyan), #d7aa52);
+  box-shadow: 0 0 16px rgb(103 220 231 / 22%);
+}
+
+.study-progress-day[data-intensity="0"]::before {
+  opacity: 0;
+}
+
+.study-progress-day[data-intensity="2"]::before {
+  background:
+    linear-gradient(180deg, rgb(103 220 231 / 34%), rgb(103 220 231 / 12%)),
+    rgb(103 220 231 / 12%);
+}
+
+.study-progress-day[data-intensity="3"]::before {
+  background:
+    linear-gradient(180deg, rgb(216 170 79 / 42%), rgb(103 220 231 / 14%)),
+    rgb(216 170 79 / 16%);
+}
+
+.study-progress-day small {
+  color: var(--world-white);
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.study-progress-day-month {
+  gap: 5px;
+  min-height: 70px;
+  border-radius: 15px;
+  padding: 9px 6px;
+}
+
+.study-progress-day-month .study-progress-day-name {
+  display: none;
+}
+
+.study-progress-day-month strong {
+  font-size: clamp(1rem, 1.5vw, 1.3rem);
+}
+
+.study-progress-day-month .study-progress-day-activity {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+}
+
+.study-progress-day-month .study-progress-day-activity span {
+  width: 100%;
+  transform: scale(calc(var(--study-progress-fill) / 100));
+  transform-origin: center;
+}
+
+.study-progress-day-today {
+  min-height: 178px;
+}
+
+.study-progress-day-today .study-progress-day-name {
+  color: var(--world-cyan);
+}
+
+.study-progress-day-today strong {
+  font-size: clamp(3.2rem, 7vw, 5.2rem);
+}
+
+.study-progress-month-blank {
+  display: block;
+  min-height: 70px;
+  border-radius: 15px;
+  background: rgb(255 255 255 / 2%);
+  opacity: 0.35;
+}
+
+.study-progress-day-tooltip {
+  position: absolute;
+  z-index: 8;
+  right: 50%;
+  top: calc(100% + 8px);
+  display: grid;
+  width: max-content;
+  min-width: 132px;
+  max-width: 210px;
+  gap: 3px;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 12px;
+  background: rgb(4 21 31 / 95%);
+  box-shadow: 0 18px 44px rgb(0 7 14 / 35%);
+  padding: 9px 10px;
+  color: var(--world-white);
+  text-align: right;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(50%, -4px);
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+
+.study-progress-day-tooltip strong {
+  font-size: 0.75rem;
+}
+
+.study-progress-day-tooltip span {
+  color: var(--world-muted);
+  font-size: 0.72rem;
+}
+
+.study-progress-day:hover .study-progress-day-tooltip,
+.study-progress-day:focus .study-progress-day-tooltip {
+  opacity: 1;
+  transform: translate(50%, 0);
+}
+
+@keyframes study-progress-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes hub-landscape-breathe {
   from {
     opacity: 0.68;
@@ -637,10 +1077,17 @@
 }
 
 @media (max-width: 900px) {
+  .hub-home-stage {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    width: min(100% - 30px, 980px);
+    padding-block: 62px 34px;
+  }
+
   .hub-world-composition {
-    grid-template-rows: minmax(390px, 1fr) auto;
-    width: min(100% - 30px, 820px);
-    padding-block: 64px 30px;
+    grid-template-rows: minmax(240px, 34svh) auto;
+    gap: 14px;
+    min-height: 0;
   }
 
   .hub-world-force-title {
@@ -658,24 +1105,48 @@
 }
 
 @media (min-width: 621px) and (max-width: 900px) {
-  .hub-world-composition {
-    grid-template-rows: minmax(390px, 1fr) auto;
-    gap: 30px;
-    min-height: max(100svh, 980px);
+  .career-app-shell .hub-world-force {
+    padding: 30px clamp(46px, 6vw, 58px);
+  }
+
+  .hub-world-force-title {
+    gap: 8px;
+  }
+
+  .hub-world-force-title b {
+    font-size: 0.86rem;
   }
 
   .hub-world-destinations {
-    grid-auto-rows: 202px;
-    gap: 24px 30px;
-    padding-block: 10px;
+    grid-auto-rows: minmax(96px, 1fr);
+    gap: 16px 22px;
+    padding: 8px clamp(8px, 2vw, 18px);
   }
 
   .hub-world-destination {
-    min-height: 202px;
+    min-height: 96px;
   }
 
   .hub-world-destination::before {
-    width: min(72%, 184px);
+    width: min(52%, 124px);
+  }
+
+  .study-progress-journey {
+    border-radius: 24px;
+    padding: 18px;
+  }
+
+  .study-progress-switch {
+    width: min(100%, 320px);
+  }
+
+  .study-progress-day {
+    min-height: 84px;
+  }
+
+  .study-progress-day-month,
+  .study-progress-month-blank {
+    min-height: 58px;
   }
 }
 
@@ -696,17 +1167,25 @@
       linear-gradient(135deg, #062a38 0 40%, #17262c 50%, #302318 60% 100%);
   }
 
-  .hub-world-composition {
-    grid-template-rows: minmax(390px, 58svh) auto;
-    gap: 18px;
+  .hub-home-stage {
+    grid-template-columns: 1fr;
     width: 100%;
-    padding: 58px 14px calc(24px + env(safe-area-inset-bottom));
+    gap: 22px;
+    align-content: start;
+    min-height: 100svh;
+    padding: 72px 14px calc(26px + env(safe-area-inset-bottom));
+  }
+
+  .hub-world-composition {
+    grid-template-rows: minmax(210px, 30svh) auto;
+    gap: 10px;
+    min-height: 0;
   }
 
   .hub-world-collision {
     position: relative;
     display: block;
-    min-height: 390px;
+    min-height: 210px;
     overflow: hidden;
     border: 1px solid rgb(255 255 255 / 8%);
     border-radius: 26px;
@@ -788,14 +1267,14 @@
   }
 
   .hub-world-force-verbal .hub-world-force-title {
-    top: 17%;
-    left: 10%;
+    top: 14%;
+    left: 5%;
     direction: rtl;
   }
 
   .hub-world-force-math .hub-world-force-title {
-    right: 10%;
-    bottom: 17%;
+    right: 5%;
+    bottom: 14%;
     direction: rtl;
   }
 
@@ -816,7 +1295,7 @@
   }
 
   .hub-world-force-title strong {
-    font-size: clamp(2.65rem, 14vw, 4.1rem);
+    font-size: clamp(2.25rem, 12.5vw, 3.7rem);
   }
 
   .hub-world-force-title b {
@@ -825,7 +1304,7 @@
 
   .hub-world-destinations {
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 7px;
     overflow: hidden;
     border: 0;
     border-radius: 0;
@@ -834,13 +1313,13 @@
 
   .hub-world-destination {
     justify-content: start;
-    min-height: 68px;
+    min-height: 44px;
     border: 1px solid rgb(255 255 255 / 9%);
     border-radius: 17px;
     background:
       linear-gradient(90deg, rgb(103 220 231 / 5%), rgb(216 170 79 / 5%)),
       rgb(5 26 39 / 58%);
-    padding-inline: 24px;
+    padding-inline: 18px;
   }
 
   .hub-world-destination::before {
@@ -863,6 +1342,119 @@
     height: 48px;
     padding: 9px;
   }
+
+  .study-progress-journey {
+    width: 100%;
+    border-radius: 22px;
+    padding: 16px 12px;
+  }
+
+  .study-progress-header {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+    text-align: center;
+  }
+
+  .study-progress-header p {
+    font-size: 0.78rem;
+  }
+
+  .study-progress-header h2 {
+    font-size: clamp(1.45rem, 7vw, 2rem);
+  }
+
+  .study-progress-switch {
+    width: 100%;
+  }
+
+  .career-app-shell .study-progress-switch button {
+    min-height: 32px;
+    font-size: 0.78rem;
+  }
+
+  .study-progress-view-meta,
+  .study-progress-selected-day {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 5px 10px;
+    font-size: 0.76rem;
+  }
+
+  .study-progress-today-view {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .study-progress-day {
+    min-height: 72px;
+    border-radius: 10px;
+    padding: 8px 4px;
+    font-size: 0.68rem;
+  }
+
+  .study-progress-day strong {
+    font-size: 1.25rem;
+  }
+
+  .study-progress-day-today {
+    min-height: 132px;
+  }
+
+  .study-progress-day-today strong {
+    font-size: clamp(2.8rem, 15vw, 4.3rem);
+  }
+
+  .study-progress-day-week {
+    min-height: 76px;
+  }
+
+  .study-progress-day-week .study-progress-day-name {
+    font-size: 0.62rem;
+  }
+
+  .study-progress-day-week small {
+    display: none;
+  }
+
+  .study-progress-month-weekdays {
+    gap: 4px;
+    font-size: 0.58rem;
+  }
+
+  .study-progress-week-calendar,
+  .study-progress-month-calendar {
+    gap: 4px;
+  }
+
+  .study-progress-day-month,
+  .study-progress-month-blank {
+    min-height: 46px;
+    border-radius: 10px;
+  }
+
+  .study-progress-day-month {
+    padding: 6px 3px;
+  }
+
+  .study-progress-day-month strong {
+    font-size: 0.84rem;
+  }
+
+  .study-progress-day-month .study-progress-day-activity {
+    width: 11px;
+    height: 11px;
+  }
+
+  .study-progress-today-diary {
+    border-radius: 16px;
+    padding: 14px;
+  }
+
+  .study-progress-day-tooltip {
+    max-width: min(210px, calc(100vw - 44px));
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -872,7 +1464,8 @@
   .hub-world-particle,
   .hub-world-energy-streak,
   .hub-world-collision::before,
-  .hub-world-collision::after {
+  .hub-world-collision::after,
+  .study-progress-body {
     animation: none;
   }
 }

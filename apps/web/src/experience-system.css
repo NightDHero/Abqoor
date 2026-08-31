@@ -24,6 +24,11 @@ body:has(.onboarding-shell) {
     clamp(104px, 10vw, 150px);
 }
 
+.product-app-shell:has(.study-mode-active:not(.study-mode-immersive))
+  .app-main {
+  padding-block: clamp(30px, 4vh, 46px) clamp(26px, 4vh, 38px);
+}
+
 .product-app-shell .page-container,
 .product-app-shell .page-content {
   width: min(100%, 1720px);

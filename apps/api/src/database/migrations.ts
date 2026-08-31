@@ -146,6 +146,15 @@ const migrateAdminAccounts = (db: Database.Database) => {
   `);
 };
 
+const migrateSessionAnswerTiming = (db: Database.Database) => {
+  addColumnIfMissing(
+    db,
+    "session_answers",
+    "active_duration_seconds",
+    "INTEGER CHECK (active_duration_seconds IS NULL OR active_duration_seconds >= 0)"
+  );
+};
+
 const createAdminImportTables = (db: Database.Database) => {
   db.exec(`
     CREATE TABLE IF NOT EXISTS import_jobs (
@@ -288,6 +297,7 @@ const migrateAdminImportSystem = (db: Database.Database) => {
 export const runDatabaseMigrations = (db: Database.Database) => {
   migrateStudentProfileIdentity(db);
   migrateAdminAccounts(db);
+  migrateSessionAnswerTiming(db);
   migrateAdminImportSystem(db);
   migrateQuestionLearningFields(db);
 };
