@@ -13,6 +13,7 @@ import { AuthPage } from "./features/auth/AuthPage";
 import { ExamEntryDialog } from "./features/exam/ExamEntryDialog";
 import { useAuth } from "./hooks/useAuth";
 import { useRouter } from "./hooks/useRouter";
+import { useTheme } from "./hooks/useTheme";
 import { BrowsePage } from "./pages/BrowsePage";
 import { CareerPage } from "./pages/CareerPage";
 import { ExamPage } from "./pages/ExamPage";
@@ -33,6 +34,7 @@ import {
 export default function App() {
   const { path } = useRouter();
   const auth = useAuth();
+  const theme = useTheme();
   const [isExamRuntimeActive, setIsExamRuntimeActive] = useState(false);
   const [shouldAutoStartExam, setShouldAutoStartExam] = useState(false);
   const browseValue = getBrowseRouteValue(path);
@@ -181,7 +183,9 @@ export default function App() {
     return renderProtectedPage(
       auth.user ? (
         <ProfilePage
+          activeTheme={theme.theme}
           user={auth.user}
+          onThemeChange={theme.setTheme}
           onProfileSaved={(user) => auth.setUser(user)}
         />
       ) : null

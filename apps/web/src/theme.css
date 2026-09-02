@@ -1,0 +1,1248 @@
+/* Abqoor theme layer. Light is the authored default; Actual Exam runtime styles stay isolated. */
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+  color: #172334;
+  background: #fffaf1;
+
+  --theme-root-background: #fffaf1;
+  --theme-canvas: #fffaf1;
+  --theme-canvas-deep: #fffdf8;
+  --theme-surface: rgb(255 255 255 / 88%);
+  --theme-surface-raised: #ffffff;
+  --theme-surface-soft: rgb(255 248 232 / 78%);
+  --theme-surface-tinted: rgb(255 244 214 / 66%);
+  --theme-line: rgb(27 71 87 / 13%);
+  --theme-line-strong: rgb(20 142 166 / 28%);
+  --theme-text: #172334;
+  --theme-muted: #5f7281;
+  --theme-muted-strong: #425767;
+  --theme-cyan: #168fa5;
+  --theme-cyan-soft: #137d91;
+  --theme-turquoise: #149a8c;
+  --theme-gold: #b98513;
+  --theme-gold-soft: #9c6b0d;
+  --theme-orange: #d46720;
+  --theme-positive: #167a55;
+  --theme-danger: #b83b3b;
+  --theme-danger-soft: #fff0ed;
+  --theme-warning: #9a6507;
+  --theme-info-soft: rgb(20 142 166 / 10%);
+  --theme-shadow: 0 24px 64px rgb(65 49 22 / 13%);
+  --theme-shadow-soft: 0 14px 36px rgb(65 49 22 / 10%);
+  --theme-shadow-strong: 0 34px 90px rgb(65 49 22 / 16%);
+  --theme-app-background:
+    radial-gradient(circle at 14% 14%, rgb(22 143 165 / 11%), transparent 31rem),
+    radial-gradient(circle at 88% 6%, rgb(245 201 79 / 14%), transparent 30rem),
+    linear-gradient(145deg, #fffdf8 0%, #fff8ea 52%, #f7fbfb 100%);
+  --theme-shell-pattern:
+    linear-gradient(115deg, rgb(21 70 86 / 4%) 0 1px, transparent 1px 78px),
+    radial-gradient(ellipse at 52% 0%, rgb(245 201 79 / 12%), transparent 42%);
+  --theme-shell-ambient: rgb(22 143 165 / 9%);
+  --theme-header-bg: rgb(255 253 248 / 84%);
+  --theme-nav-bg: rgb(255 253 248 / 76%);
+  --theme-nav-label-bg: rgb(255 255 255 / 96%);
+  --theme-card-bg:
+    linear-gradient(145deg, rgb(255 255 255 / 92%), rgb(255 249 235 / 78%));
+  --theme-card-bg-soft:
+    linear-gradient(180deg, rgb(255 255 255 / 84%), rgb(255 248 232 / 64%));
+  --theme-card-bg-strong:
+    radial-gradient(circle at 12% 8%, rgb(22 143 165 / 9%), transparent 30%),
+    linear-gradient(145deg, rgb(255 255 255 / 96%), rgb(255 247 226 / 82%));
+  --theme-control-bg: rgb(255 255 255 / 72%);
+  --theme-control-hover-bg: rgb(20 142 166 / 8%);
+  --theme-control-selected-bg: rgb(20 142 166 / 12%);
+  --theme-primary-gradient: linear-gradient(135deg, #18a9b1, #168fa5);
+  --theme-primary-shadow: 0 14px 30px rgb(18 126 145 / 18%);
+  --theme-input-bg: rgb(255 255 255 / 88%);
+  --theme-input-shadow: inset 0 1px 0 rgb(255 255 255 / 84%), 0 8px 22px rgb(65 49 22 / 7%);
+  --theme-focus-ring: rgb(20 142 166 / 16%);
+  --theme-image-shadow: 0 18px 44px rgb(65 49 22 / 13%);
+  --theme-overlay-bg: rgb(17 30 38 / 38%);
+
+  --border-color: var(--theme-line);
+  --muted-text: var(--theme-muted);
+  --brand-navy: var(--theme-text);
+  --brand-cyan: var(--theme-cyan);
+  --brand-turquoise: var(--theme-turquoise);
+  --brand-orange: var(--theme-orange);
+  --brand-gold: var(--theme-gold);
+  --brand-grey: var(--theme-line);
+  --brand-white: #ffffff;
+  --abqoor-deep-navy: var(--theme-canvas);
+  --abqoor-night: var(--theme-surface-soft);
+  --abqoor-ink: var(--theme-text);
+  --abqoor-text: var(--theme-text);
+  --abqoor-muted: var(--theme-muted);
+  --abqoor-glass: var(--theme-surface);
+  --abqoor-glass-strong: var(--theme-surface-raised);
+  --abqoor-border: var(--theme-line);
+  --abqoor-border-strong: var(--theme-line-strong);
+  --abqoor-shadow-deep: var(--theme-shadow);
+  --abqoor-shadow-soft: var(--theme-shadow-soft);
+  --abqoor-page-gradient: var(--theme-app-background);
+  --abqoor-card-gradient: var(--theme-card-bg);
+
+  --world-white: var(--theme-text);
+  --world-muted: var(--theme-muted);
+  --world-cyan: var(--theme-cyan);
+  --world-cyan-soft: var(--theme-cyan-soft);
+  --world-gold: var(--theme-gold);
+  --world-gold-soft: var(--theme-gold-soft);
+  --world-orange: var(--theme-orange);
+  --world-map-background:
+    radial-gradient(circle at 10% 12%, rgb(22 143 165 / 13%), transparent 34rem),
+    radial-gradient(circle at 90% 10%, rgb(216 170 79 / 18%), transparent 38rem),
+    radial-gradient(circle at 50% 43%, rgb(255 255 255 / 72%), transparent 21rem),
+    linear-gradient(112deg, #fffdf8 0%, #fff7e8 43%, #f6fbfb 57%, #fff1d8 100%);
+  --world-map-lines:
+    linear-gradient(132deg, transparent 0 48%, rgb(27 71 87 / 4%) 48.1% 48.2%, transparent 48.3%),
+    radial-gradient(circle at 50% 45%, transparent 34%, rgb(245 201 79 / 10%) 100%);
+  --world-map-vignette:
+    linear-gradient(90deg, rgb(22 143 165 / 5%), transparent 44%, transparent 56%, rgb(216 170 79 / 8%)),
+    radial-gradient(ellipse at center, transparent 48%, rgb(255 244 214 / 52%) 100%);
+  --world-panel-bg:
+    linear-gradient(145deg, rgb(255 255 255 / 88%), rgb(255 248 232 / 62%));
+  --world-panel-border: rgb(27 71 87 / 12%);
+  --world-panel-shadow: 0 24px 64px rgb(65 49 22 / 13%), inset 0 1px 0 rgb(255 255 255 / 80%);
+  --world-elevated-bg: rgb(255 255 255 / 88%);
+  --world-destination-bg: rgb(255 255 255 / 78%);
+  --world-destination-shadow: 0 22px 54px rgb(65 49 22 / 13%), inset 0 1px 0 rgb(255 255 255 / 86%);
+
+  --home-cyan: #168fa5;
+  --home-cyan-soft: #137d91;
+  --home-turquoise: #149a8c;
+  --home-gold: #c59118;
+  --home-gold-soft: #9f6f12;
+  --home-orange: #d46720;
+  --home-correct: #1b8a5d;
+  --home-error: #c8453d;
+  --home-ink: #172334;
+  --home-muted: #617484;
+  --home-line: rgb(27 71 87 / 13%);
+  --home-deep: #fffaf1;
+  --home-navy: #fffdf8;
+  --home-navy-soft: #fff5df;
+  --home-page-background:
+    linear-gradient(180deg, transparent 0 78%, rgb(255 240 201 / 34%) 100%),
+    radial-gradient(circle at 18% 14%, rgb(20 154 140 / 11%), transparent 29rem),
+    radial-gradient(circle at 86% 7%, rgb(245 201 79 / 18%), transparent 27rem),
+    linear-gradient(152deg, #fffdf8 0%, #fff7e8 48%, #f8fbfb 100%);
+  --home-grid-line-a: rgb(28 74 88 / 4.2%);
+  --home-grid-line-b: rgb(28 74 88 / 3.2%);
+  --home-ghost-text: rgb(23 35 52 / 4.6%);
+  --home-card-bg:
+    linear-gradient(145deg, rgb(255 255 255 / 94%), rgb(255 248 232 / 84%));
+  --home-panel-bg:
+    linear-gradient(145deg, rgb(255 255 255 / 94%), rgb(255 248 232 / 82%));
+  --home-panel-solid: #ffffff;
+  --home-band-bg: linear-gradient(90deg, rgb(22 143 165 / 6%), rgb(245 201 79 / 6%), transparent);
+  --home-track-bg: rgb(27 71 87 / 9%);
+  --home-card-shadow: 0 28px 74px rgb(65 49 22 / 14%), inset 0 1px 0 rgb(255 255 255 / 86%);
+
+  --pre-exam-shell-bg:
+    radial-gradient(circle at 14% 18%, rgb(22 143 165 / 10%), transparent 28rem),
+    radial-gradient(circle at 88% 12%, rgb(245 201 79 / 16%), transparent 30rem),
+    linear-gradient(145deg, #fffdf8, #fff7e8 56%, #f6fbfb);
+  --pre-exam-panel-bg:
+    linear-gradient(145deg, rgb(255 255 255 / 90%), rgb(255 248 232 / 76%));
+  --pre-exam-history-bg:
+    radial-gradient(circle at 18% 12%, rgb(22 143 165 / 10%), transparent 26rem),
+    linear-gradient(145deg, rgb(255 255 255 / 92%), rgb(245 253 253 / 88%));
+  --pre-exam-instructions-bg:
+    radial-gradient(circle at 88% 4%, rgb(245 201 79 / 12%), transparent 21rem),
+    linear-gradient(150deg, #ffffff, #fff7e8);
+  --pre-exam-text: var(--theme-text);
+  --pre-exam-muted: var(--theme-muted);
+  --pre-exam-instructions-text: var(--theme-text);
+  --pre-exam-instructions-muted: var(--theme-muted);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  color: #f8fbff;
+  background: #04131f;
+
+  --theme-root-background: #04131f;
+  --theme-canvas: #071925;
+  --theme-canvas-deep: #04121d;
+  --theme-surface: #0d2938;
+  --theme-surface-raised: #123547;
+  --theme-surface-soft: rgb(255 255 255 / 4%);
+  --theme-surface-tinted: rgb(255 255 255 / 5%);
+  --theme-line: rgb(184 226 239 / 13%);
+  --theme-line-strong: rgb(87 207 224 / 34%);
+  --theme-text: #f7fbfd;
+  --theme-muted: #9fb2bd;
+  --theme-muted-strong: #c0d3dc;
+  --theme-cyan: #55cfe0;
+  --theme-cyan-soft: #8adce8;
+  --theme-turquoise: #22b8ad;
+  --theme-gold: #f1c85a;
+  --theme-gold-soft: #ffe49a;
+  --theme-orange: #ed8b3a;
+  --theme-positive: #44c997;
+  --theme-danger: #ef7777;
+  --theme-danger-soft: rgb(239 119 119 / 9%);
+  --theme-warning: #f1c85a;
+  --theme-info-soft: rgb(85 207 224 / 12%);
+  --theme-shadow: 0 24px 60px rgb(0 9 18 / 26%);
+  --theme-shadow-soft: 0 12px 28px rgb(0 9 18 / 18%);
+  --theme-shadow-strong: 0 34px 90px rgb(0 7 14 / 42%);
+  --theme-app-background:
+    radial-gradient(circle at 85% 8%, rgb(63 185 207 / 10%), transparent 26rem),
+    linear-gradient(145deg, #04121d, #071925 56%, #0b2532);
+  --theme-shell-pattern:
+    linear-gradient(120deg, transparent 0 58%, rgb(255 255 255 / 2%) 58% 58.1%, transparent 58.1%),
+    radial-gradient(circle at 12% 82%, rgb(35 184 173 / 7%), transparent 22rem);
+  --theme-shell-ambient: rgb(43 183 212 / 8%);
+  --theme-header-bg: rgb(4 18 29 / 88%);
+  --theme-nav-bg: rgb(4 18 29 / 94%);
+  --theme-nav-label-bg: rgb(4 19 31 / 94%);
+  --theme-card-bg:
+    linear-gradient(145deg, rgb(255 255 255 / 4.5%), rgb(255 255 255 / 1.8%)),
+    rgb(7 29 42 / 62%);
+  --theme-card-bg-soft: linear-gradient(180deg, rgb(255 255 255 / 7%), rgb(255 255 255 / 3%));
+  --theme-card-bg-strong:
+    radial-gradient(circle at 12% 10%, rgb(125 229 237 / 12%), transparent 30%),
+    linear-gradient(145deg, rgb(255 255 255 / 10%), rgb(255 255 255 / 5%));
+  --theme-control-bg: rgb(255 255 255 / 5%);
+  --theme-control-hover-bg: rgb(255 255 255 / 8%);
+  --theme-control-selected-bg: rgb(85 207 224 / 12%);
+  --theme-primary-gradient: linear-gradient(135deg, #249eb3, #168f99);
+  --theme-primary-shadow: 0 12px 26px rgb(10 126 143 / 24%);
+  --theme-input-bg: rgb(2 13 22 / 42%);
+  --theme-input-shadow: inset 0 1px 2px rgb(0 5 10 / 20%);
+  --theme-focus-ring: rgb(85 207 224 / 12%);
+  --theme-image-shadow: 0 22px 66px rgb(0 7 14 / 25%);
+  --theme-overlay-bg: rgb(1 10 18 / 72%);
+
+  --border-color: #ccc;
+  --muted-text: #444;
+  --brand-navy: #102a43;
+  --brand-cyan: #2bb7d4;
+  --brand-turquoise: #0ea69a;
+  --brand-orange: #f97316;
+  --brand-gold: #f5c542;
+  --brand-grey: #d1d5db;
+  --brand-white: #fff;
+  --abqoor-deep-navy: #071827;
+  --abqoor-night: #0a2534;
+  --abqoor-ink: #102033;
+  --abqoor-text: #f8fbff;
+  --abqoor-muted: #aab9c5;
+  --abqoor-glass: rgb(255 255 255 / 6%);
+  --abqoor-glass-strong: rgb(255 255 255 / 9%);
+  --abqoor-border: rgb(255 255 255 / 11%);
+  --abqoor-border-strong: rgb(255 255 255 / 18%);
+  --abqoor-shadow-deep: 0 20px 52px rgb(3 18 34 / 22%);
+  --abqoor-shadow-soft: 0 10px 26px rgb(3 18 34 / 14%);
+  --abqoor-page-gradient:
+    radial-gradient(circle at 18% 20%, rgb(43 183 212 / 10%), transparent 30%),
+    linear-gradient(120deg, #071827 0%, #082236 48%, #102a43 100%);
+  --abqoor-card-gradient: linear-gradient(180deg, rgb(255 255 255 / 7%), rgb(255 255 255 / 5%));
+
+  --world-white: #f7fbfc;
+  --world-muted: #aab9c5;
+  --world-cyan: #67dce7;
+  --world-cyan-soft: #b8f3f5;
+  --world-gold: #d7aa52;
+  --world-gold-soft: #ffe49a;
+  --world-orange: #ed8b3a;
+  --world-map-background:
+    radial-gradient(circle at 10% 12%, rgb(76 214 226 / 21%), transparent 34rem),
+    radial-gradient(circle at 90% 10%, rgb(213 166 76 / 25%), transparent 38rem),
+    radial-gradient(circle at 50% 43%, rgb(245 249 250 / 7%), transparent 21rem),
+    linear-gradient(112deg, #041521 0%, #072a37 43%, #17242a 57%, #2b2118 100%);
+  --world-map-lines:
+    linear-gradient(132deg, transparent 0 48%, rgb(255 255 255 / 1.7%) 48.1% 48.2%, transparent 48.3%),
+    radial-gradient(circle at 50% 45%, transparent 27%, rgb(0 5 10 / 40%) 100%);
+  --world-map-vignette:
+    linear-gradient(90deg, rgb(26 184 199 / 5%), transparent 44%, transparent 56%, rgb(207 151 62 / 6%)),
+    radial-gradient(ellipse at center, transparent 42%, rgb(0 5 10 / 22%) 100%);
+  --world-panel-bg:
+    radial-gradient(circle at 14% 0%, rgb(103 220 231 / 14%), transparent 42%),
+    radial-gradient(circle at 86% 12%, rgb(216 170 79 / 10%), transparent 40%),
+    linear-gradient(180deg, rgb(4 21 31 / 84%), rgb(3 16 27 / 70%));
+  --world-panel-border: rgb(255 255 255 / 10%);
+  --world-panel-shadow: 0 32px 84px rgb(0 7 14 / 26%), inset 0 1px 0 rgb(255 255 255 / 8%);
+  --world-elevated-bg: rgb(5 25 38 / 95%);
+  --world-destination-bg: rgb(5 26 39 / 56%);
+  --world-destination-shadow: 0 24px 54px rgb(0 7 14 / 28%), inset 0 1px 0 rgb(255 255 255 / 9%);
+
+  --home-cyan: #67dce7;
+  --home-cyan-soft: #b8f3f5;
+  --home-turquoise: #23b9ad;
+  --home-gold: #f5c94f;
+  --home-gold-soft: #ffe49a;
+  --home-orange: #ed8b3a;
+  --home-correct: #76d6a5;
+  --home-error: #ff786f;
+  --home-ink: #f7fbfc;
+  --home-muted: #9eb3bd;
+  --home-line: rgb(255 255 255 / 11%);
+  --home-deep: #03111c;
+  --home-navy: #071c2b;
+  --home-navy-soft: #0b2a3a;
+  --home-page-background:
+    linear-gradient(180deg, transparent 0 80%, rgb(0 7 14 / 28%) 100%),
+    radial-gradient(circle at 18% 14%, rgb(35 185 173 / 15%), transparent 29rem),
+    radial-gradient(circle at 86% 7%, rgb(245 201 79 / 11%), transparent 27rem),
+    linear-gradient(152deg, #03111c 0%, #061d2b 48%, #082735 100%);
+  --home-grid-line-a: rgb(255 255 255 / 2.5%);
+  --home-grid-line-b: rgb(255 255 255 / 2%);
+  --home-ghost-text: rgb(255 255 255 / 3%);
+  --home-card-bg: linear-gradient(145deg, rgb(9 34 48 / 92%), rgb(4 20 31 / 90%));
+  --home-panel-bg: #061a27;
+  --home-panel-solid: #061a27;
+  --home-band-bg: linear-gradient(90deg, rgb(255 255 255 / 2%), transparent);
+  --home-track-bg: rgb(255 255 255 / 7%);
+  --home-card-shadow: 0 34px 90px rgb(0 7 14 / 42%), inset 0 1px 0 rgb(255 255 255 / 5%);
+
+  --pre-exam-shell-bg:
+    radial-gradient(circle at 14% 18%, rgb(103 220 231 / 10%), transparent 28rem),
+    radial-gradient(circle at 88% 12%, rgb(245 201 79 / 9%), transparent 30rem),
+    linear-gradient(145deg, #04131f, #071e2d 56%, #102631);
+  --pre-exam-panel-bg: rgb(255 255 255 / 10%);
+  --pre-exam-history-bg:
+    radial-gradient(circle at 18% 12%, rgb(103 220 231 / 12%), transparent 26rem),
+    linear-gradient(145deg, rgb(12 46 58 / 98%), rgb(7 31 43 / 98%));
+  --pre-exam-instructions-bg:
+    radial-gradient(circle at 88% 4%, rgb(245 201 79 / 9%), transparent 21rem),
+    linear-gradient(150deg, #fbfcfc, #eef4f6);
+  --pre-exam-text: #f7fbfc;
+  --pre-exam-muted: #aab9c5;
+  --pre-exam-instructions-text: #102635;
+  --pre-exam-instructions-muted: #526873;
+}
+
+html,
+body,
+#root {
+  background: var(--theme-root-background);
+  color: var(--theme-text);
+}
+
+body:has(.public-home),
+body:has(.product-app-shell),
+body:has(.career-app-shell),
+body:has(.auth-shell),
+body:has(.onboarding-shell) {
+  background: var(--theme-root-background);
+}
+
+.product-app-shell,
+.landing-shell,
+.auth-shell,
+.onboarding-shell {
+  --abq-canvas: var(--theme-canvas);
+  --abq-canvas-deep: var(--theme-canvas-deep);
+  --abq-surface: var(--theme-surface);
+  --abq-surface-raised: var(--theme-surface-raised);
+  --abq-surface-soft: var(--theme-surface-soft);
+  --abq-line: var(--theme-line);
+  --abq-line-strong: var(--theme-line-strong);
+  --abq-text: var(--theme-text);
+  --abq-muted: var(--theme-muted);
+  --abq-cyan: var(--theme-cyan);
+  --abq-cyan-soft: var(--theme-cyan-soft);
+  --abq-turquoise: var(--theme-turquoise);
+  --abq-gold: var(--theme-gold);
+  --abq-positive: var(--theme-positive);
+  --abq-danger: var(--theme-danger);
+  --abq-shadow: var(--theme-shadow);
+  --abq-shadow-soft: var(--theme-shadow-soft);
+  --product-canvas: var(--theme-app-background);
+  --product-surface: var(--theme-surface);
+  --product-surface-raised: var(--theme-surface-raised);
+  --product-surface-soft: var(--theme-surface-soft);
+  --product-line: var(--theme-line);
+  --product-line-strong: var(--theme-line-strong);
+  --product-text: var(--theme-text);
+  --product-muted: var(--theme-muted);
+  --product-cyan-soft: var(--theme-cyan-soft);
+  background: var(--theme-app-background);
+  color: var(--theme-text);
+}
+
+.product-app-shell::before,
+.landing-shell::before,
+.auth-shell::before,
+.onboarding-shell::before {
+  background: var(--theme-shell-pattern);
+}
+
+.product-app-shell::after,
+.landing-shell::after,
+.auth-shell::after,
+.onboarding-shell::after {
+  background: var(--theme-shell-ambient);
+}
+
+.product-app-shell .app-header,
+.product-app-shell .bottom-nav {
+  border-color: var(--theme-line);
+  background: var(--theme-header-bg);
+  color: var(--theme-text);
+  box-shadow: var(--theme-shadow-soft);
+}
+
+.product-app-shell .nav-link {
+  color: color-mix(in srgb, var(--theme-text) 72%, transparent);
+}
+
+.product-app-shell .nav-link:hover,
+.product-app-shell .nav-link.active {
+  color: var(--theme-text);
+}
+
+.product-app-shell .nav-link:hover {
+  border-color: var(--theme-line);
+  background: var(--theme-control-hover-bg);
+}
+
+.product-app-shell .nav-link.active {
+  border-color: var(--theme-line-strong);
+  background: var(--theme-control-selected-bg);
+  box-shadow: inset 0 -2px 0 var(--theme-cyan);
+}
+
+.product-app-shell .page-hero,
+.product-app-shell .topic-world-hero,
+.product-app-shell .study-mode > .study-panel:first-child,
+.product-app-shell .study-result-hero,
+.product-app-shell .question-browser > .browser-panel:first-child,
+.landing-panel,
+.auth-card,
+.onboarding-card,
+.product-app-shell .summary-metric,
+.product-app-shell .profile-section,
+.product-app-shell .review-section,
+.product-app-shell .study-result-block,
+.product-app-shell .admin-panel,
+.product-app-shell .placeholder-card,
+.product-app-shell .topic-world-section,
+.product-app-shell .topic-entry-panel,
+.product-app-shell .metric,
+.product-app-shell .manifest-item,
+.product-app-shell .question-card,
+.product-app-shell .study-panel,
+.product-app-shell .study-question,
+.product-app-shell .feedback-panel,
+.product-app-shell .browser-panel,
+.product-app-shell .browser-question-mode,
+.product-app-shell .browser-gallery-item,
+.product-app-shell .review-item,
+.product-app-shell .table-wrap,
+.product-app-shell .radio-group {
+  border-color: var(--theme-line);
+  background: var(--theme-card-bg);
+  color: var(--theme-text);
+  box-shadow: var(--theme-shadow-soft);
+}
+
+.product-app-shell .page-hero,
+.product-app-shell .topic-world-hero,
+.product-app-shell .study-mode > .study-panel:first-child,
+.product-app-shell .study-result-hero,
+.product-app-shell .question-browser > .browser-panel:first-child,
+.auth-card,
+.onboarding-card {
+  background: var(--theme-card-bg-strong);
+  box-shadow: var(--theme-shadow);
+}
+
+.product-app-shell .page-title,
+.landing-title,
+.auth-title,
+.product-app-shell h2,
+.auth-shell h2,
+.onboarding-shell h1,
+.onboarding-shell h2,
+.product-app-shell .summary-metric > strong,
+.profile-identity strong,
+.product-app-shell .metric strong {
+  color: var(--theme-text);
+}
+
+.product-app-shell .page-description,
+.landing-summary,
+.auth-context p,
+.onboarding-header p:last-child,
+.product-app-shell .summary-metric > span,
+.product-app-shell .summary-metric > small,
+.profile-identity span,
+.product-app-shell .status-message,
+.landing-shell .status-message,
+.auth-shell .status-message,
+.onboarding-shell .status-message,
+.product-app-shell .profile-field-grid span,
+.product-app-shell .simple-list,
+.product-app-shell .review-item span,
+.product-app-shell .review-item p,
+.product-app-shell .browser-question-heading span,
+.product-app-shell .question-card-heading span,
+.product-app-shell .study-question-heading span {
+  color: var(--theme-muted);
+}
+
+.product-app-shell .page-eyebrow,
+.landing-shell .page-eyebrow,
+.auth-shell .page-eyebrow,
+.onboarding-shell .page-eyebrow {
+  color: var(--theme-cyan-soft);
+}
+
+.product-app-shell button:not(.exam-entry-start),
+.landing-shell button,
+.auth-shell button,
+.onboarding-shell button {
+  border-color: var(--theme-line-strong);
+  background: var(--theme-control-bg);
+  color: var(--theme-text);
+  box-shadow: var(--theme-shadow-soft);
+}
+
+.product-app-shell button:not(.exam-entry-start):hover:not(:disabled),
+.landing-shell button:hover:not(:disabled),
+.auth-shell button:hover:not(:disabled),
+.onboarding-shell button:hover:not(:disabled) {
+  border-color: var(--theme-line-strong);
+  background: var(--theme-control-hover-bg);
+  box-shadow: var(--theme-shadow);
+}
+
+.product-app-shell button.secondary,
+.landing-shell button.secondary,
+.auth-shell button.secondary,
+.onboarding-shell button.secondary {
+  border-color: var(--theme-line);
+  background: transparent;
+  color: var(--theme-muted-strong);
+  box-shadow: none;
+}
+
+.product-app-shell .study-mode > .study-panel:first-child button:not(.secondary),
+.product-app-shell .study-result .action-row button,
+.product-app-shell .topic-entry-panel button,
+.product-app-shell .profile-form > .action-row button[type="submit"],
+.product-app-shell .admin-form > button[type="submit"],
+.landing-entry .action-row button:not(.secondary),
+.auth-form button[type="submit"],
+.onboarding-actions button:last-child {
+  border-color: var(--theme-line-strong);
+  background: var(--theme-primary-gradient);
+  color: #ffffff;
+  box-shadow: var(--theme-primary-shadow);
+}
+
+.product-app-shell input,
+.product-app-shell select,
+.auth-shell input,
+.onboarding-shell input,
+.browser-search input,
+.product-app-shell input[type="file"] {
+  border-color: var(--theme-line);
+  background: var(--theme-input-bg);
+  color: var(--theme-text);
+  box-shadow: var(--theme-input-shadow);
+}
+
+.product-app-shell input::placeholder,
+.auth-shell input::placeholder,
+.onboarding-shell input::placeholder {
+  color: color-mix(in srgb, var(--theme-muted) 62%, transparent);
+}
+
+.product-app-shell input:focus-visible,
+.product-app-shell select:focus-visible,
+.product-app-shell button:focus-visible,
+.product-app-shell .nav-link:focus-visible,
+.auth-shell input:focus-visible,
+.auth-shell button:focus-visible,
+.landing-shell button:focus-visible,
+.onboarding-shell input:focus-visible,
+.onboarding-shell button:focus-visible {
+  outline: 2px solid var(--theme-cyan);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px var(--theme-focus-ring);
+}
+
+.product-app-shell .error-message,
+.auth-shell .error-message,
+.onboarding-shell .error-message {
+  border-color: color-mix(in srgb, var(--theme-danger) 30%, transparent);
+  background: var(--theme-danger-soft);
+  color: var(--theme-danger);
+}
+
+.product-app-shell .profile-choice,
+.onboarding-option,
+.product-app-shell .subtopic-pillar,
+.product-app-shell .answer-option {
+  border-color: var(--theme-line);
+  background: var(--theme-control-bg);
+  color: var(--theme-text);
+}
+
+.product-app-shell .profile-choice:hover,
+.onboarding-option:hover,
+.product-app-shell .subtopic-pillar:hover,
+.product-app-shell .answer-option:hover {
+  border-color: var(--theme-line-strong);
+  background: var(--theme-control-hover-bg);
+}
+
+.product-app-shell .profile-choice.selected,
+.onboarding-option.selected,
+.product-app-shell .browser-mode-switch button.selected,
+.product-app-shell .study-view-switch button.selected,
+.product-app-shell .answer-option.selected {
+  border-color: var(--theme-cyan);
+  background: var(--theme-control-selected-bg);
+  color: var(--theme-text);
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--theme-cyan) 48%, transparent);
+}
+
+.profile-appearance-section .profile-option-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 420px;
+}
+
+.profile-appearance-section .profile-choice {
+  justify-content: center;
+  text-align: center;
+}
+
+.profile-identity {
+  border-color: var(--theme-line-strong);
+  background:
+    radial-gradient(circle at 18% 20%, rgb(22 143 165 / 10%), transparent 16rem),
+    var(--theme-card-bg-strong);
+  box-shadow: var(--theme-shadow);
+}
+
+.profile-identity-avatar {
+  background: #ffffff;
+  box-shadow: var(--theme-shadow-soft);
+}
+
+.product-app-shell .profile-form > .action-row,
+.auth-mode-switch,
+.onboarding-progress-bar,
+.product-app-shell .browser-mode-switch,
+.study-view-switch {
+  border-color: var(--theme-line);
+  background: var(--theme-surface-soft);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 44%);
+}
+
+.product-app-shell .question-image,
+.product-app-shell .browser-gallery-image,
+.product-app-shell .answer-image,
+.product-app-shell .question-thumb,
+.product-app-shell .solving-question-stage .question-image {
+  border-color: var(--theme-line);
+  background: #ffffff;
+  box-shadow: var(--theme-image-shadow);
+}
+
+.product-app-shell:has(.question-browser-math) {
+  background:
+    radial-gradient(circle at 82% 8%, rgb(216 170 79 / 15%), transparent 36rem),
+    radial-gradient(circle at 14% 76%, rgb(22 143 165 / 8%), transparent 32rem),
+    linear-gradient(142deg, #fffdf8 0%, #fff6e4 52%, #fffaf1 100%);
+}
+
+.solving-question-stage {
+  background:
+    radial-gradient(circle at 50% 18%, rgb(22 143 165 / 6%), transparent 34rem),
+    linear-gradient(180deg, rgb(255 255 255 / 54%), transparent);
+}
+
+:root[data-theme="light"] .product-app-shell .solving-answer-dock .answer-option.answer-correct,
+:root[data-theme="light"] .product-app-shell button.immersive-answer-option.answer-correct {
+  border-color: rgb(22 122 85 / 44%);
+  background: rgb(28 135 92 / 13%);
+  color: #145c42;
+  box-shadow: 0 16px 34px rgb(20 128 90 / 12%);
+}
+
+:root[data-theme="light"] .product-app-shell .solving-answer-dock .answer-option.answer-wrong,
+:root[data-theme="light"] .product-app-shell button.immersive-answer-option.answer-wrong {
+  border-color: rgb(184 59 59 / 34%);
+  background: rgb(184 59 59 / 12%);
+  color: #8f2e2e;
+}
+
+:root[data-theme="light"] .browser-search-icon,
+:root[data-theme="light"] .question-previous-button img,
+:root[data-theme="light"] .product-app-shell .review-toggle img,
+:root[data-theme="light"] .question-action img {
+  filter: none;
+  opacity: 0.78;
+}
+
+.public-home {
+  --home-cyan: #168fa5;
+  --home-cyan-soft: #137d91;
+  --home-turquoise: #149a8c;
+  --home-gold: #c59118;
+  --home-gold-soft: #9f6f12;
+  --home-orange: #d46720;
+  --home-correct: #1b8a5d;
+  --home-error: #c8453d;
+  --home-ink: #172334;
+  --home-muted: #617484;
+  --home-line: rgb(27 71 87 / 13%);
+  --home-deep: #fffaf1;
+  --home-navy: #fffdf8;
+  --home-navy-soft: #fff5df;
+  --home-page-background:
+    linear-gradient(180deg, transparent 0 78%, rgb(255 240 201 / 34%) 100%),
+    radial-gradient(circle at 18% 14%, rgb(20 154 140 / 11%), transparent 29rem),
+    radial-gradient(circle at 86% 7%, rgb(245 201 79 / 18%), transparent 27rem),
+    linear-gradient(152deg, #fffdf8 0%, #fff7e8 48%, #f8fbfb 100%);
+  --home-grid-line-a: rgb(28 74 88 / 4.2%);
+  --home-grid-line-b: rgb(28 74 88 / 3.2%);
+  --home-ghost-text: rgb(23 35 52 / 4.6%);
+  --home-card-bg:
+    linear-gradient(145deg, rgb(255 255 255 / 94%), rgb(255 248 232 / 84%));
+  --home-panel-bg:
+    linear-gradient(145deg, rgb(255 255 255 / 94%), rgb(255 248 232 / 82%));
+  --home-panel-solid: #ffffff;
+  --home-band-bg: linear-gradient(90deg, rgb(22 143 165 / 6%), rgb(245 201 79 / 6%), transparent);
+  --home-track-bg: rgb(27 71 87 / 9%);
+  --home-card-shadow: 0 28px 74px rgb(65 49 22 / 14%), inset 0 1px 0 rgb(255 255 255 / 86%);
+  background: var(--home-page-background);
+  color: var(--home-ink);
+}
+
+:root[data-theme="dark"] .public-home {
+  --home-cyan: #67dce7;
+  --home-cyan-soft: #b8f3f5;
+  --home-turquoise: #23b9ad;
+  --home-gold: #f5c94f;
+  --home-gold-soft: #ffe49a;
+  --home-orange: #ed8b3a;
+  --home-correct: #76d6a5;
+  --home-error: #ff786f;
+  --home-ink: #f7fbfc;
+  --home-muted: #9eb3bd;
+  --home-line: rgb(255 255 255 / 11%);
+  --home-deep: #03111c;
+  --home-navy: #071c2b;
+  --home-navy-soft: #0b2a3a;
+  --home-page-background:
+    linear-gradient(180deg, transparent 0 80%, rgb(0 7 14 / 28%) 100%),
+    radial-gradient(circle at 18% 14%, rgb(35 185 173 / 15%), transparent 29rem),
+    radial-gradient(circle at 86% 7%, rgb(245 201 79 / 11%), transparent 27rem),
+    linear-gradient(152deg, #03111c 0%, #061d2b 48%, #082735 100%);
+  --home-grid-line-a: rgb(255 255 255 / 2.5%);
+  --home-grid-line-b: rgb(255 255 255 / 2%);
+  --home-ghost-text: rgb(255 255 255 / 3%);
+  --home-card-bg: linear-gradient(145deg, rgb(9 34 48 / 92%), rgb(4 20 31 / 90%));
+  --home-panel-bg: #061a27;
+  --home-panel-solid: #061a27;
+  --home-band-bg: linear-gradient(90deg, rgb(255 255 255 / 2%), transparent);
+  --home-track-bg: rgb(255 255 255 / 7%);
+  --home-card-shadow: 0 34px 90px rgb(0 7 14 / 42%), inset 0 1px 0 rgb(255 255 255 / 5%);
+}
+
+.public-home::before {
+  background-image:
+    linear-gradient(var(--home-grid-line-a) 1px, transparent 1px),
+    linear-gradient(90deg, var(--home-grid-line-b) 1px, transparent 1px);
+}
+
+.home-ambient-world > span {
+  color: var(--home-ghost-text);
+}
+
+.home-arrival::before {
+  background:
+    radial-gradient(circle, rgb(22 143 165 / 12%), transparent 62%),
+    radial-gradient(circle at 68% 38%, rgb(245 201 79 / 13%), transparent 48%);
+}
+
+.home-arrival-copy > strong,
+.home-account-entry,
+.home-dialogue-lines p,
+.home-topic-rail > span,
+.home-session-core p,
+.home-session-node small {
+  color: var(--home-muted);
+}
+
+.home-arrival-copy h1 span {
+  background: linear-gradient(
+    90deg,
+    var(--home-cyan) 12%,
+    var(--home-ink) 48%,
+    var(--home-gold-soft) 88%
+  );
+  background-clip: text;
+  color: transparent;
+  -webkit-background-clip: text;
+}
+
+.home-live-question,
+.home-question-image-stage,
+.home-mock-exam,
+.home-focus-map {
+  border-color: var(--home-line);
+  background: var(--home-panel-bg);
+  color: var(--home-ink);
+  box-shadow: var(--home-card-shadow);
+}
+
+.home-question-image-stage figcaption,
+.home-mock-exam > header,
+.home-focus-map > header,
+.home-mock-exam > footer {
+  border-color: var(--home-line);
+}
+
+.home-analogy-question > span,
+.home-topic-route i,
+.home-time-fork-line i,
+.home-focus-signal > i,
+.home-mock-exam > footer i,
+.home-mock-exam-question > div span {
+  background: var(--home-track-bg);
+}
+
+.home-mock-exam > footer i {
+  background: linear-gradient(90deg, var(--home-gold) 46%, var(--home-track-bg) 46%);
+}
+
+.home-topic-rail > span {
+  border-color: var(--home-line);
+}
+
+.home-topic-rail > span.active,
+.home-topic-route span:last-child,
+.home-session-core > span,
+.home-explanation-note > span {
+  color: var(--home-cyan-soft);
+}
+
+.home-question-image-stage,
+.home-mock-exam,
+.home-focus-map,
+.home-session-node > span {
+  background: var(--home-panel-solid);
+}
+
+.home-session-node > span,
+.home-mock-exam-question > div span {
+  border-color: var(--home-line);
+}
+
+.home-quick-explanation {
+  border-color: var(--home-line);
+  background: var(--home-band-bg);
+}
+
+.home-explanation-note {
+  border-color: var(--home-line);
+}
+
+.hub-world-map {
+  background: var(--world-map-background);
+  color: var(--world-white);
+}
+
+.hub-world-map::before {
+  background: var(--world-map-lines);
+}
+
+.hub-world-map::after {
+  background: var(--world-map-vignette);
+}
+
+.hub-atmosphere-verbal {
+  background:
+    radial-gradient(ellipse at 30% 38%, rgb(22 143 165 / 21%), transparent 52%),
+    radial-gradient(ellipse at 72% 67%, rgb(20 154 140 / 14%), transparent 45%);
+}
+
+.hub-atmosphere-math {
+  background:
+    radial-gradient(ellipse at 70% 36%, rgb(216 170 79 / 25%), transparent 54%),
+    radial-gradient(ellipse at 38% 72%, rgb(245 201 79 / 12%), transparent 48%);
+}
+
+.hub-world-destination::before {
+  border-color: var(--world-panel-border);
+  background: var(--world-destination-bg);
+  box-shadow: var(--world-destination-shadow);
+}
+
+.hub-profile-menu,
+.study-progress-day-tooltip {
+  border-color: var(--world-panel-border);
+  background: var(--world-elevated-bg);
+  color: var(--world-white);
+  box-shadow: var(--world-panel-shadow);
+}
+
+.hub-profile-menu-identity {
+  border-color: var(--world-panel-border);
+}
+
+.career-app-shell .hub-profile-menu button {
+  color: var(--world-white);
+}
+
+.career-app-shell .hub-profile-menu button:hover {
+  background: var(--theme-control-hover-bg);
+}
+
+.study-progress-journey {
+  border-color: var(--world-panel-border);
+  background: var(--world-panel-bg);
+  color: var(--world-white);
+  box-shadow: var(--world-panel-shadow);
+}
+
+.study-progress-switch,
+.study-progress-today-diary,
+.study-progress-day,
+.study-progress-day-activity,
+.study-progress-month-blank {
+  border-color: var(--world-panel-border);
+  background: var(--world-destination-bg);
+  box-shadow: none;
+}
+
+.career-app-shell .study-progress-switch button.selected {
+  background: linear-gradient(135deg, rgb(22 143 165 / 15%), rgb(216 170 79 / 13%));
+  color: var(--world-white);
+  box-shadow: var(--theme-shadow-soft);
+}
+
+:root[data-theme="dark"] .career-app-shell .study-progress-switch button.selected {
+  background:
+    linear-gradient(135deg, rgb(103 220 231 / 22%), rgb(216 170 79 / 14%)),
+    rgb(255 255 255 / 7%);
+}
+
+.topic-directory-app-shell {
+  background:
+    radial-gradient(circle at 88% 7%, rgb(216 170 79 / 15%), transparent 35rem),
+    radial-gradient(circle at 8% 15%, rgb(22 143 165 / 10%), transparent 38rem),
+    linear-gradient(145deg, #fffdf8, #fff7e8 58%, #f6fbfb);
+}
+
+.topic-directory-app-shell:has(.topic-directory-math) {
+  background:
+    radial-gradient(circle at 82% 10%, rgb(216 170 79 / 18%), transparent 36rem),
+    radial-gradient(circle at 12% 78%, rgb(22 143 165 / 8%), transparent 34rem),
+    linear-gradient(142deg, #fffdf8 0%, #fff4de 50%, #fffaf1 100%);
+}
+
+.topic-directory-hero {
+  border-color: var(--world-panel-border);
+}
+
+.topic-directory-mastery,
+.mastery-progress-arrow {
+  color: color-mix(in srgb, var(--world-muted) 82%, transparent);
+}
+
+.mastery-progress-row,
+.mastery-progress-track {
+  border-color: var(--world-panel-border);
+  background: var(--world-panel-bg);
+  color: var(--world-white);
+  box-shadow: var(--world-panel-shadow);
+}
+
+.study-world-selector {
+  border-color: var(--world-panel-border);
+  background:
+    linear-gradient(
+      90deg,
+      rgb(232 251 252 / 82%) 0%,
+      rgb(255 253 248 / 92%) 38%,
+      rgb(255 248 232 / 92%) 62%,
+      rgb(255 239 202 / 84%) 100%
+    );
+  box-shadow: var(--world-panel-shadow);
+}
+
+.study-world-selector::before {
+  background:
+    linear-gradient(122deg, transparent 0 49%, rgb(27 71 87 / 4%) 49.1% 49.2%, transparent 49.3%),
+    radial-gradient(circle at 50% 50%, rgb(255 255 255 / 64%), transparent 18rem);
+}
+
+.product-app-shell
+  .study-world-selector
+  button.study-world-destination:hover:not(:disabled) {
+  background: rgb(255 255 255 / 30%);
+}
+
+.immersive-question-feed {
+  background:
+    radial-gradient(circle at 78% 14%, rgb(22 143 165 / 11%), transparent 34rem),
+    radial-gradient(circle at 18% 84%, rgb(245 201 79 / 10%), transparent 30rem),
+    linear-gradient(145deg, #fffdf8 0%, #fff8ea 52%, #f6fbfb 100%);
+}
+
+.immersive-question-feed-math {
+  background:
+    radial-gradient(circle at 82% 16%, rgb(216 170 79 / 16%), transparent 36rem),
+    radial-gradient(circle at 15% 82%, rgb(22 143 165 / 8%), transparent 30rem),
+    linear-gradient(145deg, #fffdf8 0%, #fff4de 54%, #fffaf1 100%);
+}
+
+.immersive-question-feed-arabic {
+  background:
+    radial-gradient(circle at 20% 16%, rgb(22 143 165 / 14%), transparent 36rem),
+    radial-gradient(circle at 82% 84%, rgb(245 201 79 / 8%), transparent 30rem),
+    linear-gradient(145deg, #fffdf8 0%, #eefbfb 55%, #fffaf1 100%);
+}
+
+.immersive-question-progress,
+.product-app-shell
+  .immersive-question-feed
+  .question-action-rail
+  button.question-action,
+.product-app-shell button.immersive-answer-option {
+  border-color: var(--theme-line);
+  background: rgb(255 255 255 / 78%);
+  color: var(--theme-text);
+  box-shadow: var(--theme-shadow-soft);
+}
+
+.immersive-question-progress strong {
+  color: var(--theme-text);
+}
+
+.immersive-question-progress {
+  color: var(--theme-muted);
+}
+
+.immersive-question-image {
+  box-shadow:
+    var(--theme-image-shadow),
+    0 0 0 1px var(--theme-line);
+}
+
+:root[data-theme="dark"] .immersive-question-feed {
+  background:
+    radial-gradient(circle at 78% 14%, rgb(85 207 224 / 12%), transparent 34rem),
+    radial-gradient(circle at 18% 84%, rgb(103 220 231 / 7%), transparent 30rem),
+    linear-gradient(145deg, #04111b 0%, #071d2a 52%, #061722 100%);
+}
+
+:root[data-theme="dark"] .immersive-question-feed-math {
+  background:
+    radial-gradient(circle at 82% 16%, rgb(216 170 79 / 17%), transparent 36rem),
+    radial-gradient(circle at 15% 82%, rgb(85 207 224 / 7%), transparent 30rem),
+    linear-gradient(145deg, #071722 0%, #182126 54%, #211b15 100%);
+}
+
+:root[data-theme="dark"] .immersive-question-feed-arabic {
+  background:
+    radial-gradient(circle at 20% 16%, rgb(103 220 231 / 17%), transparent 36rem),
+    radial-gradient(circle at 82% 84%, rgb(85 207 224 / 6%), transparent 30rem),
+    linear-gradient(145deg, #031722 0%, #062936 55%, #061a25 100%);
+}
+
+:root[data-theme="dark"] .product-app-shell:has(.question-browser-math) {
+  background:
+    radial-gradient(circle at 82% 8%, rgb(216 170 79 / 20%), transparent 36rem),
+    radial-gradient(circle at 14% 76%, rgb(145 89 37 / 10%), transparent 32rem),
+    linear-gradient(142deg, #071722 0%, #172126 52%, #2b2118 100%);
+}
+
+:root[data-theme="dark"] .study-world-selector {
+  background:
+    linear-gradient(
+      90deg,
+      rgb(6 44 57 / 92%) 0%,
+      rgb(8 36 48 / 88%) 35%,
+      rgb(18 32 37 / 90%) 52%,
+      rgb(46 35 23 / 92%) 100%
+    );
+}
+
+.admin-workspace {
+  color: var(--theme-text);
+}
+
+.admin-section-nav a {
+  border-color: var(--theme-line);
+  color: var(--theme-muted);
+}
+
+.admin-section-nav a.active {
+  border-color: var(--theme-line-strong);
+  background: var(--theme-control-selected-bg);
+  color: var(--theme-text);
+}
+
+.admin-workspace button {
+  border-color: var(--theme-line-strong);
+  background: var(--theme-primary-gradient);
+  color: #ffffff;
+  box-shadow: var(--theme-primary-shadow);
+}
+
+.admin-workspace button.secondary,
+.admin-overview-signal-strip > span,
+.admin-history-row,
+.admin-preview-list details,
+.admin-question-preview dl div,
+.admin-detail-grid div,
+.admin-sheet-summary span,
+.admin-media-summary span,
+.admin-subtopic-counts,
+.admin-bank-overview-subject,
+.admin-topic-pillar-track,
+.admin-workspace .admin-topic-pillars button {
+  border-color: var(--theme-line);
+  background: var(--theme-card-bg-soft) !important;
+  color: var(--theme-text) !important;
+}
+
+.admin-workspace button.danger {
+  border-color: color-mix(in srgb, var(--theme-danger) 45%, transparent);
+  background: linear-gradient(135deg, #d94b4b, #b83b3b);
+  color: #ffffff;
+}
+
+.admin-panel,
+.admin-overview-grid article,
+.admin-bank-overview,
+.product-app-shell .admin-workspace button.admin-overview-entry {
+  border-color: var(--theme-line);
+  background: var(--theme-card-bg);
+  color: var(--theme-text);
+  box-shadow: var(--theme-shadow-soft);
+}
+
+.admin-workspace input:not([type="radio"]):not([type="checkbox"]),
+.admin-workspace select {
+  border-color: var(--theme-line);
+  background: var(--theme-input-bg);
+  color: var(--theme-text);
+}
+
+.admin-workspace option {
+  background: var(--theme-surface-raised);
+  color: var(--theme-text);
+}
+
+.admin-table th {
+  background: var(--theme-surface-soft);
+  color: var(--theme-muted);
+}
+
+.admin-alert {
+  border-color: var(--theme-line-strong);
+  background: var(--theme-info-soft);
+  color: var(--theme-text);
+}
+
+.admin-alert.error,
+.destructive-copy,
+.admin-missing {
+  border-color: color-mix(in srgb, var(--theme-danger) 34%, transparent);
+  background: var(--theme-danger-soft);
+  color: var(--theme-danger);
+}
+
+.admin-confirmation {
+  background: var(--theme-overlay-bg);
+}
+
+.admin-confirmation > div {
+  border-color: var(--theme-line-strong);
+  background: var(--theme-surface-raised);
+  color: var(--theme-text);
+  box-shadow: var(--theme-shadow-strong);
+}
+
+:root[data-theme="light"] .admin-workspace [data-status="completed"] { color: var(--theme-positive); }
+:root[data-theme="light"] .admin-workspace [data-status="failed"] { color: var(--theme-danger); }
+:root[data-theme="light"] .admin-workspace [data-status="ready"],
+:root[data-theme="light"] .admin-workspace [data-status="importing"],
+:root[data-theme="light"] .admin-workspace [data-status="analyzing"] { color: var(--theme-cyan-soft); }
+:root[data-theme="light"] .admin-workspace [data-status="cancelled"],
+:root[data-theme="light"] .admin-workspace [data-status="rolled_back"] { color: var(--theme-muted); }
+
+.exam-entry-overlay,
+.exam-entry-page,
+.exam-entry-app-shell {
+  color: var(--pre-exam-text);
+}
+
+.exam-entry-overlay,
+.exam-entry-app-shell {
+  background: var(--pre-exam-shell-bg);
+}
+
+.exam-entry-app-shell .exam-entry-layout,
+.exam-entry-overlay .exam-entry-layout {
+  border-color: var(--theme-line);
+  background: var(--pre-exam-panel-bg);
+  box-shadow: var(--theme-shadow-strong);
+}
+
+.exam-entry-app-shell .exam-entry-history,
+.exam-entry-overlay .exam-entry-history {
+  background: var(--pre-exam-history-bg);
+  color: var(--pre-exam-text);
+}
+
+.exam-entry-app-shell .exam-entry-history-header,
+.exam-entry-overlay .exam-entry-history-header,
+.exam-entry-app-shell .exam-entry-goodluck,
+.exam-entry-overlay .exam-entry-goodluck,
+.exam-entry-app-shell .exam-entry-history-empty,
+.exam-entry-overlay .exam-entry-history-empty {
+  color: var(--pre-exam-muted);
+}
+
+.exam-entry-app-shell .exam-entry-history-row,
+.exam-entry-overlay .exam-entry-history-row {
+  border-color: var(--theme-line);
+  background: var(--theme-control-bg);
+  color: var(--pre-exam-text);
+}
+
+.exam-entry-app-shell .exam-entry-instructions,
+.exam-entry-overlay .exam-entry-instructions {
+  background: var(--pre-exam-instructions-bg);
+  color: var(--pre-exam-instructions-text);
+}
+
+.exam-entry-app-shell .exam-entry-instructions h1,
+.exam-entry-overlay .exam-entry-instructions h1,
+.exam-entry-app-shell .exam-entry-instruction-list,
+.exam-entry-overlay .exam-entry-instruction-list {
+  color: var(--pre-exam-instructions-text);
+}
+
+.exam-entry-app-shell .exam-entry-goodluck,
+.exam-entry-overlay .exam-entry-goodluck {
+  color: var(--pre-exam-instructions-muted);
+}
+
+.exam-entry-app-shell .exam-entry-start,
+.exam-entry-overlay .exam-entry-start {
+  border-color: var(--theme-line-strong);
+  background: var(--theme-primary-gradient);
+  color: #ffffff;
+  box-shadow: var(--theme-primary-shadow);
+}
+
+@media (max-width: 620px) {
+  .hub-world-map {
+    background: var(--world-map-background);
+  }
+}

@@ -15,6 +15,7 @@ import {
 } from "../features/profile/profileOptions";
 import { HttpError } from "../services/http";
 import { profileService } from "../services/profileService";
+import type { ThemePreference } from "../theme/theme";
 import type { User } from "../types/auth";
 import type {
   StudyStrategyPreference,
@@ -22,6 +23,14 @@ import type {
   WeakerSection,
   WeeklyStudyHours
 } from "../types/profile";
+
+const themePreferenceOptions: Array<{
+  label: string;
+  value: ThemePreference;
+}> = [
+  { label: "فاتح", value: "light" },
+  { label: "داكن", value: "dark" }
+];
 
 function InlineOptions<T extends string>({
   options,
@@ -50,9 +59,13 @@ function InlineOptions<T extends string>({
 }
 
 export function ProfilePage({
+  activeTheme,
+  onThemeChange,
   onProfileSaved,
   user
 }: {
+  activeTheme: ThemePreference;
+  onThemeChange: (theme: ThemePreference) => void;
   onProfileSaved: (user: User) => void;
   user: User;
 }) {
@@ -223,6 +236,20 @@ export function ProfilePage({
           </div>
         </section>
 
+        <section
+          className="profile-section profile-appearance-section"
+          aria-labelledby="appearance-section"
+        >
+          <h2 id="appearance-section">المظهر</h2>
+          <div className="form-field">
+            واجهة عبقور
+            <InlineOptions
+              options={themePreferenceOptions}
+              value={activeTheme}
+              onChange={onThemeChange}
+            />
+          </div>
+        </section>
 
         <section className="profile-section" aria-labelledby="study-goals-section">
           <h2 id="study-goals-section">أهداف الدراسة</h2>
