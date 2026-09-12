@@ -12,7 +12,6 @@ export const weeklyStudyHourOptions: Array<{
   { label: "أقل من ٣ ساعات", value: "less_than_3" },
   { label: "٣ إلى ٥ ساعات", value: "3_to_5" },
   { label: "٥ إلى ١٠ ساعات", value: "5_to_10" },
-  { label: "١٠ إلى ١٥ ساعة", value: "10_to_15" },
   { label: "أكثر من ١٥ ساعة", value: "more_than_15" }
 ];
 
@@ -54,4 +53,34 @@ export const getOptionLabel = <T extends string>(
   value: T | null
 ) => {
   return options.find((option) => option.value === value)?.label ?? "غير محدد";
+};
+
+export const getWeeklyStudyHourTarget = (
+  value: WeeklyStudyHours | null | ""
+) => {
+  if (value === "less_than_3") {
+    return 3;
+  }
+
+  if (value === "3_to_5") {
+    return 5;
+  }
+
+  if (value === "5_to_10") {
+    return 10;
+  }
+
+  if (value === "more_than_15") {
+    return 15;
+  }
+
+  return null;
+};
+
+export const getStudyStrategyPreferenceLabel = (
+  value: StudyStrategyPreference | null | ""
+) => {
+  return value
+    ? getOptionLabel(studyStrategyPreferenceOptions, value)
+    : "غير محدد";
 };

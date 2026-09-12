@@ -69,11 +69,27 @@ export const validateQuestionInput = (question: QuestionWriteInput) => {
     throw new QuestionError("Question id is required.");
   }
 
+  const hasValidImageUrl =
+    question.questionImageUrl.startsWith(`${questionImagesPublicPath}/`) &&
+    (question.questionImageUrl.endsWith(".png") ||
+      question.questionImageUrl.endsWith(".webp"));
+
+  if (!hasValidImageUrl) {
+    throw new QuestionError("question_image_url must use the /question-images/ image path.");
+  }
+
   if (
-    !question.questionImageUrl.startsWith(`${questionImagesPublicPath}/`) ||
-    !question.questionImageUrl.endsWith(".png")
+    question.imageStorageKey &&
+    !question.imageStorageKey.startsWith("questions/")
   ) {
-    throw new QuestionError("question_image_url must use the /question-images/ PNG path.");
+    throw new QuestionError("image_storage_key must point to question storage.");
+  }
+
+  if (
+    question.sourcePage !== undefined &&
+    (!Number.isInteger(question.sourcePage) || question.sourcePage < 1)
+  ) {
+    throw new QuestionError("source_page must be a positive integer.");
   }
 
   if (!isCorrectAnswer(question.correctAnswer)) {

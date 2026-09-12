@@ -147,6 +147,18 @@ const getCurrentUtcMonthDayCount = () => {
   ).getUTCDate();
 };
 
+const getMonthDayCount = (monthKey: string) => {
+  const [year, month] = monthKey.split("-").map(Number);
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+};
+
+const getCurrentUtcYearDayCount = () => {
+  const now = new Date();
+  const start = Date.UTC(now.getUTCFullYear(), 0, 1);
+  const end = Date.UTC(now.getUTCFullYear(), 11, 31);
+  return Math.round((end - start) / (24 * 60 * 60 * 1000)) + 1;
+};
+
 test("summarizes real session activity into study progress windows", async () => {
   const user = await registerUser("progress@example.com", password);
   upsertStudentProfile({
@@ -168,9 +180,15 @@ test("summarizes real session activity into study progress windows", async () =>
   insertQuestion({ estimatedTimeSeconds: null, id: "Q-PROGRESS-002" });
   insertQuestion({ estimatedTimeSeconds: 60, id: "Q-PROGRESS-003" });
   insertQuestion({ estimatedTimeSeconds: 600, id: "Q-PROGRESS-004" });
+  insertQuestion({ estimatedTimeSeconds: 60, id: "Q-PROGRESS-005" });
+  insertQuestion({ estimatedTimeSeconds: 60, id: "Q-PROGRESS-006" });
+  insertQuestion({ estimatedTimeSeconds: 60, id: "Q-PROGRESS-007" });
 
   const today = new Date();
   const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+  const fourDaysAgo = new Date(today.getTime() - 4 * 24 * 60 * 60 * 1000);
+  const fiveDaysAgo = new Date(today.getTime() - 5 * 24 * 60 * 60 * 1000);
+  const sixDaysAgo = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
 
   insertAnsweredQuestion({
     activeDurationSeconds: 70,
@@ -204,6 +222,30 @@ test("summarizes real session activity into study progress windows", async () =>
     sessionId: "progress-session-today",
     userId: user.id
   });
+  insertAnsweredQuestion({
+    activeDurationSeconds: 30,
+    answeredAt: fourDaysAgo.toISOString(),
+    isCorrect: 1,
+    questionId: "Q-PROGRESS-005",
+    sessionId: "progress-session-four-days-ago",
+    userId: user.id
+  });
+  insertAnsweredQuestion({
+    activeDurationSeconds: 30,
+    answeredAt: fiveDaysAgo.toISOString(),
+    isCorrect: 1,
+    questionId: "Q-PROGRESS-006",
+    sessionId: "progress-session-five-days-ago",
+    userId: user.id
+  });
+  insertAnsweredQuestion({
+    activeDurationSeconds: 30,
+    answeredAt: sixDaysAgo.toISOString(),
+    isCorrect: 1,
+    questionId: "Q-PROGRESS-007",
+    sessionId: "progress-session-six-days-ago",
+    userId: user.id
+  });
 
   const { cookie, response: loginResponse } = await login("progress@example.com");
   assert.equal(loginResponse.status, 200);
@@ -215,6 +257,10 @@ test("summarizes real session activity into study progress windows", async () =>
 
   const payload = (await response.json()) as {
     activeStudyDay: number;
+    streak: {
+      current: number;
+      highest: number;
+    };
     today: {
       answeredQuestions: number;
       correctAnswers: number;
@@ -227,20 +273,53 @@ test("summarizes real session activity into study progress windows", async () =>
       approximateStudySeconds: number;
       days: unknown[];
     };
-    month: { days: unknown[] };
+    month: { days: unknown[]; endDate: string; startDate: string };
+    monthWeeks: Array<{ days: unknown[]; endDate: string; startDate: string }>;
+    year: { days: unknown[] };
   };
 
-  assert.equal(payload.activeStudyDay, 2);
+  assert.equal(payload.activeStudyDay, 5);
   assert.equal(payload.today.answeredQuestions, 3);
   assert.equal(payload.today.correctAnswers, 2);
   assert.equal(payload.today.approximateStudySeconds, 115);
-  assert.equal(payload.week.activeDays, 2);
-  assert.equal(payload.week.answeredQuestions, 4);
-  assert.equal(payload.week.correctAnswers, 3);
-  assert.equal(payload.week.approximateStudySeconds, 155);
+  assert.equal(payload.streak.current, 2);
+  assert.equal(payload.streak.highest, 3);
+  assert.equal(payload.week.activeDays, 5);
+  assert.equal(payload.week.answeredQuestions, 7);
+  assert.equal(payload.week.correctAnswers, 6);
+  assert.equal(payload.week.approximateStudySeconds, 245);
   assert.equal(payload.week.days.length, 7);
   assert.equal(payload.month.days.length, getCurrentUtcMonthDayCount());
+  assert.ok(payload.monthWeeks.length >= 4);
+  assert.equal(payload.monthWeeks.every((week) => week.days.length === 7), true);
+  assert.equal(payload.year.days.length, getCurrentUtcYearDayCount());
   assert.equal(JSON.stringify(payload).includes("password"), false);
+
+  const requestedMonthResponse = await fetch(
+    `${baseUrl}/sessions/progress?timeZone=UTC&month=2024-02`,
+    {
+      headers: { cookie }
+    }
+  );
+  assert.equal(requestedMonthResponse.status, 200);
+
+  const requestedMonthPayload = (await requestedMonthResponse.json()) as {
+    month: { days: unknown[]; endDate: string; startDate: string };
+    monthWeeks: Array<{ endDate: string; startDate: string }>;
+  };
+  assert.equal(requestedMonthPayload.month.startDate, "2024-02-01");
+  assert.equal(requestedMonthPayload.month.endDate, "2024-02-29");
+  assert.equal(requestedMonthPayload.month.days.length, getMonthDayCount("2024-02"));
+  assert.equal(requestedMonthPayload.monthWeeks[0]?.startDate, "2024-01-28");
+  assert.equal(requestedMonthPayload.monthWeeks.at(-1)?.endDate, "2024-03-02");
+
+  const invalidMonthResponse = await fetch(
+    `${baseUrl}/sessions/progress?timeZone=UTC&month=2024-13`,
+    {
+      headers: { cookie }
+    }
+  );
+  assert.equal(invalidMonthResponse.status, 400);
 });
 
 after(async () => {

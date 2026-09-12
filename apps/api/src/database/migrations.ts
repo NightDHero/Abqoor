@@ -155,6 +155,47 @@ const migrateSessionAnswerTiming = (db: Database.Database) => {
   );
 };
 
+const migratePersistentMediaStorage = (db: Database.Database) => {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS source_pdfs (
+      id TEXT PRIMARY KEY,
+      original_filename TEXT NOT NULL,
+      storage_key TEXT NOT NULL UNIQUE,
+      uploaded_at TEXT NOT NULL,
+      file_size INTEGER NOT NULL CHECK (file_size >= 0),
+      page_count INTEGER CHECK (page_count IS NULL OR page_count >= 0),
+      status TEXT NOT NULL CHECK (status IN ('uploaded', 'failed')),
+      created_by TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+
+  addColumnIfMissing(db, "questions", "image_storage_key", "TEXT");
+  addColumnIfMissing(db, "questions", "source_pdf_id", "TEXT");
+  addColumnIfMissing(
+    db,
+    "questions",
+    "source_page",
+    "INTEGER CHECK (source_page IS NULL OR source_page > 0)"
+  );
+  addColumnIfMissing(db, "import_jobs", "source_pdf_id", "TEXT");
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_questions_image_storage_key
+    ON questions(image_storage_key);
+
+    CREATE INDEX IF NOT EXISTS idx_questions_source_pdf_id
+    ON questions(source_pdf_id);
+
+    CREATE INDEX IF NOT EXISTS idx_import_jobs_source_pdf_id
+    ON import_jobs(source_pdf_id);
+
+    CREATE INDEX IF NOT EXISTS idx_source_pdfs_uploaded_at
+    ON source_pdfs(uploaded_at);
+  `);
+};
+
 const createAdminImportTables = (db: Database.Database) => {
   db.exec(`
     CREATE TABLE IF NOT EXISTS import_jobs (
@@ -167,6 +208,7 @@ const createAdminImportTables = (db: Database.Database) => {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       created_by TEXT NOT NULL,
+      source_pdf_id TEXT,
       excel_filename TEXT NOT NULL,
       media_filename TEXT NOT NULL,
       total_pages INTEGER NOT NULL,
@@ -186,7 +228,8 @@ const createAdminImportTables = (db: Database.Database) => {
       error_message TEXT,
       confirmed_at TEXT,
       completed_at TEXT,
-      rolled_back_at TEXT
+      rolled_back_at TEXT,
+      FOREIGN KEY (source_pdf_id) REFERENCES source_pdfs(id) ON DELETE SET NULL
     );
 
     CREATE TABLE IF NOT EXISTS import_job_items (
@@ -237,7 +280,7 @@ const migrateAdminImportSystem = (db: Database.Database) => {
       db.exec(`
         INSERT INTO import_jobs (
           id, source_type, status, start_question_number, created_at, updated_at,
-          created_by, excel_filename, media_filename, total_pages, total_questions,
+          created_by, source_pdf_id, excel_filename, media_filename, total_pages, total_questions,
           success_count, failure_count, new_count, duplicate_count, created_count,
           replaced_count, skipped_count, processed_count, error_count,
           sheet_summary_json, media_summary_json, issues_json, error_message,
@@ -255,6 +298,7 @@ const migrateAdminImportSystem = (db: Database.Database) => {
           created_at,
           created_at,
           created_by,
+          NULL,
           '',
           '',
           total_pages,
@@ -286,9 +330,12 @@ const migrateAdminImportSystem = (db: Database.Database) => {
     createAdminImportTables(db);
   }
 
+  addColumnIfMissing(db, "import_jobs", "source_pdf_id", "TEXT");
+
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_questions_import_job_id ON questions(import_job_id);
     CREATE INDEX IF NOT EXISTS idx_import_jobs_created_at ON import_jobs(created_at);
+    CREATE INDEX IF NOT EXISTS idx_import_jobs_source_pdf_id ON import_jobs(source_pdf_id);
     CREATE INDEX IF NOT EXISTS idx_import_job_items_question_id ON import_job_items(question_id);
     CREATE INDEX IF NOT EXISTS idx_import_job_items_outcome ON import_job_items(outcome);
   `);
@@ -298,6 +345,7 @@ export const runDatabaseMigrations = (db: Database.Database) => {
   migrateStudentProfileIdentity(db);
   migrateAdminAccounts(db);
   migrateSessionAnswerTiming(db);
+  migratePersistentMediaStorage(db);
   migrateAdminImportSystem(db);
   migrateQuestionLearningFields(db);
 };

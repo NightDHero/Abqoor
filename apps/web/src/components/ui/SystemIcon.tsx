@@ -1,17 +1,25 @@
 import type { ReactNode } from "react";
 
 export type SystemIconName =
+  | "back"
   | "bank"
   | "calendar"
   | "check"
   | "clock"
   | "history"
+  | "lock"
   | "question"
   | "status"
   | "upload"
   | "users";
 
 const iconPaths: Record<SystemIconName, ReactNode> = {
+  back: (
+    <>
+      <path d="M15 6 9 12l6 6" />
+      <path d="M9 12h11" />
+    </>
+  ),
   bank: (
     <>
       <path d="M4 9.5 12 5l8 4.5" />
@@ -51,6 +59,13 @@ const iconPaths: Record<SystemIconName, ReactNode> = {
       <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3" />
       <path d="M4.5 5.5v4h4" />
       <path d="M12 8v4l2.5 1.5" />
+    </>
+  ),
+  lock: (
+    <>
+      <rect x="5.5" y="10.5" width="13" height="9" rx="2" />
+      <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" />
+      <path d="M12 14v2" />
     </>
   ),
   question: (

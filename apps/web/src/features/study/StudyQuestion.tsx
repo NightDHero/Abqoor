@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type {
   CorrectAnswer,
   SessionQuestion,
@@ -12,6 +13,7 @@ export function StudyQuestion({
   isLastQuestion,
   isSavingReview,
   isSubmitting,
+  modeSwitch,
   onAnswer,
   onNext,
   onPrevious,
@@ -25,6 +27,7 @@ export function StudyQuestion({
   isLastQuestion: boolean;
   isSavingReview: boolean;
   isSubmitting: boolean;
+  modeSwitch?: ReactNode;
   onAnswer: (answer: CorrectAnswer) => void;
   onNext: () => void;
   onPrevious: () => void;
@@ -39,22 +42,25 @@ export function StudyQuestion({
       aria-labelledby="study-question-title"
     >
       <header className="solving-workspace-toolbar">
-        <div>
+        <div className="solving-workspace-toolbar-main">
           <p className="question-progress">
             السؤال {currentIndex + 1} / {totalQuestions}
           </p>
-          <h2 id="study-question-title">حصة</h2>
+          <h2 id="study-question-title">سَائِل</h2>
           <span dir="ltr">{question.id}</span>
         </div>
-        <button
-          className="review-toggle"
-          type="button"
-          disabled={isInReview || isSavingReview}
-          onClick={onSaveReview}
-        >
-          <img alt="" src="/assets/actions/save.png" />
-          <span>{isInReview ? "محفوظ" : "حفظ"}</span>
-        </button>
+        <div className="solving-workspace-toolbar-actions">
+          {modeSwitch}
+          <button
+            className="review-toggle"
+            type="button"
+            disabled={isInReview || isSavingReview}
+            onClick={onSaveReview}
+          >
+            <img alt="" src="/assets/actions/save.png" />
+            <span>{isInReview ? "محفوظ" : "حفظ"}</span>
+          </button>
+        </div>
       </header>
 
       <div className="solving-workspace-grid">

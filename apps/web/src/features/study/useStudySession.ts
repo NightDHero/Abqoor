@@ -202,7 +202,7 @@ export function useStudySession() {
       !question ||
       responsesByQuestionId[question.id]
     ) {
-      return;
+      return false;
     }
 
     setIsSubmitting(true);
@@ -220,8 +220,10 @@ export function useStudySession() {
         ...existing,
         [question.id]: response
       }));
+      return true;
     } catch (caughtError) {
       setError(readErrorMessage(caughtError, "تعذر إرسال الإجابة."));
+      return false;
     } finally {
       setIsSubmitting(false);
     }
@@ -229,8 +231,10 @@ export function useStudySession() {
 
   const answerQuestion = async (answer: CorrectAnswer) => {
     if (currentQuestion) {
-      await answerQuestionById(currentQuestion.id, answer);
+      return answerQuestionById(currentQuestion.id, answer);
     }
+
+    return false;
   };
 
   const saveQuestion = async (questionId: string) => {

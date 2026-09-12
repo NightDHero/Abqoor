@@ -9,6 +9,27 @@ import { toStudyImageSrc } from "./studyUtils";
 export function StudyMode() {
   const study = useStudySession();
   const [isImmersive, setIsImmersive] = useState(false);
+  const renderModeSwitch = () => (
+    <div className="study-view-switch" aria-label="طريقة عرض سَائِل">
+      <button
+        aria-pressed={!isImmersive}
+        className={!isImmersive ? "selected" : undefined}
+        type="button"
+        onClick={() => setIsImmersive(false)}
+      >
+        عادي
+      </button>
+      <button
+        aria-pressed={isImmersive}
+        className={isImmersive ? "selected" : undefined}
+        type="button"
+        onClick={() => setIsImmersive(true)}
+      >
+        <img alt="" src="/assets/modes/immersive-scroll.png" />
+        سَائِل
+      </button>
+    </div>
+  );
 
   if (study.result) {
     return (
@@ -46,60 +67,44 @@ export function StudyMode() {
 
       {study.isActive && study.currentQuestion ? (
         <>
-          <div className="study-view-switch" aria-label="طريقة عرض الحصة">
-            <button
-              aria-pressed={!isImmersive}
-              className={!isImmersive ? "selected" : undefined}
-              type="button"
-              onClick={() => setIsImmersive(false)}
-            >
-              عادي
-            </button>
-            <button
-              aria-pressed={isImmersive}
-              className={isImmersive ? "selected" : undefined}
-              type="button"
-              onClick={() => setIsImmersive(true)}
-            >
-              <img alt="" src="/assets/modes/immersive-scroll.png" />
-              سحب
-            </button>
-          </div>
           {isImmersive ? (
-            <ImmersiveQuestionFeed
-              activeIndex={study.currentIndex}
-              getAnswerState={(questionId) => {
-                const response = study.responsesByQuestionId[questionId];
+            <>
+              {renderModeSwitch()}
+              <ImmersiveQuestionFeed
+                activeIndex={study.currentIndex}
+                getAnswerState={(questionId) => {
+                  const response = study.responsesByQuestionId[questionId];
 
-                return {
-                  correctAnswer: response?.correctAnswer,
-                  isSubmitting: study.isSubmitting,
-                  selectedAnswer: response?.userAnswer
-                };
-              }}
-              getImageSrc={toStudyImageSrc}
-              isSaved={(questionId) =>
-                study.manualReviewQuestionIds.includes(questionId)
-              }
-              onActiveIndexChange={study.goToIndex}
-              onAnswer={(questionId, answer) => {
-                void study.answerQuestionById(questionId, answer);
-              }}
-              onFinish={() => {
-                void study.loadResult();
-              }}
-              onSave={(questionId) => {
-                void study.saveQuestion(questionId);
-              }}
-              onShare={(questionId) => {
-                window.dispatchEvent(
-                  new CustomEvent("abqoor:share-question", {
-                    detail: { questionId }
-                  })
-                );
-              }}
-              questions={study.questions}
-            />
+                  return {
+                    correctAnswer: response?.correctAnswer,
+                    isSubmitting: study.isSubmitting,
+                    selectedAnswer: response?.userAnswer
+                  };
+                }}
+                getImageSrc={toStudyImageSrc}
+                isSaved={(questionId) =>
+                  study.manualReviewQuestionIds.includes(questionId)
+                }
+                onActiveIndexChange={study.goToIndex}
+                onAnswer={(questionId, answer) =>
+                  study.answerQuestionById(questionId, answer)
+                }
+                onFinish={() => {
+                  void study.loadResult();
+                }}
+                onSave={(questionId) => {
+                  void study.saveQuestion(questionId);
+                }}
+                onShare={(questionId) => {
+                  window.dispatchEvent(
+                    new CustomEvent("abqoor:share-question", {
+                      detail: { questionId }
+                    })
+                  );
+                }}
+                questions={study.questions}
+              />
+            </>
           ) : (
             <StudyQuestion
               currentIndex={study.currentIndex}
@@ -107,6 +112,7 @@ export function StudyMode() {
               isLastQuestion={study.isLastQuestion}
               isSavingReview={study.isSavingReview}
               isSubmitting={study.isSubmitting}
+              modeSwitch={renderModeSwitch()}
               onAnswer={(answer) => {
                 void study.answerQuestion(answer);
               }}

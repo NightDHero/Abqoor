@@ -25,6 +25,7 @@ type ImportJobRecord = {
   created_at: string;
   updated_at: string;
   created_by: string;
+  source_pdf_id: string | null;
   excel_filename: string;
   media_filename: string;
   total_pages: number;
@@ -109,6 +110,7 @@ const toImportJob = (record: ImportJobRecord): ImportJob => ({
   createdAt: record.created_at,
   updatedAt: record.updated_at,
   createdBy: record.created_by,
+  sourcePdfId: record.source_pdf_id,
   excelFilename: record.excel_filename,
   mediaFilename: record.media_filename,
   totalPages: record.total_pages,
@@ -165,7 +167,7 @@ const toImportJobItem = (record: ImportJobItemRecord): ImportJobItem => ({
 const createImportJobStatement = db.prepare(`
   INSERT INTO import_jobs (
     id, source_type, status, start_question_number, created_at, updated_at,
-    created_by, excel_filename, media_filename, total_pages, total_questions,
+    created_by, source_pdf_id, excel_filename, media_filename, total_pages, total_questions,
     success_count, failure_count, new_count, duplicate_count, created_count,
     replaced_count, skipped_count, processed_count, error_count,
     sheet_summary_json, media_summary_json, issues_json, error_message,
@@ -173,7 +175,7 @@ const createImportJobStatement = db.prepare(`
   )
   VALUES (
     @id, @sourceType, @status, @startQuestionNumber, @createdAt, @updatedAt,
-    @createdBy, @excelFilename, @mediaFilename, @totalPages, @totalQuestions,
+    @createdBy, @sourcePdfId, @excelFilename, @mediaFilename, @totalPages, @totalQuestions,
     @successCount, @failureCount, @newCount, @duplicateCount, @createdCount,
     @replacedCount, @skippedCount, @processedCount, @errorCount,
     @sheetSummaryJson, @mediaSummaryJson, @issuesJson, @errorMessage,
@@ -228,6 +230,12 @@ const updateAnalysisStatement = db.prepare(`
     media_summary_json = @mediaSummaryJson,
     issues_json = @issuesJson,
     error_message = @errorMessage
+  WHERE id = @id
+`);
+
+const updateImportJobSourcePdfStatement = db.prepare(`
+  UPDATE import_jobs
+  SET source_pdf_id = @sourcePdfId, updated_at = @updatedAt
   WHERE id = @id
 `);
 
@@ -287,6 +295,7 @@ export const createImportJob = (input: {
   failureCount?: number;
   excelFilename?: string;
   mediaFilename?: string;
+  sourcePdfId?: string | null;
 }) => {
   const now = new Date().toISOString();
   const record = {
@@ -297,6 +306,7 @@ export const createImportJob = (input: {
     createdAt: now,
     updatedAt: now,
     createdBy: input.createdBy,
+    sourcePdfId: input.sourcePdfId ?? null,
     excelFilename: input.excelFilename ?? "",
     mediaFilename: input.mediaFilename ?? "",
     totalPages: input.totalPages ?? 0,
@@ -329,6 +339,18 @@ export const findImportJob = (id: string) => {
 };
 
 export const listImportJobs = () => listImportJobsStatement.all().map(toImportJob);
+
+export const setImportJobSourcePdf = (input: {
+  id: string;
+  sourcePdfId: string;
+}) => {
+  updateImportJobSourcePdfStatement.run({
+    id: input.id,
+    sourcePdfId: input.sourcePdfId,
+    updatedAt: new Date().toISOString()
+  });
+  return findImportJob(input.id);
+};
 
 export const insertImportItems = (items: ImportJobItem[]) => {
   const insertAll = db.transaction(() => {
@@ -475,6 +497,7 @@ export const listAdminQuestions = (input: {
     SELECT
       questions.id,
       questions.question_image_url AS questionImageUrl,
+      questions.image_storage_key AS imageStorageKey,
       questions.correct_answer AS correctAnswer,
       questions.subject,
       questions.topic,

@@ -536,6 +536,18 @@ body:has(.onboarding-shell) {
   box-shadow: var(--theme-primary-shadow);
 }
 
+.auth-form button[type="submit"]:hover:not(:disabled),
+.auth-form button[type="submit"]:focus-visible,
+.auth-form button[type="submit"]:active:not(:disabled) {
+  border-color: color-mix(in srgb, var(--theme-cyan) 52%, transparent);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--theme-cyan) 88%, #071925),
+    color-mix(in srgb, var(--theme-turquoise) 84%, #071925)
+  );
+  color: #ffffff;
+}
+
 .product-app-shell input,
 .product-app-shell select,
 .auth-shell input,
@@ -774,18 +786,6 @@ body:has(.onboarding-shell) {
   color: var(--home-muted);
 }
 
-.home-arrival-copy h1 span {
-  background: linear-gradient(
-    90deg,
-    var(--home-cyan) 12%,
-    var(--home-ink) 48%,
-    var(--home-gold-soft) 88%
-  );
-  background-clip: text;
-  color: transparent;
-  -webkit-background-clip: text;
-}
-
 .home-live-question,
 .home-question-image-stage,
 .home-mock-exam,
@@ -910,6 +910,8 @@ body:has(.onboarding-shell) {
 .study-progress-today-diary,
 .study-progress-day,
 .study-progress-day-activity,
+.study-progress-daily-plan-track,
+.study-progress-daily-plan-segment,
 .study-progress-month-blank {
   border-color: var(--world-panel-border);
   background: var(--world-destination-bg);
@@ -961,21 +963,13 @@ body:has(.onboarding-shell) {
 
 .study-world-selector {
   border-color: var(--world-panel-border);
-  background:
-    linear-gradient(
-      90deg,
-      rgb(232 251 252 / 82%) 0%,
-      rgb(255 253 248 / 92%) 38%,
-      rgb(255 248 232 / 92%) 62%,
-      rgb(255 239 202 / 84%) 100%
-    );
+  background: var(--world-map-background);
+  color: var(--world-white);
   box-shadow: var(--world-panel-shadow);
 }
 
 .study-world-selector::before {
-  background:
-    linear-gradient(122deg, transparent 0 49%, rgb(27 71 87 / 4%) 49.1% 49.2%, transparent 49.3%),
-    radial-gradient(circle at 50% 50%, rgb(255 255 255 / 64%), transparent 18rem);
+  background: var(--world-map-lines);
 }
 
 .product-app-shell
@@ -1060,14 +1054,7 @@ body:has(.onboarding-shell) {
 }
 
 :root[data-theme="dark"] .study-world-selector {
-  background:
-    linear-gradient(
-      90deg,
-      rgb(6 44 57 / 92%) 0%,
-      rgb(8 36 48 / 88%) 35%,
-      rgb(18 32 37 / 90%) 52%,
-      rgb(46 35 23 / 92%) 100%
-    );
+  background: var(--world-map-background);
 }
 
 .admin-workspace {

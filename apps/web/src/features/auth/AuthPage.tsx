@@ -1,8 +1,10 @@
 import { FormEvent, useEffect, useState } from "react";
+import { SystemIcon } from "../../components/ui/SystemIcon";
 import { authService } from "../../services/authService";
 import { HttpError } from "../../services/http";
 import type { AuthMode, User } from "../../types/auth";
 import { navigateTo } from "../../utils/router";
+import { homeContent } from "../home/homeContent";
 
 const labels = {
   login: {
@@ -21,6 +23,15 @@ const authModeOptions: Array<{ label: string; value: AuthMode }> = [
   { label: "تسجيل الدخول", value: "login" },
   { label: "إنشاء حساب", value: "register" }
 ];
+
+const goBack = () => {
+  if (window.history.length > 1) {
+    window.history.back();
+    return;
+  }
+
+  navigateTo("/");
+};
 
 export function AuthPage({
   mode,
@@ -69,9 +80,55 @@ export function AuthPage({
 
   return (
     <main className="auth-shell" dir="rtl">
+      <nav className="app-navigation auth-app-navigation" aria-label="تنقل الحساب">
+        <div className="app-navigation-shell">
+          <button
+            aria-label="العودة للصفحة السابقة"
+            className="app-navigation-back"
+            type="button"
+            onClick={goBack}
+          >
+            <SystemIcon name="back" />
+          </button>
+
+          <a
+            className="app-navigation-brand"
+            href="/"
+            onClick={(event) => {
+              event.preventDefault();
+              navigateTo("/");
+            }}
+          >
+            <img alt="" src={homeContent.logoPath} />
+            <span>عبقور</span>
+          </a>
+
+          <div className="app-navigation-track">
+            {authModeOptions.map((option) => (
+              <a
+                aria-current={mode === option.value ? "page" : undefined}
+                className={
+                  mode === option.value
+                    ? "app-navigation-item active"
+                    : "app-navigation-item"
+                }
+                href={option.value === "login" ? "/login" : "/register"}
+                key={option.value}
+                onClick={(event) => {
+                  event.preventDefault();
+                  handleModeSelect(option.value);
+                }}
+              >
+                <span className="app-navigation-label">{option.label}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      </nav>
+
       <section className="auth-layout">
         <aside className="auth-context">
-          <p className="page-eyebrow">عبقور</p>
+          <img className="auth-brand-logo" alt="عبقور" src={homeContent.logoPath} />
           <h2>مكان واحد لرحلتك في القدرات.</h2>
           <p>
             تدرب، راجع أخطاءك، وتابع تقدمك من حساب واحد مصمم للدراسة اليومية.

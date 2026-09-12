@@ -17,6 +17,7 @@ export function QuestionMode({
   onPrevious,
   question,
   selectedAnswer,
+  showToolbar = true,
   totalQuestions
 }: {
   currentIndex: number;
@@ -27,6 +28,7 @@ export function QuestionMode({
   onPrevious: () => void;
   question: Question;
   selectedAnswer?: CorrectAnswer;
+  showToolbar?: boolean;
   totalQuestions: number;
 }) {
   const isAnswered = Boolean(selectedAnswer);
@@ -36,20 +38,22 @@ export function QuestionMode({
   return (
     <section
       className="solving-workspace browser-question-mode"
-      aria-labelledby="browser-question-title"
+      aria-label={questionNumber ? `سؤال ${questionNumber}` : question.id}
     >
-      <header className="solving-workspace-toolbar">
-        <div>
-          <p className="question-progress">
-            السؤال {currentIndex + 1} / {totalQuestions}
-          </p>
-          <h2 id="browser-question-title">
-            {questionNumber ? `سؤال ${questionNumber}` : question.id}
-          </h2>
-          <span dir="ltr">{question.id}</span>
-        </div>
-        <ReviewButton isInReview={isInReview} onAdd={onAddReview} />
-      </header>
+      {showToolbar ? (
+        <header className="solving-workspace-toolbar">
+          <div>
+            <p className="question-progress">
+              السؤال {currentIndex + 1} / {totalQuestions}
+            </p>
+            <h2>
+              {questionNumber ? `سؤال ${questionNumber}` : question.id}
+            </h2>
+            <span dir="ltr">{question.id}</span>
+          </div>
+          <ReviewButton isInReview={isInReview} onAdd={onAddReview} />
+        </header>
+      ) : null}
 
       <div className="solving-workspace-grid">
         <figure className="solving-question-stage">

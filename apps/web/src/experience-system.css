@@ -14,19 +14,17 @@ body:has(.onboarding-shell) {
   white-space: nowrap;
 }
 
-.product-app-shell:not(.topic-directory-app-shell) .app-main {
+.product-app-shell:not(.topic-directory-app-shell):not(:has(.question-browser)):not(
+    :has(.study-mode-active)
+  )
+  .app-main {
   width: 100%;
   max-width: none;
   margin: 0;
   padding:
-    clamp(54px, 6vw, 96px)
+    clamp(26px, 4vw, 54px)
     clamp(28px, 5vw, 92px)
     clamp(104px, 10vw, 150px);
-}
-
-.product-app-shell:has(.study-mode-active:not(.study-mode-immersive))
-  .app-main {
-  padding-block: clamp(30px, 4vh, 46px) clamp(26px, 4vh, 38px);
 }
 
 .product-app-shell .page-container,
@@ -672,7 +670,7 @@ body:has(.onboarding-shell) {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--abq-turquoise), var(--abq-cyan));
+  background: var(--abq-cyan);
 }
 
 .onboarding-actions {
@@ -731,7 +729,10 @@ body:has(.onboarding-shell) {
 }
 
 @media (max-width: 700px) {
-  .product-app-shell:not(.topic-directory-app-shell) .app-main {
+  .product-app-shell:not(.topic-directory-app-shell):not(:has(.question-browser)):not(
+      :has(.study-mode-active)
+    )
+    .app-main {
     padding: 66px 14px 104px;
   }
 

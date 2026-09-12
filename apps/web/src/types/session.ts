@@ -58,11 +58,19 @@ export type StudyProgressPeriod = {
   days: StudyProgressDay[];
 };
 
+export type StudyProgressStreak = {
+  current: number;
+  highest: number;
+};
+
 export type StudyProgressResponse = {
   generatedAt: string;
   timeZone: string;
   activeStudyDay: number;
+  streak: StudyProgressStreak;
   today: StudyProgressDay;
   week: StudyProgressPeriod;
   month: StudyProgressPeriod;
+  monthWeeks: StudyProgressPeriod[];
+  year: StudyProgressPeriod;
 };

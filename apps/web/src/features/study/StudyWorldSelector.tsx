@@ -21,7 +21,7 @@ export function StudyWorldSelector({
   onSelect: () => void;
 }) {
   return (
-    <div className="study-world-selector" aria-label="اختر مسار الحصة">
+    <div className="study-world-selector" aria-label="اختر مسار سَائِل">
       <div className="study-world-atmosphere" aria-hidden="true">
         <span className="study-world-glow study-world-glow-verbal" />
         <span className="study-world-glow study-world-glow-mixed" />
@@ -32,7 +32,7 @@ export function StudyWorldSelector({
       </div>
       {studyDestinations.map((destination) => (
         <button
-          aria-label={`بدء حصة ${destination.label}`}
+          aria-label={`بدء سَائِل ${destination.label}`}
           className={`study-world-destination study-world-destination-${destination.id}`}
           disabled={isStarting}
           key={destination.id}

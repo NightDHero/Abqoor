@@ -9,6 +9,10 @@ import {
 } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  contentTypeForKey,
+  objectStorage
+} from "../storage/object-storage.service.js";
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = resolve(moduleDirectory, "../../../../..");
@@ -20,6 +24,7 @@ export const questionMediaDirectory = resolve(
 );
 
 export const questionImagesPublicPath = "/question-images";
+export const questionImageStorageExtension = "webp";
 
 export const questionImportMediaDirectory = resolve(
   workspaceRoot,
@@ -43,6 +48,10 @@ export const ensureQuestionMediaDirectory = () => {
 };
 
 export const getQuestionImageFileName = (questionId: string) => {
+  return `${questionId}.${questionImageStorageExtension}`;
+};
+
+export const getLegacyQuestionImageFileName = (questionId: string) => {
   return `${questionId}.png`;
 };
 
@@ -54,8 +63,43 @@ export const getQuestionImageUrl = (questionId: string) => {
   return `${questionImagesPublicPath}/${getQuestionImageFileName(questionId)}`;
 };
 
+export const getLegacyQuestionImagePath = (questionId: string) => {
+  return resolve(questionMediaDirectory, getLegacyQuestionImageFileName(questionId));
+};
+
+export const getQuestionImageStorageKey = (questionId: string) => {
+  assertStorageIdentifier(questionId, "question id");
+  return `questions/${questionId}/question.${questionImageStorageExtension}`;
+};
+
+export const getSourcePdfStorageKey = (sourcePdfId: string) => {
+  assertStorageIdentifier(sourcePdfId, "source PDF id");
+  return `pdfs/originals/${sourcePdfId}/original.pdf`;
+};
+
+export const getStagedQuestionImageStorageKey = (
+  importJobId: string,
+  questionId: string
+) => {
+  assertStorageIdentifier(importJobId, "import job id");
+  assertStorageIdentifier(questionId, "question id");
+  return `imports/${importJobId}/staged/${questionId}.${questionImageStorageExtension}`;
+};
+
+export const getImportBackupImageStorageKey = (
+  importJobId: string,
+  questionId: string
+) => {
+  assertStorageIdentifier(importJobId, "import job id");
+  assertStorageIdentifier(questionId, "question id");
+  return `imports/${importJobId}/backup/${questionId}.${questionImageStorageExtension}`;
+};
+
 export const questionImageExists = (questionId: string) => {
-  return existsSync(getQuestionImagePath(questionId));
+  return (
+    existsSync(getQuestionImagePath(questionId)) ||
+    existsSync(getLegacyQuestionImagePath(questionId))
+  );
 };
 
 export const writeQuestionImage = (
@@ -77,13 +121,22 @@ export const writeQuestionImage = (
 
 export const readQuestionImage = (questionId: string) => {
   const imagePath = getQuestionImagePath(questionId);
-  return existsSync(imagePath) ? readFileSync(imagePath) : null;
+  if (existsSync(imagePath)) {
+    return readFileSync(imagePath);
+  }
+
+  const legacyImagePath = getLegacyQuestionImagePath(questionId);
+  return existsSync(legacyImagePath) ? readFileSync(legacyImagePath) : null;
 };
 
 export const removeQuestionImage = (questionId: string) => {
   const imagePath = getQuestionImagePath(questionId);
   if (existsSync(imagePath)) {
     unlinkSync(imagePath);
+  }
+  const legacyImagePath = getLegacyQuestionImagePath(questionId);
+  if (existsSync(legacyImagePath)) {
+    unlinkSync(legacyImagePath);
   }
 };
 
@@ -200,6 +253,103 @@ export const removeImportStaging = (importJobId: string) => {
     force: true,
     recursive: true
   });
+};
+
+export const stageQuestionImageObject = async (
+  importJobId: string,
+  questionId: string,
+  image: Buffer
+) => {
+  const key = getStagedQuestionImageStorageKey(importJobId, questionId);
+  await objectStorage.uploadObject({
+    body: image,
+    contentType: contentTypeForKey(key),
+    key
+  });
+  return key;
+};
+
+export const stagedQuestionImageObjectExists = async (
+  importJobId: string,
+  questionId: string
+) => objectStorage.objectExists(getStagedQuestionImageStorageKey(importJobId, questionId));
+
+export const commitStagedQuestionImageObject = async (
+  importJobId: string,
+  questionId: string
+) => {
+  const source = getStagedQuestionImageStorageKey(importJobId, questionId);
+  const target = getQuestionImageStorageKey(questionId);
+  if (!(await objectStorage.objectExists(source))) {
+    throw new Error(`Staged question image is missing: ${questionId}.${questionImageStorageExtension}`);
+  }
+
+  await objectStorage.copyObject(source, target, {
+    contentType: contentTypeForKey(target)
+  });
+  return target;
+};
+
+export const backupQuestionImageObject = async (
+  importJobId: string,
+  questionId: string,
+  currentStorageKey?: string | null
+) => {
+  const source = currentStorageKey ?? getQuestionImageStorageKey(questionId);
+  if (!(await objectStorage.objectExists(source))) {
+    return false;
+  }
+
+  await objectStorage.copyObject(source, getImportBackupImageStorageKey(importJobId, questionId), {
+    contentType: contentTypeForKey(source)
+  });
+  return true;
+};
+
+export const restoreQuestionImageObjectBackup = async (
+  importJobId: string,
+  questionId: string,
+  targetStorageKey?: string | null
+) => {
+  const backup = getImportBackupImageStorageKey(importJobId, questionId);
+  if (!(await objectStorage.objectExists(backup))) {
+    throw new Error(`Question image backup is missing: ${questionId}.${questionImageStorageExtension}`);
+  }
+
+  const target = targetStorageKey ?? getQuestionImageStorageKey(questionId);
+  await objectStorage.copyObject(backup, target, {
+    contentType: contentTypeForKey(target)
+  });
+};
+
+export const removeQuestionImageObject = async (questionId: string) => {
+  await objectStorage.deleteObject(getQuestionImageStorageKey(questionId));
+};
+
+export const readQuestionImageObject = async (
+  questionId: string,
+  storageKey?: string | null
+) => {
+  return objectStorage.getObjectBuffer(storageKey ?? getQuestionImageStorageKey(questionId));
+};
+
+export const writeQuestionImageObject = async (
+  questionId: string,
+  image: Buffer,
+  storageKey?: string | null
+) => {
+  const key = storageKey ?? getQuestionImageStorageKey(questionId);
+  await objectStorage.uploadObject({
+    body: image,
+    contentType: contentTypeForKey(key),
+    key
+  });
+  return key;
+};
+
+export const removeImportObjectMedia = async (importJobId: string) => {
+  assertStorageIdentifier(importJobId, "import job id");
+  await objectStorage.deletePrefix(`imports/${importJobId}`);
 };
 
 export const isPngBuffer = (buffer: Buffer) => {

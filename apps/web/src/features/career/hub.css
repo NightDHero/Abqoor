@@ -676,6 +676,12 @@
   animation: study-progress-arrive 220ms ease both;
 }
 
+.study-progress-selected-summary {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
 .study-progress-view-meta,
 .study-progress-selected-day {
   display: flex;
@@ -697,6 +703,47 @@
   white-space: nowrap;
 }
 
+.study-progress-month-heading {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.study-progress-month-heading strong {
+  min-width: 0;
+}
+
+.career-app-shell .study-progress-month-nav {
+  display: grid;
+  flex: 0 0 30px;
+  width: 30px;
+  min-height: 30px;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 4%);
+  padding: 0;
+  color: var(--world-muted);
+  font-family: Arial, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: none;
+  place-items: center;
+}
+
+.career-app-shell .study-progress-month-nav:hover:not(:disabled),
+.career-app-shell .study-progress-month-nav:focus-visible {
+  border-color: rgb(103 220 231 / 24%);
+  background: rgb(103 220 231 / 9%);
+  color: var(--world-white);
+}
+
+.career-app-shell .study-progress-month-nav:disabled {
+  cursor: wait;
+  opacity: 0.48;
+}
+
 .study-progress-empty {
   color: var(--world-muted);
 }
@@ -712,11 +759,158 @@
   color: var(--world-muted);
 }
 
+.study-progress-daily-plan {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  border-top: 1px solid rgb(255 255 255 / 7%);
+  padding-top: 10px;
+}
+
+.study-progress-daily-plan-header,
+.study-progress-daily-plan-details,
+.study-progress-daily-plan-details > div {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.study-progress-daily-plan-header span,
+.study-progress-daily-plan-details span {
+  color: var(--world-muted);
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.study-progress-daily-plan-header strong,
+.study-progress-daily-plan-details strong {
+  overflow: hidden;
+  color: var(--world-white);
+  font-family: var(--font-arabic-display);
+  font-size: clamp(0.82rem, 1.08vw, 0.98rem);
+  font-weight: 900;
+  line-height: 1.55;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.study-progress-daily-plan-details {
+  align-items: start;
+}
+
+.study-progress-daily-plan-details > div {
+  justify-content: end;
+}
+
+.study-progress-daily-plan-details strong[data-pace="ahead"] {
+  color: #d7aa52;
+}
+
+.study-progress-daily-plan-details strong[data-pace="behind"] {
+  color: #f0a3a3;
+}
+
+.study-progress-daily-plan-details strong[data-pace="even"] {
+  color: var(--world-cyan);
+}
+
+.study-progress-daily-plan-track {
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 9%);
+  padding: 3px;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 7%);
+  scrollbar-width: thin;
+  scrollbar-color: rgb(103 220 231 / 32%) transparent;
+}
+
+.study-progress-daily-plan-strip {
+  display: flex;
+  width: var(--study-daily-strip-width);
+  min-width: 100%;
+  gap: 3px;
+}
+
+.study-progress-daily-plan-segment {
+  position: relative;
+  flex: 0 0 calc(100% / var(--study-daily-segment-count));
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(4 21 31 / 65%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 6%);
+}
+
+.study-progress-daily-plan-segment > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+  width: var(--study-daily-segment-fill);
+  max-width: 100%;
+  border-radius: inherit;
+  background: var(--study-daily-segment-color);
+  box-shadow: 0 0 16px var(--study-daily-segment-glow);
+  transition: width 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.study-progress-daily-plan-segment-cyan {
+  --study-daily-segment-color: var(--world-cyan);
+  --study-daily-segment-glow: rgb(103 220 231 / 18%);
+}
+
+.study-progress-daily-plan-segment-gold {
+  --study-daily-segment-color: #d7aa52;
+  --study-daily-segment-glow: rgb(216 170 79 / 20%);
+}
+
+.study-progress-daily-plan-segment-mint {
+  --study-daily-segment-color: #7dd6a8;
+  --study-daily-segment-glow: rgb(125 214 168 / 18%);
+}
+
+.study-progress-daily-plan-segment-rose {
+  --study-daily-segment-color: #de868f;
+  --study-daily-segment-glow: rgb(222 134 143 / 17%);
+}
+
+.study-progress-daily-plan-segment-violet {
+  --study-daily-segment-color: #9d9cf2;
+  --study-daily-segment-glow: rgb(157 156 242 / 17%);
+}
+
 .study-progress-today-view {
   display: grid;
   grid-template-columns: minmax(160px, 220px) minmax(0, 1fr);
   gap: clamp(16px, 3vw, 28px);
   align-items: stretch;
+}
+
+.study-progress-today-stack {
+  display: grid;
+  grid-template-rows: auto auto;
+  gap: clamp(7px, 1.2vw, 11px);
+  align-content: center;
+  justify-items: center;
+  min-height: 0;
+}
+
+.study-progress-today-stack .study-progress-day {
+  width: 100%;
+}
+
+.study-progress-daily-connector {
+  display: block;
+  width: min(78%, 150px);
+  height: 2px;
+  min-height: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--world-cyan), transparent);
+  box-shadow: none;
+  opacity: 0.42;
 }
 
 .study-progress-today-diary {
@@ -733,7 +927,8 @@
 }
 
 .study-progress-today-diary span,
-.study-progress-today-diary p {
+.study-progress-today-diary p,
+.study-progress-today-diary small {
   margin: 0;
   color: var(--world-muted);
   font-weight: 800;
@@ -803,9 +998,7 @@
   height: var(--study-progress-fill);
   max-height: 100%;
   border-radius: inherit;
-  background:
-    linear-gradient(180deg, rgb(103 220 231 / 24%), rgb(103 220 231 / 9%)),
-    rgb(103 220 231 / 10%);
+  background: rgb(103 220 231 / 18%);
   opacity: 0.82;
   content: "";
   transition: height 280ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -866,7 +1059,7 @@
   inset: 0 auto 0 0;
   width: var(--study-progress-fill);
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--world-cyan), #d7aa52);
+  background: var(--world-cyan);
   box-shadow: 0 0 16px rgb(103 220 231 / 22%);
 }
 
@@ -875,15 +1068,11 @@
 }
 
 .study-progress-day[data-intensity="2"]::before {
-  background:
-    linear-gradient(180deg, rgb(103 220 231 / 34%), rgb(103 220 231 / 12%)),
-    rgb(103 220 231 / 12%);
+  background: rgb(103 220 231 / 26%);
 }
 
 .study-progress-day[data-intensity="3"]::before {
-  background:
-    linear-gradient(180deg, rgb(216 170 79 / 42%), rgb(103 220 231 / 14%)),
-    rgb(216 170 79 / 16%);
+  background: rgb(216 170 79 / 28%);
 }
 
 .study-progress-day small {
@@ -1382,9 +1571,26 @@
     font-size: 0.76rem;
   }
 
+  .study-progress-daily-plan-header,
+  .study-progress-daily-plan-details,
+  .study-progress-daily-plan-details > div {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .study-progress-daily-plan-header strong,
+  .study-progress-daily-plan-details strong {
+    white-space: normal;
+  }
+
   .study-progress-today-view {
     grid-template-columns: 1fr;
     gap: 10px;
+  }
+
+  .study-progress-today-stack {
+    grid-template-rows: auto auto;
+    gap: 7px;
   }
 
   .study-progress-day {
@@ -1450,6 +1656,13 @@
   .study-progress-today-diary {
     border-radius: 16px;
     padding: 14px;
+  }
+
+  .career-app-shell .study-progress-month-nav {
+    flex-basis: 28px;
+    width: 28px;
+    min-height: 28px;
+    font-size: 0.82rem;
   }
 
   .study-progress-day-tooltip {

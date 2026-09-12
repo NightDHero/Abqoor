@@ -121,7 +121,7 @@ export function SetupProfilePage({
     const allSteps: SetupStep[] = [
       {
         number: 1,
-        title: "ما اسم المستخدم الذي تريده داخل أبقور؟",
+        title: "ما اسم المستخدم الذي تريده داخل عبقور؟",
         render: () => (
           <label className="form-field onboarding-username-field">
             اسم المستخدم
@@ -138,7 +138,7 @@ export function SetupProfilePage({
               }
             />
             <small>
-              هويتك العامة داخل أبقور، وهي منفصلة عن بريدك الإلكتروني واسمك
+              هويتك العامة داخل عبقور، وهي منفصلة عن بريدك الإلكتروني واسمك
               الحقيقي.
             </small>
           </label>
@@ -310,7 +310,7 @@ export function SetupProfilePage({
       },
       {
         number: 10,
-        title: "كيف تفضل أن تبني أبقور خطتك الدراسية؟",
+        title: "كيف تفضل أن تبني عبقور خطتك الدراسية؟",
         render: () => (
           <OptionButtons
             options={studyStrategyPreferenceOptions}
@@ -391,9 +391,9 @@ export function SetupProfilePage({
         <aside className="onboarding-guide">
           <div className="onboarding-header">
           <p className="page-eyebrow">إعداد الملف الدراسي</p>
-          <h1 id="setup-profile-title">لنجهّز خطة أبقور لك</h1>
+          <h1 id="setup-profile-title">لنجهّز خطة عبقور لك</h1>
           <p>
-            هذه الأسئلة تساعد أبقور على تخصيص الدراسة، تحسين التوقعات، وبناء
+            هذه الأسئلة تساعد عبقور على تخصيص الدراسة، تحسين التوقعات، وبناء
             توصيات أكثر دقة.
           </p>
           </div>

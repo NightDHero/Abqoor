@@ -8,6 +8,7 @@ import {
   type ProfileFormState
 } from "../features/profile/profileFormState";
 import {
+  getStudyStrategyPreferenceLabel,
   studyStrategyPreferenceOptions,
   studyStylePreferenceOptions,
   weakerSectionOptions,
@@ -86,9 +87,9 @@ export function ProfilePage({
   const weeklyHoursLabel =
     weeklyStudyHourOptions.find((option) => option.value === form.weeklyStudyHours)
       ?.label ?? "لم يحدد";
-  const weakerSectionLabel =
-    weakerSectionOptions.find((option) => option.value === form.weakerSection)
-      ?.label ?? "لم يحدد";
+  const studyStrategyLabel = getStudyStrategyPreferenceLabel(
+    form.studyStrategyPreference
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -198,7 +199,7 @@ export function ProfilePage({
           />
           <SummaryMetric
             label="التحدي الأكبر"
-            value={weakerSectionLabel}
+            value={studyStrategyLabel}
           />
         </div>
       </section>
@@ -223,7 +224,7 @@ export function ProfilePage({
                   updateForm({ username: event.target.value })
                 }
               />
-              <small>هويتك العامة داخل أبقور</small>
+              <small>هويتك العامة داخل عبقور</small>
             </label>
             <div>
               <span>البريد الإلكتروني</span>

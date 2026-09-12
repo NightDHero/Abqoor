@@ -1,14 +1,13 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import {
-  AdaptiveSessionVisual,
   FloatingQuestionField,
-  FocusMapVisual,
-  HomeQuestionCard,
-  MockExamJourneyVisual,
-  QuickExplanationVisual,
-  TopicPathVisual,
-  showcaseQuestions
+  HomeAdaptiveShowcase,
+  HomeAdviceUnlockVisual,
+  HomeBrowserShowcase,
+  HomeMockExamShowcase,
+  HomepageMiniExamDemo
 } from "../features/home/HomeProductVisuals";
+import { homeContent } from "../features/home/homeContent";
 import {
   arrivalQuestionPlacements,
   recognitionQuestionPlacements,
@@ -17,6 +16,8 @@ import {
 import type { User } from "../types/auth";
 import { navigateTo } from "../utils/router";
 
+type HomeSectionId = (typeof homeContent.navSections)[number]["id"];
+
 export function LandingPage({
   isLoadingUser,
   user
@@ -24,20 +25,25 @@ export function LandingPage({
   isLoadingUser: boolean;
   user: User | null;
 }) {
-  const journeyRef = useRef<HTMLElement>(null);
-  const primaryDestination = user
+  const pageRef = useRef<HTMLElement>(null);
+  const [activeSectionId, setActiveSectionId] = useState<HomeSectionId>(
+    homeContent.navSections[0].id
+  );
+  const [scrollProgress, setScrollProgress] = useState(0);
+
+  const programDestination = user
     ? user.profileCompleted
       ? "/career"
       : "/setup-profile"
     : "/register";
 
   useEffect(() => {
-    const journey = journeyRef.current;
-    if (!journey) {
+    const page = pageRef.current;
+    if (!page) {
       return;
     }
 
-    const revealItems = journey.querySelectorAll<HTMLElement>("[data-reveal]");
+    const revealItems = page.querySelectorAll<HTMLElement>("[data-reveal]");
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -47,27 +53,80 @@ export function LandingPage({
         });
       },
       {
-        rootMargin: "-8% 0px -12%",
-        threshold: 0.16
+        rootMargin: "-7% 0px -10%",
+        threshold: 0.14
       }
     );
 
     revealItems.forEach((item) => observer.observe(item));
-    journey.querySelector<HTMLElement>(".home-arrival-copy")?.classList.add(
+    page.querySelector<HTMLElement>(".home-hero-copy")?.classList.add(
       "is-visible"
     );
 
     return () => observer.disconnect();
   }, []);
 
-  const primaryLabel = isLoadingUser
-    ? "جاري التحقق..."
-    : user
-      ? "كمل رحلتك"
-      : "ابدأ رحلتك";
+  useEffect(() => {
+    let animationFrame = 0;
+
+    const updateScrollState = () => {
+      cancelAnimationFrame(animationFrame);
+
+      animationFrame = window.requestAnimationFrame(() => {
+        const documentElement = document.documentElement;
+        const maxScroll = Math.max(
+          documentElement.scrollHeight - window.innerHeight,
+          1
+        );
+        const nextProgress = Math.min(
+          Math.max(window.scrollY / maxScroll, 0),
+          1
+        );
+        const activationPoint = window.innerHeight * 0.38;
+        const nextActive =
+          homeContent.navSections.reduce<HomeSectionId>(
+            (currentActive, section) => {
+              const element = document.getElementById(section.id);
+
+              if (
+                element &&
+                element.getBoundingClientRect().top <= activationPoint
+              ) {
+                return section.id;
+              }
+
+              return currentActive;
+            },
+            homeContent.navSections[0].id
+          );
+
+        setScrollProgress(nextProgress);
+        setActiveSectionId(nextActive);
+      });
+    };
+
+    updateScrollState();
+    window.addEventListener("scroll", updateScrollState, { passive: true });
+    window.addEventListener("resize", updateScrollState);
+
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      window.removeEventListener("scroll", updateScrollState);
+      window.removeEventListener("resize", updateScrollState);
+    };
+  }, []);
+
+  const handleSectionNavigation =
+    (sectionId: HomeSectionId) => (event: MouseEvent<HTMLAnchorElement>) => {
+      event.preventDefault();
+      document.getElementById(sectionId)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    };
 
   return (
-    <main className="public-home" dir="rtl" ref={journeyRef}>
+    <main className="public-home" dir="rtl" ref={pageRef}>
       <div className="home-ambient-world" aria-hidden="true">
         <i />
         <i />
@@ -77,213 +136,168 @@ export function LandingPage({
         <span>π</span>
       </div>
 
-      <section className="home-arrival" aria-labelledby="home-arrival-title">
-        <div className="home-brand-mark" aria-label="عبقور، تدريب القدرات">
-          <strong>عبقور</strong>
-          <span>تدريب القدرات</span>
-        </div>
+      <header className="home-site-nav">
+        <a
+          className="home-site-brand"
+          href="#home-hero"
+          onClick={handleSectionNavigation("home-hero")}
+        >
+          <img alt="" src={homeContent.logoPath} />
+          <span>{homeContent.hero.title}</span>
+        </a>
 
+        <nav className="home-site-links" aria-label="تنقل الصفحة الرئيسية">
+          {homeContent.navSections.map((item) => (
+            <a
+              aria-current={activeSectionId === item.id ? "true" : undefined}
+              className={
+                activeSectionId === item.id ? "home-site-link active" : "home-site-link"
+              }
+              href={`#${item.id}`}
+              key={item.id}
+              onClick={handleSectionNavigation(item.id)}
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
+
+        <button
+          className="home-login-link"
+          type="button"
+          onClick={() => navigateTo("/login")}
+        >
+          {homeContent.loginLabel}
+        </button>
+
+        <div className="home-scroll-progress-frame" aria-hidden="true">
+          <span
+            className="home-scroll-progress"
+            style={{ transform: `scaleX(${scrollProgress})` }}
+          />
+        </div>
+      </header>
+
+      <section
+        className="home-section home-hero"
+        id="home-hero"
+        aria-labelledby="home-hero-title"
+      >
         <FloatingQuestionField
-          className="home-arrival-questions"
+          className="home-section-questions home-hero-questions"
           placements={arrivalQuestionPlacements}
         />
 
-        <div className="home-arrival-copy" data-reveal>
-          <p>رحلتك تبدأ من سؤال واحد</p>
-          <h1 id="home-arrival-title">
-            مو لازم تبدأ
-            <span>وأنت عارف كل شيء</span>
-          </h1>
-          <strong>المهم تعرف من وين تبدأ.</strong>
-          <div className="home-arrival-actions">
-            <button
-              className="home-journey-entry"
-              disabled={isLoadingUser}
-              type="button"
-              onClick={() => navigateTo(primaryDestination)}
-            >
-              <span>{primaryLabel}</span>
-              <i aria-hidden="true" />
-            </button>
-            {!user ? (
-              <button
-                className="home-account-entry"
-                type="button"
-                onClick={() => navigateTo("/login")}
-              >
-                لدي حساب
-              </button>
-            ) : null}
-          </div>
+        <div className="home-hero-mark" data-reveal>
+          <img alt="عبقور" src={homeContent.logoPath} />
         </div>
 
-        <a className="home-scroll-cue" href="#home-recognition">
-          <span>اكتشف رحلتك</span>
-          <i aria-hidden="true" />
-        </a>
+        <div className="home-hero-copy" data-reveal>
+          <p>{homeContent.hero.smallText}</p>
+          <h1 id="home-hero-title">{homeContent.hero.title}</h1>
+          <strong>{homeContent.hero.description}</strong>
+          <div className="home-hero-actions">
+            <button
+              className="home-primary-action"
+              disabled={isLoadingUser}
+              type="button"
+              onClick={() => navigateTo(programDestination)}
+            >
+              {homeContent.hero.primaryButton}
+            </button>
+            <button
+              className="home-secondary-action"
+              disabled={isLoadingUser}
+              type="button"
+              onClick={() => navigateTo(user ? programDestination : "/register")}
+            >
+              {homeContent.hero.secondaryButton}
+            </button>
+          </div>
+        </div>
       </section>
 
       <section
-        className="home-recognition"
-        id="home-recognition"
-        aria-labelledby="home-recognition-title"
+        className="home-section home-program"
+        id="home-program"
+        aria-labelledby="home-program-title"
       >
         <FloatingQuestionField
-          className="home-recognition-questions"
+          className="home-section-questions home-program-questions"
           placements={recognitionQuestionPlacements}
         />
 
-        <div className="home-recognition-copy" data-reveal>
-          <span>خلّنا نسألك أول</span>
-          <div className="home-dialogue-lines">
-            <h2 id="home-recognition-title">تبغى تختبر روحك؟</h2>
-            <p>تبغى تعرف جانبك الضعيف؟</p>
-            <p>تبغى كل الأسئلة مقسمة بأقسامها؟</p>
-            <p>اختبارك قرب وتبغى تدريب مركز؟</p>
+        <div className="home-program-copy" data-reveal>
+          <h2 id="home-program-title">{homeContent.program.title}</h2>
+          <p>{homeContent.program.intro}</p>
+
+          <div className="home-learning-list">
+            <h3>{homeContent.program.learningTitle}</h3>
+            <ul>
+              {homeContent.program.learningItems.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
           </div>
+
+          <strong>{homeContent.program.closing}</strong>
         </div>
 
-        <div className="home-recognition-showcase" data-reveal>
-          <HomeQuestionCard question={showcaseQuestions.analogy} />
-          <HomeQuestionCard question={showcaseQuestions.oddWord} />
-          <HomeQuestionCard question={showcaseQuestions.sentence} />
+        <div data-reveal>
+          <HomepageMiniExamDemo />
         </div>
       </section>
 
-      <section className="home-time-journey" aria-labelledby="home-time-title">
-        <header data-reveal>
-          <span>مهما كان وقتك</span>
-          <h2 id="home-time-title">لك طريق يبدأ من مكانك.</h2>
-        </header>
-
-        <div className="home-time-fork" data-reveal>
-          <article>
-            <span>المسار المركّز</span>
-            <h3>اختبارك بكرة؟</h3>
-            <p>اختبر، اكتشف ضعفك، وركّز.</p>
-          </article>
-          <div className="home-time-fork-line" aria-hidden="true">
-            <i />
-            <span />
-            <i />
-          </div>
-          <article>
-            <span>مسار البناء</span>
-            <h3>باقي لك سنة؟</h3>
-            <p>ابنِ الأساس، وتدرّج على راحتك.</p>
-          </article>
-        </div>
-
+      <section
+        className="home-section home-systems"
+        id="home-systems"
+        aria-labelledby="home-systems-title"
+      >
         <FloatingQuestionField
-          className="home-transition-questions"
+          className="home-section-questions home-systems-questions"
           placements={transitionQuestionPlacements}
         />
-      </section>
 
-      <section
-        className="home-library-journey"
-        aria-labelledby="home-library-title"
-      >
-        <header className="home-journey-heading" data-reveal>
-          <span>أول شيء عندك</span>
-          <h2 id="home-library-title">موسوعة الأسئلة</h2>
-          <p>ادخل على النوع اللي تبيه، وامشِ من العنوان للسؤال مباشرة.</p>
+        <header className="home-systems-heading" data-reveal>
+          <h2 id="home-systems-title">{homeContent.systems.title}</h2>
+          <p>{homeContent.systems.intro}</p>
         </header>
-        <div data-reveal>
-          <TopicPathVisual />
-        </div>
-      </section>
 
-      <section
-        className="home-smart-journey"
-        aria-labelledby="home-smart-title"
-      >
-        <header className="home-journey-heading" data-reveal>
-          <span>وبعد ما نعرف مستواك...</span>
-          <h2 id="home-smart-title">البرنامج الذكي</h2>
-          <p>
-            ما يرمي عليك أسئلة عشوائية. يبني لك حصة من إجاباتك، أخطائك،
-            والجوانب اللي تحتاج تثبيت.
-          </p>
-        </header>
-        <div data-reveal>
-          <AdaptiveSessionVisual />
-        </div>
-      </section>
-
-      <section
-        className="home-exam-journey"
-        aria-labelledby="home-exam-title"
-      >
-        <div className="home-exam-intro" data-reveal>
-          <span>اختبار كامل</span>
-          <h2 id="home-exam-title">تبي تعرف مستواك صدق؟</h2>
-          <p>جرّب محاكاة قريبة من جو القدرات قبل يوم الاختبار.</p>
-        </div>
-
-        <div className="home-exam-transition" data-reveal>
-          <MockExamJourneyVisual />
-          <div className="home-exam-to-focus" aria-hidden="true">
-            <span />
-            <i />
-            <span />
+        <div className="home-systems-grid">
+          <div className="home-systems-browser" data-reveal>
+            <HomeBrowserShowcase />
           </div>
-          <FocusMapVisual />
-        </div>
 
-        <div className="home-clarity-copy" data-reveal>
-          <span>بعد كل محاولة...</span>
-          <h2>صورتك أوضح.</h2>
-          <p>تعرف وين تحتاج تركز، من غير ضياع.</p>
+          <section className="home-system-panel home-system-panel-adaptive" data-reveal>
+            <HomeAdaptiveShowcase />
+          </section>
+
+          <section className="home-system-panel home-system-panel-exam" data-reveal>
+            <HomeMockExamShowcase />
+          </section>
         </div>
       </section>
 
       <section
-        className="home-explanation-journey"
-        aria-labelledby="home-explanation-title"
+        className="home-section home-advice"
+        id="home-advice"
+        aria-labelledby="home-advice-title"
       >
-        <header className="home-journey-heading" data-reveal>
-          <span>وإذا وقفت عليك فكرة</span>
-          <h2 id="home-explanation-title">علقت في سؤال؟</h2>
-          <p>شرح صغير وقت الحاجة، من غير ما يقطع عليك الحل.</p>
-        </header>
-        <div data-reveal>
-          <QuickExplanationVisual />
-        </div>
-      </section>
-
-      <section className="home-final-journey" aria-labelledby="home-final-title">
-        <div className="home-final-question-stream" aria-hidden="true">
-          <span>إكمال الجمل</span>
-          <i />
-          <span>الجبر</span>
-          <i />
-          <span>اختبار محاكي</span>
-          <i />
-          <span>خطتك الجاية</span>
-        </div>
-
-        <div data-reveal>
-          <p>ابدأ من مكانك</p>
-          <h2 id="home-final-title">يلا، خلنا نعرف مستواك.</h2>
+        <div className="home-advice-copy" data-reveal>
+          <h2 id="home-advice-title">{homeContent.advice.title}</h2>
+          <p>{homeContent.advice.text}</p>
           <button
-            className="home-journey-entry"
+            className="home-primary-action"
             disabled={isLoadingUser}
             type="button"
-            onClick={() => navigateTo(primaryDestination)}
+            onClick={() => navigateTo(user ? programDestination : "/register")}
           >
-            <span>{user ? "كمل رحلتك" : "سجّل وابدأ"}</span>
-            <i aria-hidden="true" />
+            {homeContent.advice.cta}
           </button>
-          {!user ? (
-            <button
-              className="home-account-entry"
-              type="button"
-              onClick={() => navigateTo("/login")}
-            >
-              لدي حساب
-            </button>
-          ) : null}
+        </div>
+
+        <div data-reveal>
+          <HomeAdviceUnlockVisual />
         </div>
       </section>
     </main>

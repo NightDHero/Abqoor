@@ -2,7 +2,6 @@ export const weeklyStudyHourOptions = [
   "less_than_3",
   "3_to_5",
   "5_to_10",
-  "10_to_15",
   "more_than_15"
 ] as const;
 

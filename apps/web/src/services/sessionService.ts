@@ -28,11 +28,15 @@ export const sessionService = {
   getResult: (sessionId: string) =>
     apiRequest<SessionResult>(`/sessions/${sessionId}/result`),
 
-  getProgress: (timeZone?: string) => {
+  getProgress: (timeZone?: string, month?: string) => {
     const params = new URLSearchParams();
 
     if (timeZone) {
       params.set("timeZone", timeZone);
+    }
+
+    if (month) {
+      params.set("month", month);
     }
 
     const query = params.toString();

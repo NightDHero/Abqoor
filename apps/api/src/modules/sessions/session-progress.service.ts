@@ -21,13 +21,21 @@ export type StudyProgressPeriod = {
   days: StudyProgressDay[];
 };
 
+export type StudyProgressStreak = {
+  current: number;
+  highest: number;
+};
+
 export type StudyProgressResponse = {
   generatedAt: string;
   timeZone: string;
   activeStudyDay: number;
+  streak: StudyProgressStreak;
   today: StudyProgressDay;
   week: StudyProgressPeriod;
   month: StudyProgressPeriod;
+  monthWeeks: StudyProgressPeriod[];
+  year: StudyProgressPeriod;
 };
 
 export class SessionProgressError extends Error {
@@ -40,6 +48,7 @@ export class SessionProgressError extends Error {
 }
 
 const defaultTimeZone = "Asia/Riyadh";
+const monthKeyPattern = /^\d{4}-\d{2}$/;
 
 const normalizeTimeZone = (value: unknown) => {
   if (value === undefined) {
@@ -63,6 +72,30 @@ const normalizeTimeZone = (value: unknown) => {
   }
 
   return timeZone;
+};
+
+const normalizeMonthKey = (value: unknown, fallbackDateKey: string) => {
+  if (value === undefined) {
+    return fallbackDateKey.slice(0, 7);
+  }
+
+  if (typeof value !== "string") {
+    throw new SessionProgressError("month must be formatted as YYYY-MM.");
+  }
+
+  const monthKey = value.trim();
+
+  if (!monthKeyPattern.test(monthKey)) {
+    throw new SessionProgressError("month must be formatted as YYYY-MM.");
+  }
+
+  const month = Number(monthKey.slice(5, 7));
+
+  if (month < 1 || month > 12) {
+    throw new SessionProgressError("month must be a valid calendar month.");
+  }
+
+  return monthKey;
 };
 
 const getDateKey = (date: Date, timeZone: string) => {
@@ -108,6 +141,56 @@ const getCalendarMonthRange = (dateKey: string) => {
     ) + 1;
 
   return getDateRange(endDate, dayCount);
+};
+
+const getCalendarWeekRange = (dateKey: string) => {
+  const dayIndex = toUTCDate(dateKey).getUTCDay();
+  const startDate = addDays(dateKey, -dayIndex);
+
+  return getDateRange(addDays(startDate, 6), 7);
+};
+
+const getCalendarWeeksForMonth = (monthDates: string[]) => {
+  const firstDate = monthDates[0];
+  const lastDate = monthDates.at(-1);
+
+  if (!firstDate || !lastDate) {
+    return [];
+  }
+
+  const firstWeekStart = getCalendarWeekRange(firstDate)[0] ?? firstDate;
+  const lastWeekEnd = getCalendarWeekRange(lastDate).at(-1) ?? lastDate;
+  const weeks: string[][] = [];
+
+  for (
+    let weekStart = firstWeekStart;
+    weekStart <= lastWeekEnd;
+    weekStart = addDays(weekStart, 7)
+  ) {
+    weeks.push(getDateRange(addDays(weekStart, 6), 7));
+  }
+
+  return weeks;
+};
+
+const getCalendarYearRange = (dateKey: string) => {
+  const [year] = dateKey.split("-").map(Number);
+  const startDate = `${year}-01-01`;
+  const endDate = `${year}-12-31`;
+  const dayCount =
+    Math.round(
+      (new Date(`${endDate}T00:00:00.000Z`).getTime() -
+        new Date(`${startDate}T00:00:00.000Z`).getTime()) /
+        (24 * 60 * 60 * 1000)
+    ) + 1;
+
+  return getDateRange(endDate, dayCount);
+};
+
+const toUTCDate = (dateKey: string) => {
+  const [year, month, day] = dateKey.split("-").map(Number);
+
+  return new Date(Date.UTC(year, month - 1, day));
 };
 
 const getActiveStudySeconds = (record: SessionProgressActivityRecord) => {
@@ -165,12 +248,41 @@ const summarizeDays = (days: StudyProgressDay[]): StudyProgressPeriod => {
   };
 };
 
+const calculateStreaks = (
+  activityByDate: Map<string, StudyProgressDay>
+): StudyProgressStreak => {
+  const activeDates = [...activityByDate.values()]
+    .filter((day) => day.answeredQuestions > 0)
+    .map((day) => day.date)
+    .sort();
+
+  let currentRun = 0;
+  let highest = 0;
+  let latestRun = 0;
+  let previousDate: string | null = null;
+
+  for (const date of activeDates) {
+    currentRun =
+      previousDate && addDays(previousDate, 1) === date ? currentRun + 1 : 1;
+    highest = Math.max(highest, currentRun);
+    latestRun = currentRun;
+    previousDate = date;
+  }
+
+  return {
+    current: latestRun,
+    highest
+  };
+};
+
 export const getStudyProgress = (
   userId: string,
-  input: { timeZone?: unknown } = {}
+  input: { month?: unknown; timeZone?: unknown } = {}
 ): StudyProgressResponse => {
   const timeZone = normalizeTimeZone(input.timeZone);
   const todayDate = getDateKey(new Date(), timeZone);
+  const displayedMonthKey = normalizeMonthKey(input.month, todayDate);
+  const displayedMonthDates = getCalendarMonthRange(`${displayedMonthKey}-01`);
   const activityByDate = new Map<string, StudyProgressDay>();
 
   for (const record of findUserProgressActivity(userId)) {
@@ -189,19 +301,20 @@ export const getStudyProgress = (
     getDateRange(todayDate, dayCount).map(
       (date) => activityByDate.get(date) ?? emptyDay(date)
     );
+  const buildRange = (dates: string[]) =>
+    summarizeDays(dates.map((date) => activityByDate.get(date) ?? emptyDay(date)));
 
   return {
     activeStudyDay: [...activityByDate.values()].filter(
       (day) => day.answeredQuestions > 0
     ).length,
     generatedAt: new Date().toISOString(),
-    month: summarizeDays(
-      getCalendarMonthRange(todayDate).map(
-        (date) => activityByDate.get(date) ?? emptyDay(date)
-      )
-    ),
+    month: buildRange(displayedMonthDates),
+    monthWeeks: getCalendarWeeksForMonth(displayedMonthDates).map(buildRange),
+    streak: calculateStreaks(activityByDate),
     timeZone,
     today: activityByDate.get(todayDate) ?? emptyDay(todayDate),
-    week: summarizeDays(buildDays(7))
+    week: summarizeDays(buildDays(7)),
+    year: buildRange(getCalendarYearRange(`${displayedMonthKey.slice(0, 4)}-01-01`))
   };
 };

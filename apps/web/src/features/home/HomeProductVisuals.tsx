@@ -1,8 +1,12 @@
-import {
-  Fragment,
-  type CSSProperties
-} from "react";
+import { Fragment, useState, type CSSProperties } from "react";
 import { env } from "../../config/env";
+import { SystemIcon } from "../../components/ui/SystemIcon";
+import type { CorrectAnswer, SessionQuestion } from "../../types/session";
+import { CareerTopicIcon } from "../career/CareerTopicIcon";
+import { arabicTopics, mathTopics } from "../career/careerData";
+import { StudyQuestion } from "../study/StudyQuestion";
+import { navigateTo } from "../../utils/router";
+import { homeContent } from "./homeContent";
 import {
   analogyQuestions,
   oddWordQuestions,
@@ -16,6 +20,48 @@ import {
 
 const toQuestionImage = (questionId: string) =>
   `${env.apiUrl}/question-images/${questionId}.png`;
+
+const demoAnswerOptions = [
+  { id: "A", label: "أ" },
+  { id: "B", label: "ب" },
+  { id: "C", label: "ج" },
+  { id: "D", label: "د" }
+] as const;
+
+const miniExamQuestions = Array.from({ length: 16 }, (_, index) => ({
+  id: `Q-${String(index + 1).padStart(3, "0")}`,
+  subject: index % 2 === 0 ? "الكمي" : "اللفظي"
+}));
+
+const adaptiveSignals = [
+  { label: "خطأ سابق", tone: "mistake" },
+  { label: "تثبيت", tone: "reinforce" },
+  { label: "نقطة ضعف", tone: "focus" },
+  { label: "تثبيت", tone: "reinforce" },
+  { label: "خطأ سابق", tone: "mistake" },
+  { label: "نقطة ضعف", tone: "focus" },
+  { label: "تثبيت", tone: "reinforce" },
+  { label: "تثبيت", tone: "reinforce" },
+  { label: "نقطة ضعف", tone: "focus" },
+  { label: "تثبيت", tone: "reinforce" }
+] as const;
+
+const lockedExamSteps = Array.from({ length: 5 }, (_, index) => ({
+  index,
+  number: (index + 1).toLocaleString("ar-SA")
+}));
+
+const mockExamPreviewQuestion: SessionQuestion = {
+  difficulty: 3,
+  id: "Q-034",
+  questionImageUrl: "/question-images/Q-034.png",
+  subject: "الكمي",
+  subjectId: "math",
+  topic: "اختبار محاكي"
+};
+
+const ignorePreviewAction = () => {};
+const ignorePreviewAnswer = (_answer: CorrectAnswer) => {};
 
 function SentenceCompletionVisual({
   question
@@ -68,9 +114,7 @@ export function HomeQuestionCard({
   question: HomeQuestion;
 }) {
   return (
-    <article
-      className={`home-live-question home-live-question-${question.type}`}
-    >
+    <article className={`home-live-question home-live-question-${question.type}`}>
       <span className="home-question-category">{question.category}</span>
       {question.type === "sentence-completion" ? (
         <SentenceCompletionVisual question={question} />
@@ -119,207 +163,249 @@ export function FloatingQuestionField({
   );
 }
 
-export function QuestionImageStage({
-  label,
-  questionId = "Q-001"
-}: {
-  label: string;
-  questionId?: string;
-}) {
+export function HomepageMiniExamDemo() {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [answers, setAnswers] = useState<Record<number, string>>({
+    0: "B",
+    2: "A",
+    4: "D"
+  });
+  const currentQuestion = miniExamQuestions[currentIndex];
+  const selectedAnswer = answers[currentIndex];
+  const progressPercent =
+    ((currentIndex + 1) / miniExamQuestions.length) * 100;
+
+  const goToQuestion = (index: number) => {
+    setCurrentIndex(Math.min(Math.max(index, 0), miniExamQuestions.length - 1));
+  };
+
   return (
-    <figure className="home-question-image-stage">
-      <figcaption>
-        <span>من موسوعة عبقور</span>
-        <strong>{label}</strong>
-      </figcaption>
-      <img
-        alt={`معاينة سؤال قدرات: ${label}`}
-        loading="lazy"
-        src={toQuestionImage(questionId)}
-      />
-    </figure>
+    <section className="home-mini-exam" aria-label="كيف شكل واجهة الاختبار الحقيقي">
+      <aside className="home-mini-exam-sidebar">
+        <div className="home-mini-exam-brand">
+          <img alt="" src={homeContent.logoPath} />
+          <span>عبقور</span>
+        </div>
+        <div className="home-mini-exam-position">
+          <span>رقم السؤال</span>
+          <strong>{(currentIndex + 1).toLocaleString("ar-SA")}</strong>
+        </div>
+        <div className="home-mini-exam-grid" aria-label="أسئلة العرض">
+          {miniExamQuestions.map((question, index) => {
+            const isCurrent = index === currentIndex;
+            const isAnswered = Boolean(answers[index]);
+
+            return (
+              <button
+                aria-current={isCurrent ? "step" : undefined}
+                aria-label={`السؤال ${(index + 1).toLocaleString("ar-SA")}`}
+                className={[
+                  "home-mini-exam-cell",
+                  isCurrent ? "current" : "",
+                  isAnswered ? "answered" : ""
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                key={question.id}
+                type="button"
+                onClick={() => goToQuestion(index)}
+              >
+                {(index + 1).toLocaleString("ar-SA")}
+              </button>
+            );
+          })}
+        </div>
+      </aside>
+
+      <div className="home-mini-exam-main">
+        <header className="home-mini-exam-topbar">
+          <div>
+            <span>{homeContent.program.learningItems[0]}</span>
+            <strong>{currentQuestion.subject}</strong>
+          </div>
+          <time>٢٥:٠٠</time>
+        </header>
+
+        <div className="home-mini-exam-image-panel">
+          <img
+            alt={`Question ${currentQuestion.id}`}
+            loading="lazy"
+            src={toQuestionImage(currentQuestion.id)}
+          />
+        </div>
+
+        <div className="home-mini-exam-options" role="group" aria-label="خيارات الإجابة">
+          {demoAnswerOptions.map((answer) => (
+            <button
+              aria-pressed={selectedAnswer === answer.id}
+              className={
+                selectedAnswer === answer.id
+                  ? "home-mini-exam-option selected"
+                  : "home-mini-exam-option"
+              }
+              key={answer.id}
+              type="button"
+              onClick={() =>
+                setAnswers((currentAnswers) => ({
+                  ...currentAnswers,
+                  [currentIndex]: answer.id
+                }))
+              }
+            >
+              <span>{answer.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <footer className="home-mini-exam-actions">
+          <button
+            className="home-mini-exam-previous"
+            disabled={currentIndex === 0}
+            type="button"
+            onClick={() => goToQuestion(currentIndex - 1)}
+          >
+            السابق
+          </button>
+          <div className="home-mini-exam-progress" aria-hidden="true">
+            <span style={{ width: `${progressPercent}%` }} />
+          </div>
+          <button
+            className="home-mini-exam-next"
+            disabled={currentIndex === miniExamQuestions.length - 1}
+            type="button"
+            onClick={() => goToQuestion(currentIndex + 1)}
+          >
+            حفظ والتالي
+          </button>
+        </footer>
+      </div>
+    </section>
   );
 }
 
-const mathTopics = [
-  "الحساب",
-  "الجبر",
-  "الهندسة",
-  "الإحصاء والاحتمالات"
-];
-
-const verbalTopics = [
-  "التناظر اللفظي",
-  "إكمال الجمل",
-  "الخطأ السياقي",
-  "استيعاب المقروء"
-];
-
-export function TopicPathVisual() {
+export function HomeBrowserShowcase() {
   return (
-    <div className="home-topic-world" aria-label="رحلة داخل موسوعة الأسئلة">
-      <div className="home-topic-rail home-topic-rail-math">
-        <strong>الكمي</strong>
-        {mathTopics.map((topic, index) => (
-          <span className={index === 1 ? "active" : ""} key={topic}>
-            {topic}
-          </span>
-        ))}
-      </div>
+    <div className="home-browser-showcase" aria-label="الكتابين الكمي واللفظي">
+      <section className="home-browser-world home-browser-world-math">
+        <header>
+          <h3>الكمي</h3>
+        </header>
+        <div className="home-browser-topic-grid">
+          {mathTopics.map((topic, index) => (
+            <a
+              className="home-browser-topic"
+              href={topic.route}
+              key={topic.id}
+              onClick={(event) => {
+                event.preventDefault();
+                navigateTo(topic.route);
+              }}
+              style={{ "--topic-index": index } as CSSProperties}
+            >
+              <CareerTopicIcon subject="math" topicSlug={topic.routeSlug} />
+              <span>{topic.name}</span>
+            </a>
+          ))}
+        </div>
+      </section>
 
-      <div className="home-topic-route" aria-hidden="true">
-        <span>الكمي</span>
-        <i />
-        <span>الجبر</span>
-        <i />
-        <span>المعادلات والمتباينات</span>
-      </div>
-
-      <QuestionImageStage
-        label="الجبر · المعادلات والمتباينات"
-        questionId="Q-002"
-      />
-
-      <div className="home-topic-rail home-topic-rail-verbal">
-        <strong>اللفظي</strong>
-        {verbalTopics.map((topic) => (
-          <span key={topic}>{topic}</span>
-        ))}
-      </div>
+      <section className="home-browser-world home-browser-world-verbal">
+        <header>
+          <h3>اللفظي</h3>
+        </header>
+        <div className="home-browser-topic-grid">
+          {arabicTopics.map((topic, index) => (
+            <a
+              className="home-browser-topic"
+              href={topic.practiceRoute}
+              key={topic.id}
+              onClick={(event) => {
+                event.preventDefault();
+                navigateTo(topic.practiceRoute);
+              }}
+              style={{ "--topic-index": index } as CSSProperties}
+            >
+              <CareerTopicIcon subject="arabic" topicSlug={topic.routeSlug} />
+              <span>{topic.name}</span>
+            </a>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
 
-const sessionSequence = [
-  "خطأ سابق",
-  "تثبيت",
-  "تثبيت",
-  "نقطة ضعف",
-  "تثبيت",
-  "خطأ سابق",
-  "نقطة ضعف",
-  "تثبيت",
-  "تثبيت",
-  "نقطة ضعف",
-  "خطأ سابق",
-  "تثبيت",
-  "نقطة ضعف",
-  "تثبيت",
-  "تثبيت"
-] as const;
-
-export function AdaptiveSessionVisual() {
+export function HomeAdaptiveShowcase() {
   return (
-    <div
-      className="home-adaptive-session"
-      aria-label="حصة عبقور من خمسة عشر سؤالًا مختارًا"
-    >
-      <div className="home-session-core">
-        <span>حصة عبقور</span>
-        <strong>١٥ سؤال</strong>
-        <p>اختيار مقصود من مستواك وإجاباتك السابقة.</p>
+    <div className="home-adaptive-showcase" aria-label="سَائِل">
+      <div className="home-adaptive-core">
+        <h3>سَائِل</h3>
+        <p>{homeContent.systems.adaptive}</p>
       </div>
-
-      <ol className="home-session-path">
-        {sessionSequence.map((label, index) => {
-          const kind =
-            label === "خطأ سابق"
-              ? "mistake"
-              : label === "نقطة ضعف"
-                ? "focus"
-                : "reinforce";
-
-          return (
-            <li
-              className={`home-session-node home-session-node-${kind}`}
-              key={`${label}-${index}`}
-              style={{ "--node-index": index } as CSSProperties}
-            >
-              <span>{index + 1}</span>
-              <small>{label}</small>
-            </li>
-          );
-        })}
+      <ol className="home-adaptive-path">
+        {adaptiveSignals.map((signal, index) => (
+          <li
+            className={`home-adaptive-node home-adaptive-node-${signal.tone}`}
+            key={`${signal.label}-${index}`}
+            style={{ "--node-index": index } as CSSProperties}
+          >
+            <span>{(index + 1).toLocaleString("ar-SA")}</span>
+            <small>{signal.label}</small>
+          </li>
+        ))}
       </ol>
     </div>
   );
 }
 
-export function MockExamJourneyVisual() {
+export function HomeMockExamShowcase() {
   return (
-    <div className="home-mock-exam" aria-label="معاينة الاختبار المحاكي">
+    <div className="home-mock-exam" aria-label={homeContent.systems.mockExam}>
       <header>
         <div>
-          <span>القسم ٢ من ٥</span>
-          <strong>اختبار محاكي</strong>
+          <h3>اختبار محاكي</h3>
+          <p>{homeContent.systems.mockExam}</p>
         </div>
         <time>٢٥:٠٠</time>
       </header>
-      <div className="home-mock-exam-question">
-        <img
-          alt="معاينة سؤال داخل الاختبار المحاكي"
-          loading="lazy"
-          src={toQuestionImage("Q-003")}
-        />
-        <div aria-label="خيارات الإجابة">
-          {["أ", "ب", "ج", "د"].map((answer) => (
-            <span key={answer}>{answer}</span>
-          ))}
+      <div className="home-mock-exam-preview-shell product-app-shell" aria-hidden="true">
+        <div className="home-mock-exam-preview-scale">
+          <StudyQuestion
+            currentIndex={12}
+            isInReview={false}
+            isLastQuestion={false}
+            isSavingReview={false}
+            isSubmitting={false}
+            onAnswer={ignorePreviewAnswer}
+            onNext={ignorePreviewAction}
+            onPrevious={ignorePreviewAction}
+            onSaveReview={ignorePreviewAction}
+            question={mockExamPreviewQuestion}
+            totalQuestions={15}
+          />
         </div>
       </div>
-      <footer>
-        <span>١٢ كمي</span>
-        <i />
-        <span>١٣ لفظي</span>
-      </footer>
     </div>
   );
 }
 
-const focusSignals = [
-  ["الجبر", "يحتاج تركيز", "34%"],
-  ["الهندسة", "تحت المراجعة", "56%"],
-  ["التناظر اللفظي", "ثابت", "82%"],
-  ["إكمال الجمل", "يحتاج تثبيت", "61%"]
-] as const;
-
-export function FocusMapVisual() {
+export function HomeAdviceUnlockVisual() {
   return (
-    <div className="home-focus-map" aria-label="خريطة محاور التركيز">
-      <div className="home-focus-orbit" aria-hidden="true">
-        <span />
-        <span />
-        <span />
-      </div>
-      <header>
-        <span>صورتك أوضح</span>
-        <strong>وين تركز الجلسة الجاية؟</strong>
-      </header>
-      <div className="home-focus-signals">
-        {focusSignals.map(([topic, label, strength]) => (
-          <div className="home-focus-signal" key={topic}>
-            <span>{topic}</span>
-            <i style={{ "--focus-strength": strength } as CSSProperties}>
-              <span />
-            </i>
-            <small>{label}</small>
-          </div>
+    <div className="home-advice-unlock" aria-hidden="true">
+      <div className="home-advice-exams">
+        {lockedExamSteps.map((exam) => (
+          <span
+            key={exam.index}
+            style={{ "--exam-index": exam.index } as CSSProperties}
+          >
+            <b>{exam.number}</b>
+            <SystemIcon className="home-advice-lock-icon" name="lock" />
+          </span>
         ))}
       </div>
-    </div>
-  );
-}
-
-export function QuickExplanationVisual() {
-  return (
-    <div className="home-quick-explanation" aria-label="معاينة شرح مختصر">
-      <div className="home-explanation-question">
-        <HomeQuestionCard question={sentenceCompletionQuestions[9]} />
-      </div>
-      <div className="home-explanation-note">
-        <span>الفكرة بسرعة</span>
-        <strong>رتّب المعطيات، ثم قارن المطلوب بخطوة واحدة.</strong>
-        <p>شرح صغير وقت الحاجة، من غير ما يقطع عليك الحل.</p>
+      <div className="home-advice-assistant">
+        <i />
+        <strong>سَائِل</strong>
       </div>
     </div>
   );

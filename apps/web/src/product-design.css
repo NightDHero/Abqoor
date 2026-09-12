@@ -423,6 +423,16 @@
   align-content: center;
 }
 
+.auth-brand-logo {
+  display: block;
+  width: clamp(126px, 18vw, 188px);
+  border-radius: 24px;
+  background: #fff;
+  box-shadow:
+    0 22px 54px rgb(0 7 14 / 22%),
+    0 0 0 1px rgb(255 255 255 / 10%);
+}
+
 .auth-context h2 {
   max-width: 540px;
   font-size: clamp(2.25rem, 5vw, 4.5rem);

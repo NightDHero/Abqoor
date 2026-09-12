@@ -5,6 +5,7 @@ import { BrowserControls } from "./BrowserControls";
 import { GalleryMode } from "./GalleryMode";
 import { QuestionMode } from "./QuestionMode";
 import { QuestionNavigator } from "./QuestionNavigator";
+import { ReviewButton } from "./ReviewButton";
 import { useQuestionBrowser } from "./useQuestionBrowser";
 import { useReviewBank } from "./useReviewBank";
 
@@ -26,6 +27,21 @@ export function QuestionBrowser({
     topic: topic.routeSlug
   });
   const reviewBank = useReviewBank();
+  const handleOpenQuestion = (questionId: string) => {
+    if (browser.displayMode === "immersive") {
+      const index = browser.filteredQuestions.findIndex(
+        (question) => question.id === questionId
+      );
+
+      if (index >= 0) {
+        browser.goToIndex(index);
+      }
+
+      return;
+    }
+
+    browser.goToQuestion(questionId);
+  };
   const handleAnswer = (
     questionId: string,
     answer: Parameters<typeof browser.answerQuestion>[0]
@@ -46,20 +62,37 @@ export function QuestionBrowser({
       aria-labelledby="browser-title"
     >
       <header className="browser-context">
-        <div>
-          <p className="page-eyebrow">{world.label}</p>
+        <div className="browser-title-strip">
           <h1 className="page-title" id="browser-title">
             {subtopic ? subtopic.name : topic.name}
           </h1>
+          {!browser.isLoading && browser.filteredQuestions.length > 0 ? (
+            <QuestionNavigator
+              currentIndex={browser.currentIndex}
+              currentQuestionId={browser.currentQuestion?.id}
+              onOpenQuestion={handleOpenQuestion}
+              questions={browser.filteredQuestions}
+            />
+          ) : null}
         </div>
-        <BrowserControls
-          displayMode={browser.displayMode}
-          resultCount={browser.filteredQuestions.length}
-          searchText={browser.searchText}
-          setDisplayMode={browser.setDisplayMode}
-          setSearchText={browser.setSearchText}
-          totalCount={browser.questions.length}
-        />
+        <div className="browser-context-actions">
+          <BrowserControls
+            displayMode={browser.displayMode}
+            resultCount={browser.filteredQuestions.length}
+            searchText={browser.searchText}
+            setDisplayMode={browser.setDisplayMode}
+            setSearchText={browser.setSearchText}
+            totalCount={browser.questions.length}
+          />
+          {browser.displayMode === "question" && browser.currentQuestion ? (
+            <ReviewButton
+              isInReview={reviewBank.hasQuestion(browser.currentQuestion.id)}
+              onAdd={() => {
+                void reviewBank.addQuestion(browser.currentQuestion!.id);
+              }}
+            />
+          ) : null}
+        </div>
       </header>
 
       {browser.isLoading ? (
@@ -71,16 +104,6 @@ export function QuestionBrowser({
         <div className="workspace-empty-state">
           لا توجد أسئلة مطابقة لهذا المسار أو البحث الحالي.
         </div>
-      ) : null}
-
-      {!browser.isLoading &&
-      browser.filteredQuestions.length > 0 &&
-      browser.displayMode !== "immersive" ? (
-        <QuestionNavigator
-          currentQuestionId={browser.currentQuestion?.id}
-          onOpenQuestion={browser.goToQuestion}
-          questions={browser.filteredQuestions}
-        />
       ) : null}
 
       {browser.displayMode === "question" && browser.currentQuestion ? (
@@ -97,6 +120,7 @@ export function QuestionBrowser({
           selectedAnswer={
             browser.answersByQuestionId[browser.currentQuestion.id]
           }
+          showToolbar={false}
           totalQuestions={browser.filteredQuestions.length}
         />
       ) : null}

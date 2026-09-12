@@ -21,7 +21,7 @@ const worldEntrances = [
 
 const hubDestinations = [
   { label: "بنك الأخطاء", route: "/review" },
-  { label: "حصة", route: "/study" },
+  { label: "سَائِل", route: "/study" },
   { label: "اختبار محاكي", route: "/exam" },
   { label: "ملفي", route: "/profile" }
 ] as const;

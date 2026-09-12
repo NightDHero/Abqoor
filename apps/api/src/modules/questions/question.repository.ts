@@ -13,6 +13,9 @@ const insertQuestionStatement = db.prepare(`
   INSERT INTO questions (
     id,
     question_image_url,
+    image_storage_key,
+    source_pdf_id,
+    source_page,
     correct_answer,
     subject,
     subject_id,
@@ -31,6 +34,9 @@ const insertQuestionStatement = db.prepare(`
   VALUES (
     @id,
     @questionImageUrl,
+    @imageStorageKey,
+    @sourcePdfId,
+    @sourcePage,
     @correctAnswer,
     @subject,
     @subjectId,
@@ -52,6 +58,9 @@ const upsertQuestionStatement = db.prepare(`
   INSERT INTO questions (
     id,
     question_image_url,
+    image_storage_key,
+    source_pdf_id,
+    source_page,
     correct_answer,
     subject,
     subject_id,
@@ -70,6 +79,9 @@ const upsertQuestionStatement = db.prepare(`
   VALUES (
     @id,
     @questionImageUrl,
+    @imageStorageKey,
+    @sourcePdfId,
+    @sourcePage,
     @correctAnswer,
     @subject,
     @subjectId,
@@ -87,6 +99,9 @@ const upsertQuestionStatement = db.prepare(`
   )
   ON CONFLICT(id) DO UPDATE SET
     question_image_url = excluded.question_image_url,
+    image_storage_key = excluded.image_storage_key,
+    source_pdf_id = excluded.source_pdf_id,
+    source_page = excluded.source_page,
     correct_answer = excluded.correct_answer,
     subject = excluded.subject,
     subject_id = excluded.subject_id,
@@ -106,6 +121,9 @@ const restoreQuestionStatement = db.prepare(`
   INSERT INTO questions (
     id,
     question_image_url,
+    image_storage_key,
+    source_pdf_id,
+    source_page,
     correct_answer,
     subject,
     subject_id,
@@ -128,6 +146,9 @@ const restoreQuestionStatement = db.prepare(`
   VALUES (
     @id,
     @question_image_url,
+    @image_storage_key,
+    @source_pdf_id,
+    @source_page,
     @correct_answer,
     @subject,
     @subject_id,
@@ -149,6 +170,9 @@ const restoreQuestionStatement = db.prepare(`
   )
   ON CONFLICT(id) DO UPDATE SET
     question_image_url = excluded.question_image_url,
+    image_storage_key = excluded.image_storage_key,
+    source_pdf_id = excluded.source_pdf_id,
+    source_page = excluded.source_page,
     correct_answer = excluded.correct_answer,
     subject = excluded.subject,
     subject_id = excluded.subject_id,
@@ -233,7 +257,10 @@ export const insertQuestion = (question: QuestionWriteInput) => {
   insertQuestionStatement.run({
     ...question,
     difficultyScore: question.difficultyScore ?? question.difficulty,
+    imageStorageKey: question.imageStorageKey ?? null,
     importJobId: question.importJobId ?? null,
+    sourcePage: question.sourcePage ?? null,
+    sourcePdfId: question.sourcePdfId ?? null,
     subjectId: question.subjectId ?? null,
     subtopicId: question.subtopicId ?? null,
     subtopic: question.subtopic ?? null,
@@ -252,7 +279,10 @@ export const upsertQuestion = (question: QuestionWriteInput) => {
   upsertQuestionStatement.run({
     ...question,
     difficultyScore: question.difficultyScore ?? question.difficulty,
+    imageStorageKey: question.imageStorageKey ?? null,
     importJobId: question.importJobId ?? null,
+    sourcePage: question.sourcePage ?? null,
+    sourcePdfId: question.sourcePdfId ?? null,
     subjectId: question.subjectId ?? null,
     subtopicId: question.subtopicId ?? null,
     subtopic: question.subtopic ?? null,

@@ -59,7 +59,7 @@ export function BrowserControls({
             className="browser-mode-icon"
             src="/assets/modes/immersive-scroll.png"
           />
-          سحب
+          سَائِل
         </button>
       </div>
 

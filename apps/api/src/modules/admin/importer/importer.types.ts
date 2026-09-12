@@ -113,6 +113,7 @@ export type ImportJob = {
   createdAt: string;
   updatedAt: string;
   createdBy: string;
+  sourcePdfId: string | null;
   excelFilename: string;
   mediaFilename: string;
   totalPages: number;

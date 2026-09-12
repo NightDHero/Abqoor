@@ -81,6 +81,7 @@ sessionRouter.get("/progress", requireAuth, (request: Request, response: Respons
   try {
     response.status(200).json(
       getStudyProgress(request.user?.id ?? "", {
+        month: request.query.month,
         timeZone: request.query.timeZone
       })
     );

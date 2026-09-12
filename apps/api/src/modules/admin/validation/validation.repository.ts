@@ -4,6 +4,7 @@ import { questionImageExists } from "../../media/media.service.js";
 type ValidationQuestionRecord = {
   id: string;
   question_image_url: string;
+  image_storage_key: string | null;
   correct_answer: string;
   subject: string;
   subject_id: string | null;
@@ -23,6 +24,7 @@ const importedQuestionsStatement = db.prepare(`
   SELECT
     id,
     question_image_url,
+    image_storage_key,
     correct_answer,
     subject,
     subject_id,
@@ -72,7 +74,7 @@ const toValidationQuestion = (record: ValidationQuestionRecord) => {
     difficulty_score: record.difficulty_score,
     pdfPageNumber: questionNumber,
     excelRowNumber: questionNumber === null ? null : questionNumber + 1,
-    imageExists: questionImageExists(record.id)
+    imageExists: Boolean(record.image_storage_key) || questionImageExists(record.id)
   };
 };
 

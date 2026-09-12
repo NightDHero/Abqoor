@@ -1,12 +1,15 @@
 import type { ReactNode } from "react";
+import type { User } from "../../types/auth";
 import { AppNavigation } from "./AppNavigation";
 
 export function AppShell({
   children,
-  currentPath
+  currentPath,
+  user
 }: {
   children: ReactNode;
   currentPath: string;
+  user?: User | null;
 }) {
   const isCareerExperience = currentPath === "/career";
   const isExamExperience = currentPath === "/exam";
@@ -15,7 +18,7 @@ export function AppShell({
     "app-shell",
     isCareerExperience ? "career-app-shell" : "",
     !isCareerExperience ? "focused-app-shell" : "",
-    !isCareerExperience ? "navigation-app-shell" : "",
+    "navigation-app-shell",
     isExamExperience ? "exam-entry-app-shell" : "",
     isTopicDirectoryExperience ? "topic-directory-app-shell" : "",
     !isCareerExperience && !isExamExperience
@@ -34,7 +37,7 @@ export function AppShell({
 
   return (
     <div className={shellClassName} dir="rtl">
-      {!isCareerExperience ? <AppNavigation currentPath={currentPath} /> : null}
+      <AppNavigation currentPath={currentPath} isAdmin={user?.isAdmin} />
       <main className={mainClassName}>{children}</main>
     </div>
   );

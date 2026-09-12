@@ -8,6 +8,11 @@ import {
 } from "node:fs";
 import { Router, type NextFunction, type Request, type Response } from "express";
 import multer from "multer";
+import { findSourcePdfById } from "../../source-pdfs/source-pdf.repository.js";
+import {
+  contentTypeForKey,
+  objectStorage
+} from "../../storage/object-storage.service.js";
 import {
   ensureQuestionImportUploadDirectory,
   questionImportUploadDirectory
@@ -216,17 +221,49 @@ importerRouter.post("/jobs/:id/confirm", (request, response) => {
   }
 });
 
-importerRouter.post("/jobs/:id/cancel", (request, response) => {
+importerRouter.post("/jobs/:id/cancel", async (request, response) => {
   try {
-    response.status(200).json(cancelQuestionImport(request.params.id));
+    response.status(200).json(await cancelQuestionImport(request.params.id));
   } catch (error) {
     handleRouteError(error, response);
   }
 });
 
-importerRouter.post("/jobs/:id/rollback", (request, response) => {
+importerRouter.post("/jobs/:id/rollback", async (request, response) => {
   try {
-    response.status(200).json(rollbackQuestionImport(request.params.id));
+    response.status(200).json(await rollbackQuestionImport(request.params.id));
+  } catch (error) {
+    handleRouteError(error, response);
+  }
+});
+
+importerRouter.get("/source-pdfs/:id/file", async (request, response) => {
+  try {
+    const sourcePdf = findSourcePdfById(request.params.id);
+    if (!sourcePdf) {
+      response.status(404).json({ message: "ملف PDF غير موجود." });
+      return;
+    }
+
+    const storedPdf = await objectStorage.getObject(sourcePdf.storage_key);
+    if (!storedPdf) {
+      response.status(404).json({ message: "ملف PDF غير موجود في التخزين." });
+      return;
+    }
+
+    const encodedFilename = encodeURIComponent(sourcePdf.original_filename);
+    response.setHeader(
+      "content-type",
+      storedPdf.contentType ?? contentTypeForKey(sourcePdf.storage_key)
+    );
+    response.setHeader(
+      "content-disposition",
+      `attachment; filename*=UTF-8''${encodedFilename}`
+    );
+    if (storedPdf.contentLength !== undefined) {
+      response.setHeader("content-length", String(storedPdf.contentLength));
+    }
+    storedPdf.body.pipe(response);
   } catch (error) {
     handleRouteError(error, response);
   }

@@ -219,9 +219,10 @@ export const validateUnifiedQuestionOutput = (
   if (
     typeof question.questionImageUrl !== "string" ||
     !question.questionImageUrl.startsWith(`${questionImagesPublicPath}/`) ||
-    !question.questionImageUrl.endsWith(".png")
+    (!question.questionImageUrl.endsWith(".png") &&
+      !question.questionImageUrl.endsWith(".webp"))
   ) {
-    throw new Error("questionImageUrl must use the /question-images/ PNG path.");
+    throw new Error("questionImageUrl must use the /question-images/ image path.");
   }
 
   if (!isCorrectAnswer(question.correctAnswer)) {

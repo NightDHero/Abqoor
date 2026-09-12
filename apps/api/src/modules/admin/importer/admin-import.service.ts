@@ -1,19 +1,23 @@
+import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { extname } from "node:path";
 import {
-  backupQuestionImage,
-  commitStagedQuestionImage,
+  backupQuestionImageObject,
+  commitStagedQuestionImageObject,
   getQuestionImageUrl,
+  getSourcePdfStorageKey,
   isPngBuffer,
   questionImageExists,
-  readQuestionImage,
   removeImportMedia,
+  removeImportObjectMedia,
+  removeQuestionImageObject,
   removeImportStaging,
-  removeQuestionImage,
-  restoreQuestionImageBackup,
-  stageQuestionImage,
-  stageQuestionImageFile,
-  writeQuestionImage
+  readQuestionImageObject,
+  restoreQuestionImageObjectBackup,
+  stageQuestionImageObject,
+  writeQuestionImageObject
 } from "../../media/media.service.js";
+import { optimizeQuestionImage } from "../../media/question-image-optimizer.service.js";
 import {
   countQuestionReferences,
   deleteQuestion,
@@ -21,6 +25,7 @@ import {
   restoreQuestionRecord
 } from "../../questions/question.repository.js";
 import { saveQuestion } from "../../questions/question.service.js";
+import type { QuestionRecord } from "../../questions/question.types.js";
 import {
   legacySubjectToSubject,
   topicTaxonomy,
@@ -48,8 +53,11 @@ import {
   markImportJobImporting,
   markImportJobRolledBack,
   runImportTransaction,
+  setImportJobSourcePdf,
   updateImportItemResult
 } from "./import-job.repository.js";
+import { createSourcePdf } from "../../source-pdfs/source-pdf.repository.js";
+import { objectStorage } from "../../storage/object-storage.service.js";
 import { toQuestionId } from "./question-format.mapper.js";
 import type {
   AnalyzeImportRequest,
@@ -176,6 +184,31 @@ const analyzePdfMedia = async (
 ) => {
   const pdf = request.pdf as NonNullable<AnalyzeImportRequest["pdf"]>;
   const pageCount = await getPdfPageCount(pdf.buffer);
+  const sourcePdfId = randomUUID();
+  const sourcePdfStorageKey = getSourcePdfStorageKey(sourcePdfId);
+
+  await objectStorage.uploadObject({
+    body: pdf.buffer,
+    contentType: "application/pdf",
+    key: sourcePdfStorageKey
+  });
+
+  try {
+    createSourcePdf({
+      createdBy: request.createdBy,
+      fileSize: pdf.buffer.length,
+      id: sourcePdfId,
+      originalFilename: pdf.originalname,
+      pageCount,
+      storageKey: sourcePdfStorageKey
+    });
+  } catch (error) {
+    await objectStorage.deleteObject(sourcePdfStorageKey);
+    throw error;
+  }
+
+  setImportJobSourcePdf({ id: jobId, sourcePdfId });
+
   const pages = selectPdfPages(
     pageCount,
     request.startQuestionNumber as number
@@ -189,7 +222,8 @@ const analyzePdfMedia = async (
       if (!isPngBuffer(image)) {
         throw new Error("Rendered output is not PNG.");
       }
-      stageQuestionImage(jobId, questionId, image);
+      const optimizedImage = await optimizeQuestionImage(image);
+      await stageQuestionImageObject(jobId, questionId, optimizedImage.buffer);
       mapping.set(page.questionNumber, {
         pageNumber: page.pageIndex,
         sourceImageName: `الصفحة ${page.pageIndex}`
@@ -205,10 +239,10 @@ const analyzePdfMedia = async (
     }
   }
 
-  return { found: pageCount, mapping, totalPages: pageCount };
+  return { found: pageCount, mapping, sourcePdfId, totalPages: pageCount };
 };
 
-const analyzeImageMedia = (
+const analyzeImageMedia = async (
   jobId: string,
   request: AnalyzeImportRequest,
   issues: ImportValidationIssue[]
@@ -218,15 +252,15 @@ const analyzeImageMedia = (
   const mapping = new Map<number, { pageNumber: number | null; sourceImageName: string }>();
 
   for (const image of result.byQuestionNumber.values()) {
-    if (image.temporaryPath) {
-      stageQuestionImageFile(
-        jobId,
-        toQuestionId(image.questionNumber),
-        image.temporaryPath
-      );
-    } else {
-      stageQuestionImage(jobId, toQuestionId(image.questionNumber), image.buffer);
-    }
+    const imageBuffer = image.temporaryPath
+      ? readFileSync(image.temporaryPath)
+      : image.buffer;
+    const optimizedImage = await optimizeQuestionImage(imageBuffer);
+    await stageQuestionImageObject(
+      jobId,
+      toQuestionId(image.questionNumber),
+      optimizedImage.buffer
+    );
     mapping.set(image.questionNumber, {
       pageNumber: null,
       sourceImageName: image.originalname
@@ -236,6 +270,7 @@ const analyzeImageMedia = (
   return {
     found: request.images?.length ?? 0,
     mapping,
+    sourcePdfId: null,
     totalPages: 0
   };
 };
@@ -261,7 +296,7 @@ export const analyzeQuestionImport = async (
     const issues = [...workbook.issues];
     const media = request.pdf
       ? await analyzePdfMedia(job.id, request, issues)
-      : analyzeImageMedia(job.id, request, issues);
+      : await analyzeImageMedia(job.id, request, issues);
     const workbookNumbers = new Set(
       workbook.questions.map((question) => question.questionNumber)
     );
@@ -358,6 +393,7 @@ export const analyzeQuestionImport = async (
         ? `تعذر تحليل ملفات الاستيراد: ${error.message}`
         : "تعذر تحليل ملفات الاستيراد.";
     removeImportMedia(job.id);
+    await removeImportObjectMedia(job.id);
     completeImportAnalysis({
       id: job.id,
       status: "failed",
@@ -408,23 +444,39 @@ export const planDuplicateActions = (
   return decisions;
 };
 
-const restoreFileChanges = (
-  snapshots: Map<string, Buffer | null>
+type PromotedImportItem = {
+  existing: QuestionRecord | null;
+  item: ImportJobItem;
+  previousImageExisted: boolean;
+  targetStorageKey: string;
+};
+
+const restorePromotedImages = async (
+  jobId: string,
+  promotedItems: PromotedImportItem[]
 ) => {
-  for (const [questionId, previousImage] of snapshots) {
-    if (previousImage) {
-      writeQuestionImage(questionId, previousImage, { overwriteExisting: true });
-    } else {
-      removeQuestionImage(questionId);
+  for (const promoted of [...promotedItems].reverse()) {
+    if (promoted.existing?.image_storage_key && promoted.previousImageExisted) {
+      await restoreQuestionImageObjectBackup(
+        jobId,
+        promoted.item.questionId,
+        promoted.existing.image_storage_key
+      );
+      if (promoted.existing.image_storage_key !== promoted.targetStorageKey) {
+        await removeQuestionImageObject(promoted.item.questionId);
+      }
+      continue;
     }
+
+    await removeQuestionImageObject(promoted.item.questionId);
   }
 };
 
-const commitImport = (
+const commitImport = async (
   jobId: string,
   decisions: Map<number, DuplicateAction>
 ) => {
-  const fileSnapshots = new Map<string, Buffer | null>();
+  const promotedItems: PromotedImportItem[] = [];
 
   try {
     const job = findImportJob(jobId);
@@ -438,80 +490,116 @@ const commitImport = (
     let replacedCount = 0;
     let skippedCount = 0;
     let processedCount = 0;
+    const databaseUpdates: Array<
+      PromotedImportItem & {
+        action: DuplicateAction | null;
+        outcome: "created" | "replaced";
+      }
+    > = [];
+    const skippedUpdates: Array<{
+      action: DuplicateAction | null;
+      item: ImportJobItem;
+    }> = [];
+
+    for (const item of items) {
+      const action = item.isDuplicate ? decisions.get(item.questionNumber) ?? null : null;
+      if (stopped || action === "skip" || action === "stop") {
+        stopped = stopped || action === "stop";
+        skippedCount += 1;
+        processedCount += 1;
+        skippedUpdates.push({ action, item });
+        activeProgress.set(jobId, processedCount);
+        continue;
+      }
+
+      const existing = findQuestionById(item.questionId);
+      if (item.isDuplicate && !existing) {
+        throw new Error(`السؤال ${item.questionNumber} تغير بعد المعاينة.`);
+      }
+      if (!item.isDuplicate && existing) {
+        throw new Error(`السؤال ${item.questionNumber} أصبح مكرراً بعد المعاينة.`);
+      }
+      if (!item.correctAnswer || item.validationStatus !== "valid") {
+        throw new Error(`السؤال ${item.questionNumber} غير صالح للاستيراد.`);
+      }
+
+      const previousImageExisted = await backupQuestionImageObject(
+        jobId,
+        item.questionId,
+        existing?.image_storage_key
+      );
+      const targetStorageKey = await commitStagedQuestionImageObject(
+        jobId,
+        item.questionId
+      );
+      const promoted = {
+        existing,
+        item,
+        previousImageExisted,
+        targetStorageKey
+      };
+      promotedItems.push(promoted);
+      databaseUpdates.push({
+        ...promoted,
+        action,
+        outcome: existing ? "replaced" : "created"
+      });
+
+      if (existing) {
+        replacedCount += 1;
+      } else {
+        createdCount += 1;
+      }
+      processedCount += 1;
+      activeProgress.set(jobId, processedCount);
+    }
 
     runImportTransaction(() => {
-      for (const item of items) {
-        const action = item.isDuplicate ? decisions.get(item.questionNumber) ?? null : null;
-        if (stopped || action === "skip" || action === "stop") {
-          stopped = stopped || action === "stop";
-          skippedCount += 1;
-          processedCount += 1;
-          updateImportItemResult({
-            importJobId: jobId,
-            questionNumber: item.questionNumber,
-            duplicateAction: action,
-            outcome: "skipped",
-            previousQuestion: null,
-            appliedQuestion: null,
-            previousImageExisted: false
-          });
-          activeProgress.set(jobId, processedCount);
-          continue;
-        }
+      for (const skipped of skippedUpdates) {
+        updateImportItemResult({
+          importJobId: jobId,
+          questionNumber: skipped.item.questionNumber,
+          duplicateAction: skipped.action,
+          outcome: "skipped",
+          previousQuestion: null,
+          appliedQuestion: null,
+          previousImageExisted: false
+        });
+      }
 
-        const existing = findQuestionById(item.questionId);
-        if (item.isDuplicate && !existing) {
-          throw new Error(`السؤال ${item.questionNumber} تغير بعد المعاينة.`);
-        }
-        if (!item.isDuplicate && existing) {
-          throw new Error(`السؤال ${item.questionNumber} أصبح مكرراً بعد المعاينة.`);
-        }
-        if (!item.correctAnswer || item.validationStatus !== "valid") {
-          throw new Error(`السؤال ${item.questionNumber} غير صالح للاستيراد.`);
-        }
-
-        const previousImage = readQuestionImage(item.questionId);
-        fileSnapshots.set(item.questionId, previousImage);
-        const previousImageExisted = backupQuestionImage(jobId, item.questionId);
-        commitStagedQuestionImage(jobId, item.questionId);
-
+      for (const update of databaseUpdates) {
         saveQuestion({
-          id: item.questionId,
-          questionImageUrl: getQuestionImageUrl(item.questionId),
-          correctAnswer: item.correctAnswer,
+          id: update.item.questionId,
+          questionImageUrl: getQuestionImageUrl(update.item.questionId),
+          imageStorageKey: update.targetStorageKey,
+          sourcePdfId: job.sourcePdfId ?? undefined,
+          sourcePage: update.item.pageNumber ?? undefined,
+          correctAnswer: update.item.correctAnswer as NonNullable<typeof update.item.correctAnswer>,
           subject: "verbal",
           subjectId: "arabic",
-          topic: item.topic,
-          topicId: item.topicId,
-          difficulty: item.difficulty,
-          difficultyScore: item.difficulty,
+          topic: update.item.topic,
+          topicId: update.item.topicId,
+          difficulty: update.item.difficulty,
+          difficultyScore: update.item.difficulty,
           source: job.sourceType === "pdf" ? "pdf" : "manual",
-          version: (existing?.version ?? 0) + 1,
+          version: (update.existing?.version ?? 0) + 1,
           importJobId: jobId
         });
 
-        const applied = findQuestionById(item.questionId);
+        const applied = findQuestionById(update.item.questionId);
         if (!applied) {
-          throw new Error(`تعذر حفظ السؤال ${item.questionNumber}.`);
+          throw new Error(`تعذر حفظ السؤال ${update.item.questionNumber}.`);
         }
 
-        const outcome = existing ? "replaced" : "created";
-        if (existing) {
-          replacedCount += 1;
-        } else {
-          createdCount += 1;
-        }
-        processedCount += 1;
         updateImportItemResult({
           importJobId: jobId,
-          questionNumber: item.questionNumber,
-          duplicateAction: action,
-          outcome,
-          previousQuestion: existing,
+          questionNumber: update.item.questionNumber,
+          duplicateAction: update.action,
+          outcome: update.outcome,
+          previousQuestion: update.existing,
           appliedQuestion: applied,
-          previousImageExisted
+          previousImageExisted: update.previousImageExisted
         });
-        activeProgress.set(jobId, processedCount);
       }
 
       completeImportJob({
@@ -525,10 +613,12 @@ const commitImport = (
       });
     });
 
+    await removeImportObjectMedia(jobId);
     removeImportStaging(jobId);
   } catch (error) {
-    restoreFileChanges(fileSnapshots);
+    await restorePromotedImages(jobId, promotedItems);
     removeImportMedia(jobId);
+    await removeImportObjectMedia(jobId);
     failImportJob(
       jobId,
       error instanceof Error ? error.message : "فشلت معاملة الاستيراد."
@@ -560,15 +650,16 @@ export const confirmQuestionImport = (
   return getImportJobDetail(jobId);
 };
 
-export const cancelQuestionImport = (jobId: string) => {
+export const cancelQuestionImport = async (jobId: string) => {
   if (!cancelImportJob(jobId)) {
     throw new AdminImportError("لا يمكن إلغاء عملية الاستيراد في حالتها الحالية.", 409);
   }
   removeImportMedia(jobId);
+  await removeImportObjectMedia(jobId);
   return getImportJobDetail(jobId);
 };
 
-export const rollbackQuestionImport = (jobId: string) => {
+export const rollbackQuestionImport = async (jobId: string) => {
   const detail = getImportJobDetail(jobId);
   if (detail.job.status !== "completed") {
     throw new AdminImportError("يمكن التراجع عن عمليات الاستيراد المكتملة فقط.", 409);
@@ -593,13 +684,43 @@ export const rollbackQuestionImport = (jobId: string) => {
     }
   }
 
-  const fileSnapshots = new Map<string, Buffer | null>();
+  const objectSnapshots = new Map<
+    string,
+    { buffer: Buffer | null; storageKey: string | null }
+  >();
   try {
+    for (const item of changedItems) {
+      const current = findQuestionById(item.questionId);
+      objectSnapshots.set(item.questionId, {
+        buffer: current
+          ? await readQuestionImageObject(item.questionId, current.image_storage_key)
+          : null,
+        storageKey: current?.image_storage_key ?? null
+      });
+
+      if (item.outcome === "created") {
+        await removeQuestionImageObject(item.questionId);
+        continue;
+      }
+
+      if (!item.previousQuestion) {
+        throw new Error(`لقطة السؤال ${item.questionNumber} السابقة غير موجودة.`);
+      }
+
+      if (item.previousImageExisted) {
+        await restoreQuestionImageObjectBackup(
+          jobId,
+          item.questionId,
+          item.previousQuestion.image_storage_key
+        );
+      } else {
+        await removeQuestionImageObject(item.questionId);
+      }
+    }
+
     runImportTransaction(() => {
       for (const item of changedItems) {
-        fileSnapshots.set(item.questionId, readQuestionImage(item.questionId));
         if (item.outcome === "created") {
-          removeQuestionImage(item.questionId);
           deleteQuestion(item.questionId);
           continue;
         }
@@ -608,11 +729,6 @@ export const rollbackQuestionImport = (jobId: string) => {
           throw new Error(`لقطة السؤال ${item.questionNumber} السابقة غير موجودة.`);
         }
         restoreQuestionRecord(item.previousQuestion);
-        if (item.previousImageExisted) {
-          restoreQuestionImageBackup(jobId, item.questionId);
-        } else {
-          removeQuestionImage(item.questionId);
-        }
       }
 
       if (!markImportJobRolledBack(jobId)) {
@@ -620,7 +736,13 @@ export const rollbackQuestionImport = (jobId: string) => {
       }
     });
   } catch (error) {
-    restoreFileChanges(fileSnapshots);
+    for (const [questionId, snapshot] of objectSnapshots) {
+      if (snapshot.buffer) {
+        await writeQuestionImageObject(questionId, snapshot.buffer, snapshot.storageKey);
+      } else {
+        await removeQuestionImageObject(questionId);
+      }
+    }
     throw new AdminImportError(
       error instanceof Error ? error.message : "فشل التراجع عن الاستيراد.",
       409
@@ -628,6 +750,7 @@ export const rollbackQuestionImport = (jobId: string) => {
   }
 
   removeImportMedia(jobId);
+  await removeImportObjectMedia(jobId);
   return getImportJobDetail(jobId);
 };
 
@@ -754,14 +877,16 @@ export const getAdminQuestionBank = (input: {
     page: number;
     pageSize: number;
     total: number;
-    questions: Array<Record<string, unknown> & { id: string }>;
+    questions: Array<
+      Record<string, unknown> & { id: string; imageStorageKey?: string | null }
+    >;
   };
   return {
     ...result,
     questionCounts: toQuestionCountOverview(),
     questions: result.questions.map((question) => ({
       ...question,
-      imageExists: questionImageExists(question.id),
+      imageExists: Boolean(question.imageStorageKey) || questionImageExists(question.id),
       questionNumber: Number(question.id.replace(/^Q-/, ""))
     }))
   };

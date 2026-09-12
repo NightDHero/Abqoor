@@ -36,10 +36,14 @@ const questionService = await import(
 const { createApp } = await import("../src/app.js");
 const { db } = await import("../src/database/client.js");
 
-const png = Buffer.from([
-  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00
-]);
-const replacementPng = Buffer.concat([png, Buffer.from([0x01])]);
+const png = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADklEQVQImWP4DwUMMAYAj4IP8cvlVgcAAAAASUVORK5CYII=",
+  "base64"
+);
+const replacementPng = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEElEQVQImWNgYGD4D8UQBgAd9AP9JAD7OgAAAABJRU5ErkJggg==",
+  "base64"
+);
 
 const standardHeader = [
   "رقم السؤال",
@@ -346,7 +350,7 @@ test("builds preview errors for missing and extra individual images", async () =
   assert.equal(detail.job.mediaSummary.extra, 1);
   assert.ok(codes.has("missing_image"));
   assert.ok(codes.has("extra_media"));
-  importService.cancelQuestionImport(detail.job.id);
+  await importService.cancelQuestionImport(detail.job.id);
 });
 
 test("rejects malformed Excel and PDF files before creating an import", async () => {
@@ -385,7 +389,7 @@ test("commits a valid import and rolls it back without leaving a question", asyn
   const questionNumber = 800101;
   const questionId = `Q-${questionNumber}`;
   const job = createReadyJob([questionNumber]);
-  mediaService.stageQuestionImage(job.id, questionId, png);
+  await mediaService.stageQuestionImageObject(job.id, questionId, png);
 
   importService.confirmQuestionImport(job.id, {});
   const completed = await waitForTerminalJob(job.id);
@@ -393,7 +397,7 @@ test("commits a valid import and rolls it back without leaving a question", asyn
   assert.equal(completed.job.createdCount, 1);
   assert.equal(questionRepository.findQuestionById(questionId)?.import_job_id, job.id);
 
-  const rolledBack = importService.rollbackQuestionImport(job.id);
+  const rolledBack = await importService.rollbackQuestionImport(job.id);
   assert.equal(rolledBack.job.status, "rolled_back");
   assert.equal(questionRepository.findQuestionById(questionId), null);
   assert.equal(mediaService.questionImageExists(questionId), false);
@@ -420,7 +424,7 @@ test("restores a replaced question and image during rollback", async () => {
   mediaService.writeQuestionImage(questionId, png, { overwriteExisting: true });
 
   const job = createReadyJob([questionNumber], new Set([questionNumber]));
-  mediaService.stageQuestionImage(job.id, questionId, replacementPng);
+  await mediaService.stageQuestionImageObject(job.id, questionId, replacementPng);
   importService.confirmQuestionImport(job.id, {
     duplicateDecisions: [{ action: "replace", questionNumber }]
   });
@@ -428,7 +432,7 @@ test("restores a replaced question and image during rollback", async () => {
   assert.equal(completed.job.replacedCount, 1);
   assert.equal(questionRepository.findQuestionById(questionId)?.correct_answer, "A");
 
-  importService.rollbackQuestionImport(job.id);
+  await importService.rollbackQuestionImport(job.id);
   const restored = questionRepository.findQuestionById(questionId);
   assert.equal(restored?.correct_answer, "D");
   assert.equal(restored?.topic, "قديم");
@@ -457,7 +461,11 @@ test("handles replace, skip, and stop for the exact 500 through 700 batch", asyn
       new Set([duplicateNumber])
     );
     for (const questionNumber of questionNumbers) {
-      mediaService.stageQuestionImage(job.id, `Q-${questionNumber}`, replacementPng);
+      await mediaService.stageQuestionImageObject(
+        job.id,
+        `Q-${questionNumber}`,
+        replacementPng
+      );
     }
 
     importService.confirmQuestionImport(job.id, {
@@ -480,7 +488,7 @@ test("handles replace, skip, and stop for the exact 500 through 700 batch", asyn
       .jobs.find((candidate) => candidate.id === job.id);
     assert.equal(historyEntry?.status, "completed");
 
-    importService.rollbackQuestionImport(job.id);
+    await importService.rollbackQuestionImport(job.id);
     assert.equal(questionRepository.findQuestionById("Q-500"), null);
     assert.equal(questionRepository.findQuestionById("Q-700"), null);
     assert.equal(
@@ -502,7 +510,7 @@ test("rolls back database and file changes when a commit fails", async () => {
   const first = 800103;
   const second = 800104;
   const job = createReadyJob([first, second]);
-  mediaService.stageQuestionImage(job.id, `Q-${first}`, png);
+  await mediaService.stageQuestionImageObject(job.id, `Q-${first}`, png);
 
   importService.confirmQuestionImport(job.id, {});
   const failed = await waitForTerminalJob(job.id);

@@ -34,7 +34,6 @@ db.exec(`
         'less_than_3',
         '3_to_5',
         '5_to_10',
-        '10_to_15',
         'more_than_15'
       )
     ),
@@ -76,9 +75,25 @@ db.exec(`
     FOREIGN KEY (granted_by) REFERENCES users(id) ON DELETE SET NULL
   );
 
+  CREATE TABLE IF NOT EXISTS source_pdfs (
+    id TEXT PRIMARY KEY,
+    original_filename TEXT NOT NULL,
+    storage_key TEXT NOT NULL UNIQUE,
+    uploaded_at TEXT NOT NULL,
+    file_size INTEGER NOT NULL CHECK (file_size >= 0),
+    page_count INTEGER CHECK (page_count IS NULL OR page_count >= 0),
+    status TEXT NOT NULL CHECK (status IN ('uploaded', 'failed')),
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS questions (
     id TEXT PRIMARY KEY,
     question_image_url TEXT NOT NULL,
+    image_storage_key TEXT,
+    source_pdf_id TEXT,
+    source_page INTEGER CHECK (source_page IS NULL OR source_page > 0),
     correct_answer TEXT NOT NULL CHECK (correct_answer IN ('A', 'B', 'C', 'D')),
     subject TEXT NOT NULL CHECK (subject IN ('quantitative', 'verbal')),
     subject_id TEXT CHECK (subject_id IS NULL OR subject_id IN ('math', 'arabic')),
@@ -96,12 +111,16 @@ db.exec(`
     explanation_video_url TEXT,
     import_job_id TEXT,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (source_pdf_id) REFERENCES source_pdfs(id) ON DELETE SET NULL
   );
 
   CREATE INDEX IF NOT EXISTS idx_questions_subject ON questions(subject);
   CREATE INDEX IF NOT EXISTS idx_questions_topic ON questions(topic);
   CREATE INDEX IF NOT EXISTS idx_questions_difficulty ON questions(difficulty);
+  CREATE INDEX IF NOT EXISTS idx_questions_image_storage_key ON questions(image_storage_key);
+  CREATE INDEX IF NOT EXISTS idx_questions_source_pdf_id ON questions(source_pdf_id);
+  CREATE INDEX IF NOT EXISTS idx_source_pdfs_uploaded_at ON source_pdfs(uploaded_at);
   CREATE TABLE IF NOT EXISTS import_jobs (
     id TEXT PRIMARY KEY,
     source_type TEXT NOT NULL CHECK (source_type IN ('pdf', 'images')),
@@ -112,6 +131,7 @@ db.exec(`
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     created_by TEXT NOT NULL,
+    source_pdf_id TEXT,
     excel_filename TEXT NOT NULL,
     media_filename TEXT NOT NULL,
     total_pages INTEGER NOT NULL,
@@ -131,7 +151,8 @@ db.exec(`
     error_message TEXT,
     confirmed_at TEXT,
     completed_at TEXT,
-    rolled_back_at TEXT
+    rolled_back_at TEXT,
+    FOREIGN KEY (source_pdf_id) REFERENCES source_pdfs(id) ON DELETE SET NULL
   );
 
   CREATE TABLE IF NOT EXISTS import_job_items (
@@ -165,6 +186,7 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_import_jobs_created_at ON import_jobs(created_at);
+  CREATE INDEX IF NOT EXISTS idx_import_jobs_source_pdf_id ON import_jobs(source_pdf_id);
   CREATE INDEX IF NOT EXISTS idx_import_job_items_question_id ON import_job_items(question_id);
   CREATE INDEX IF NOT EXISTS idx_import_job_items_outcome ON import_job_items(outcome);
 

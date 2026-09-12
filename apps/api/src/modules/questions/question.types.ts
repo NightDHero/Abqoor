@@ -9,6 +9,9 @@ export type QuestionSource = (typeof questionSources)[number];
 export type QuestionRecord = {
   id: string;
   question_image_url: string;
+  image_storage_key: string | null;
+  source_pdf_id: string | null;
+  source_page: number | null;
   correct_answer: CorrectAnswer;
   subject: Subject;
   subject_id: string | null;
@@ -32,6 +35,9 @@ export type QuestionRecord = {
 export type Question = {
   id: string;
   questionImageUrl: string;
+  imageStorageKey?: string;
+  sourcePdfId?: string;
+  sourcePage?: number;
   correctAnswer: CorrectAnswer;
   subject: Subject;
   subjectId?: string;
@@ -55,6 +61,9 @@ export type Question = {
 export type QuestionWriteInput = {
   id: string;
   questionImageUrl: string;
+  imageStorageKey?: string;
+  sourcePdfId?: string;
+  sourcePage?: number;
   correctAnswer: CorrectAnswer;
   subject: Subject;
   subjectId?: string;
@@ -82,6 +91,9 @@ export type QuestionFilters = {
 export const toQuestion = (record: QuestionRecord): Question => ({
   id: record.id,
   questionImageUrl: record.question_image_url,
+  imageStorageKey: record.image_storage_key ?? undefined,
+  sourcePdfId: record.source_pdf_id ?? undefined,
+  sourcePage: record.source_page ?? undefined,
   correctAnswer: record.correct_answer,
   subject: record.subject,
   subjectId: record.subject_id ?? undefined,

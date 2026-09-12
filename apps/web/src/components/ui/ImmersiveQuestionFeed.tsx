@@ -13,9 +13,15 @@ import { toArabicAnswerLabel } from "../../utils/answerLabels";
 import { QuestionActionRail } from "./QuestionActionRail";
 
 const answers: CorrectAnswer[] = ["A", "B", "C", "D"];
+const answerAdvanceDelayMs = 260;
 const gestureCooldownMs = 520;
 const minWheelDistance = 36;
 const minTouchDistance = 48;
+const scrollTransitionMs = 420;
+
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export type ImmersiveQuestionItem = {
   id: string;
@@ -47,21 +53,36 @@ export function ImmersiveQuestionFeed({
   getImageSrc: (path: string) => string;
   isSaved: (questionId: string) => boolean;
   onActiveIndexChange: (index: number) => void;
-  onAnswer: (questionId: string, answer: CorrectAnswer) => void;
   onFinish?: () => void;
   onSave: (questionId: string) => void;
   onShare: (questionId: string) => void;
+  onAnswer: (
+    questionId: string,
+    answer: CorrectAnswer
+  ) => boolean | void | Promise<boolean | void>;
   questions: ImmersiveQuestionItem[];
   variant?: "arabic" | "math" | "mixed";
 }) {
   const feedRef = useRef<HTMLDivElement>(null);
+  const answerAdvanceTimeoutRef = useRef<number | null>(null);
   const gestureTimeoutRef = useRef<number | null>(null);
+  const pendingIndexRef = useRef<number | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const activeIndexRef = useRef(activeIndex);
+  const visualIndexRef = useRef(activeIndex);
   const [slideHeight, setSlideHeight] = useState(0);
+  const [visualIndex, setVisualIndex] = useState(activeIndex);
 
   useEffect(() => {
     activeIndexRef.current = activeIndex;
+
+    if (
+      pendingIndexRef.current === null &&
+      activeIndex !== visualIndexRef.current
+    ) {
+      visualIndexRef.current = activeIndex;
+      setVisualIndex(activeIndex);
+    }
   }, [activeIndex]);
 
   useEffect(() => {
@@ -105,11 +126,33 @@ export function ImmersiveQuestionFeed({
 
   useEffect(() => {
     return () => {
+      if (answerAdvanceTimeoutRef.current !== null) {
+        window.clearTimeout(answerAdvanceTimeoutRef.current);
+      }
+
       if (gestureTimeoutRef.current !== null) {
         window.clearTimeout(gestureTimeoutRef.current);
       }
     };
   }, []);
+
+  const canAcceptGesture = () =>
+    gestureTimeoutRef.current === null && pendingIndexRef.current === null;
+
+  const finishMoveToQuestion = (nextIndex: number) => {
+    pendingIndexRef.current = null;
+    onActiveIndexChange(nextIndex);
+    activeIndexRef.current = nextIndex;
+
+    if (prefersReducedMotion()) {
+      gestureTimeoutRef.current = null;
+      return;
+    }
+
+    gestureTimeoutRef.current = window.setTimeout(() => {
+      gestureTimeoutRef.current = null;
+    }, Math.max(gestureCooldownMs - scrollTransitionMs, 0));
+  };
 
   const moveToQuestion = (index: number) => {
     if (questions.length === 0 || !canAcceptGesture()) {
@@ -122,19 +165,19 @@ export function ImmersiveQuestionFeed({
       return;
     }
 
-    onActiveIndexChange(nextIndex);
-    activeIndexRef.current = nextIndex;
+    pendingIndexRef.current = nextIndex;
+    visualIndexRef.current = nextIndex;
+    setVisualIndex(nextIndex);
 
-    if (gestureTimeoutRef.current !== null) {
-      window.clearTimeout(gestureTimeoutRef.current);
+    if (prefersReducedMotion()) {
+      finishMoveToQuestion(nextIndex);
+      return;
     }
 
     gestureTimeoutRef.current = window.setTimeout(() => {
-      gestureTimeoutRef.current = null;
-    }, gestureCooldownMs);
+      finishMoveToQuestion(nextIndex);
+    }, scrollTransitionMs);
   };
-
-  const canAcceptGesture = () => gestureTimeoutRef.current === null;
 
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
     const absDeltaY = Math.abs(event.deltaY);
@@ -200,10 +243,46 @@ export function ImmersiveQuestionFeed({
     }
   };
 
+  const handleAnswerSelection = async (
+    questionId: string,
+    answer: CorrectAnswer,
+    index: number,
+    isLastQuestion: boolean
+  ) => {
+    if (!canAcceptGesture()) {
+      return;
+    }
+
+    const result = await Promise.resolve(onAnswer(questionId, answer));
+
+    if (result === false || isLastQuestion || activeIndexRef.current !== index) {
+      return;
+    }
+
+    if (answerAdvanceTimeoutRef.current !== null) {
+      window.clearTimeout(answerAdvanceTimeoutRef.current);
+    }
+
+    const advance = () => {
+      answerAdvanceTimeoutRef.current = null;
+      moveToQuestion(index + 1);
+    };
+
+    if (prefersReducedMotion()) {
+      advance();
+      return;
+    }
+
+    answerAdvanceTimeoutRef.current = window.setTimeout(
+      advance,
+      answerAdvanceDelayMs
+    );
+  };
+
   return (
     <div
       ref={feedRef}
-      aria-label="سحب الأسئلة"
+      aria-label="سَائِل الأسئلة"
       className={`immersive-question-feed immersive-question-feed-${variant}`}
       role="region"
       style={
@@ -222,7 +301,7 @@ export function ImmersiveQuestionFeed({
       <div
         className="immersive-question-track"
         style={{
-          transform: `translate3d(0, -${Math.max(activeIndex, 0) * slideHeight}px, 0)`
+          transform: `translate3d(0, -${Math.max(visualIndex, 0) * slideHeight}px, 0)`
         }}
       >
         {questions.map((question, index) => {
@@ -247,7 +326,7 @@ export function ImmersiveQuestionFeed({
                   <img
                     alt={`Question ${question.id}`}
                     className="immersive-question-image"
-                    loading={Math.abs(index - activeIndex) > 1 ? "lazy" : "eager"}
+                    loading={Math.abs(index - visualIndex) > 1 ? "lazy" : "eager"}
                     src={getImageSrc(question.questionImageUrl)}
                   />
                 </figure>
@@ -285,7 +364,14 @@ export function ImmersiveQuestionFeed({
                           }
                           key={answer}
                           type="button"
-                          onClick={() => onAnswer(question.id, answer)}
+                          onClick={() =>
+                            void handleAnswerSelection(
+                              question.id,
+                              answer,
+                              index,
+                              isLastQuestion
+                            )
+                          }
                         >
                           <span>{toArabicAnswerLabel(answer)}</span>
                           {answerImageUrl ? (

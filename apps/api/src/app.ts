@@ -11,11 +11,8 @@ import { requireAuth } from "./modules/auth/auth.middleware.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { coreRouter } from "./modules/core/core.routes.js";
 import { examRouter } from "./modules/exams/exam.routes.js";
-import {
-  ensureQuestionMediaDirectory,
-  questionImagesPublicPath,
-  questionMediaDirectory
-} from "./modules/media/media.service.js";
+import { ensureQuestionMediaDirectory } from "./modules/media/media.service.js";
+import { mediaRouter } from "./modules/media/media.routes.js";
 import { profileRouter } from "./modules/profile/profile.routes.js";
 import { requireCompletedProfile } from "./modules/profile/profile.middleware.js";
 import { questionRouter } from "./modules/questions/question.routes.js";
@@ -60,8 +57,8 @@ export const createApp = () => {
   app.use(cookieParser());
   app.use(express.json());
   ensureQuestionMediaDirectory();
-  app.use(questionImagesPublicPath, express.static(questionMediaDirectory));
 
+  app.use(mediaRouter);
   app.use(coreRouter);
   app.use("/auth", authRouter);
   app.use("/profile", profileRouter);

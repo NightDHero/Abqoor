@@ -97,6 +97,7 @@ export default function App() {
       ) : (
         <AppShell
           currentPath={path}
+          user={auth.user}
         >
           {children}
         </AppShell>
