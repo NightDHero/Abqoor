@@ -29,6 +29,33 @@ const jsonErrorHandler: ErrorRequestHandler = (error, _request, response, next) 
   next(error);
 };
 
+const unexpectedErrorHandler: ErrorRequestHandler = (
+  error,
+  _request,
+  response,
+  next
+) => {
+  if (
+    error instanceof Error &&
+    error.message === "Origin is not allowed by CORS."
+  ) {
+    response.status(403).json({ message: error.message });
+    return;
+  }
+
+  console.error(
+    "Unhandled API error",
+    error instanceof Error ? error.message : "Unknown error"
+  );
+
+  if (response.headersSent) {
+    next(error);
+    return;
+  }
+
+  response.status(500).json({ message: "Unexpected server error." });
+};
+
 const corsOptions: CorsOptions = {
   origin: (origin, callback) => {
     if (!origin || env.frontendOrigins.includes(origin)) {
@@ -73,6 +100,7 @@ export const createApp = () => {
   app.use("/admin/import", importerRouter);
   app.use("/admin/validation", validationRouter);
   app.use(jsonErrorHandler);
+  app.use(unexpectedErrorHandler);
 
   return app;
 };

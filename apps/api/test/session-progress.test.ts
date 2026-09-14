@@ -375,6 +375,61 @@ test("summarizes real session activity into study progress windows", async () =>
   assert.equal(invalidMonthResponse.status, 400);
 });
 
+test("anchors current streak to today and ignores future-dated activity", async () => {
+  const user = await registerUser("progress-stale@example.com", password);
+  completeProfile({ userId: user.id, username: "progress_stale_user" });
+
+  insertQuestion({ estimatedTimeSeconds: 60, id: "Q-PROGRESS-STALE-001" });
+  insertQuestion({ estimatedTimeSeconds: 60, id: "Q-PROGRESS-STALE-002" });
+
+  const today = new Date();
+  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+  const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+
+  insertAnsweredQuestion({
+    activeDurationSeconds: 60,
+    answeredAt: yesterday.toISOString(),
+    isCorrect: 1,
+    questionId: "Q-PROGRESS-STALE-001",
+    sessionId: "progress-stale-session-yesterday",
+    userId: user.id
+  });
+  insertAnsweredQuestion({
+    activeDurationSeconds: 60,
+    answeredAt: tomorrow.toISOString(),
+    isCorrect: 1,
+    questionId: "Q-PROGRESS-STALE-002",
+    sessionId: "progress-stale-session-tomorrow",
+    userId: user.id
+  });
+
+  const { cookie, response: loginResponse } = await login("progress-stale@example.com");
+  assert.equal(loginResponse.status, 200);
+
+  const response = await fetch(`${baseUrl}/sessions/progress?timeZone=UTC`, {
+    headers: { cookie }
+  });
+  assert.equal(response.status, 200);
+
+  const payload = (await response.json()) as {
+    activeStudyDay: number;
+    streak: {
+      current: number;
+      highest: number;
+    };
+    today: {
+      answeredQuestions: number;
+      approximateStudySeconds: number;
+    };
+  };
+
+  assert.equal(payload.today.answeredQuestions, 0);
+  assert.equal(payload.today.approximateStudySeconds, 0);
+  assert.equal(payload.activeStudyDay, 1);
+  assert.equal(payload.streak.current, 0);
+  assert.equal(payload.streak.highest, 1);
+});
+
 test("prevents duplicate study answer mutation and cross-user session access", async () => {
   for (let index = 1; index <= 49; index += 1) {
     insertBootstrapQuestion(`Q-${String(index).padStart(3, "0")}`);

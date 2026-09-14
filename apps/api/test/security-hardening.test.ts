@@ -30,6 +30,20 @@ test("sets baseline security headers without blocking API responses", async () =
   assert.equal(response.headers.get("x-powered-by"), null);
 });
 
+test("returns a consistent JSON response for malformed request bodies", async () => {
+  const response = await fetch(`${baseUrl}/auth/login`, {
+    body: "{",
+    headers: { "content-type": "application/json" },
+    method: "POST"
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.headers.get("content-type")?.includes("application/json"), true);
+  assert.deepEqual(await response.json(), {
+    message: "Invalid JSON request body."
+  });
+});
+
 test("rate limits repeated authentication attempts by client and email", async () => {
   let lastResponse: Response | null = null;
 

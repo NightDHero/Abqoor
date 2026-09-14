@@ -186,10 +186,20 @@ test("R2 object storage adapter supports S3-style object operations without real
 
   await storage.deletePrefix("generated/r2-tests");
   assert.equal(await storage.objectExists(copyKey), false);
-  await assert.rejects(
-    storage.uploadObject({ body, key: "../escape.txt" }),
-    /Invalid object storage key/
-  );
+
+  for (const unsafeKey of [
+    "../escape.txt",
+    "../../secret",
+    "..\\..\\secret",
+    "/absolute/path",
+    "C:\\secret",
+    "questions/../../secret"
+  ]) {
+    await assert.rejects(
+      storage.uploadObject({ body, key: unsafeKey }),
+      /Invalid object storage key/
+    );
+  }
 });
 
 test("question image optimizer creates readable WebP output", async () => {

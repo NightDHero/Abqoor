@@ -92,3 +92,11 @@ export const adminImportRateLimit = createFixedWindowRateLimit({
   message: "Too many import requests. Please try again later.",
   windowMs: 60 * 60 * 1000
 });
+
+export const studySessionRateLimit = createFixedWindowRateLimit({
+  keyGenerator: (request) => request.user?.id ?? getClientIdentifier(request),
+  keyPrefix: "study-session",
+  maxRequests: 300,
+  message: "Too many study session requests. Please try again later.",
+  windowMs: 15 * 60 * 1000
+});

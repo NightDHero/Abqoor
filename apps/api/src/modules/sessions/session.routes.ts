@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { requireAuth } from "../auth/auth.middleware.js";
+import { studySessionRateLimit } from "../security/security.middleware.js";
 import {
   getSessionResult,
   SessionError,
@@ -31,51 +32,61 @@ const handleSessionProgressError = (error: unknown, response: Response) => {
   handleSessionError(error, response);
 };
 
-sessionRouter.post("/start", requireAuth, (request: Request, response: Response) => {
-  try {
-    const body = (request.body ?? {}) as {
-      questionLimit?: unknown;
-    };
-    const questionLimit =
-      typeof body.questionLimit === "number" ? body.questionLimit : undefined;
-    const session = startLearningSession(request.user?.id ?? "", {
-      questionLimit
-    });
-    response.status(201).json(session);
-  } catch (error) {
-    handleSessionError(error, response);
-  }
-});
-
-sessionRouter.post("/submit", requireAuth, (request: Request, response: Response) => {
-  try {
-    const body = request.body as {
-      sessionId?: unknown;
-      questionId?: unknown;
-      userAnswer?: unknown;
-      activeDurationSeconds?: unknown;
-    };
-
-    if (typeof body.sessionId !== "string") {
-      throw new SessionError("sessionId is required.");
+sessionRouter.post(
+  "/start",
+  requireAuth,
+  studySessionRateLimit,
+  (request: Request, response: Response) => {
+    try {
+      const body = (request.body ?? {}) as {
+        questionLimit?: unknown;
+      };
+      const questionLimit =
+        typeof body.questionLimit === "number" ? body.questionLimit : undefined;
+      const session = startLearningSession(request.user?.id ?? "", {
+        questionLimit
+      });
+      response.status(201).json(session);
+    } catch (error) {
+      handleSessionError(error, response);
     }
-
-    if (typeof body.questionId !== "string") {
-      throw new SessionError("questionId is required.");
-    }
-
-    const result = submitSessionAnswer(request.user?.id ?? "", {
-      sessionId: body.sessionId,
-      questionId: body.questionId,
-      userAnswer: body.userAnswer,
-      activeDurationSeconds: body.activeDurationSeconds
-    });
-
-    response.status(200).json(result);
-  } catch (error) {
-    handleSessionError(error, response);
   }
-});
+);
+
+sessionRouter.post(
+  "/submit",
+  requireAuth,
+  studySessionRateLimit,
+  (request: Request, response: Response) => {
+    try {
+      const body = request.body as {
+        sessionId?: unknown;
+        questionId?: unknown;
+        userAnswer?: unknown;
+        activeDurationSeconds?: unknown;
+      };
+
+      if (typeof body.sessionId !== "string") {
+        throw new SessionError("sessionId is required.");
+      }
+
+      if (typeof body.questionId !== "string") {
+        throw new SessionError("questionId is required.");
+      }
+
+      const result = submitSessionAnswer(request.user?.id ?? "", {
+        sessionId: body.sessionId,
+        questionId: body.questionId,
+        userAnswer: body.userAnswer,
+        activeDurationSeconds: body.activeDurationSeconds
+      });
+
+      response.status(200).json(result);
+    } catch (error) {
+      handleSessionError(error, response);
+    }
+  }
+);
 
 sessionRouter.get("/progress", requireAuth, (request: Request, response: Response) => {
   try {

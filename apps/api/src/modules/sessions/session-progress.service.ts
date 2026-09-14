@@ -249,28 +249,36 @@ const summarizeDays = (days: StudyProgressDay[]): StudyProgressPeriod => {
 };
 
 const calculateStreaks = (
-  activityByDate: Map<string, StudyProgressDay>
+  activityByDate: Map<string, StudyProgressDay>,
+  todayDate: string
 ): StudyProgressStreak => {
   const activeDates = [...activityByDate.values()]
-    .filter((day) => day.answeredQuestions > 0)
+    .filter((day) => day.answeredQuestions > 0 && day.date <= todayDate)
     .map((day) => day.date)
     .sort();
 
   let currentRun = 0;
   let highest = 0;
-  let latestRun = 0;
   let previousDate: string | null = null;
 
   for (const date of activeDates) {
     currentRun =
       previousDate && addDays(previousDate, 1) === date ? currentRun + 1 : 1;
     highest = Math.max(highest, currentRun);
-    latestRun = currentRun;
     previousDate = date;
   }
 
+  let current = 0;
+  for (
+    let date = todayDate;
+    activityByDate.get(date)?.answeredQuestions;
+    date = addDays(date, -1)
+  ) {
+    current += 1;
+  }
+
   return {
-    current: latestRun,
+    current,
     highest
   };
 };
@@ -287,6 +295,11 @@ export const getStudyProgress = (
 
   for (const record of findUserProgressActivity(userId)) {
     const date = getDateKey(new Date(record.answered_at), timeZone);
+
+    if (date > todayDate) {
+      continue;
+    }
+
     const existing = activityByDate.get(date) ?? emptyDay(date);
 
     existing.answeredQuestions += 1;
@@ -311,7 +324,7 @@ export const getStudyProgress = (
     generatedAt: new Date().toISOString(),
     month: buildRange(displayedMonthDates),
     monthWeeks: getCalendarWeeksForMonth(displayedMonthDates).map(buildRange),
-    streak: calculateStreaks(activityByDate),
+    streak: calculateStreaks(activityByDate, todayDate),
     timeZone,
     today: activityByDate.get(todayDate) ?? emptyDay(todayDate),
     week: summarizeDays(buildDays(7)),
