@@ -9,6 +9,7 @@
     "start": "node dist/server.js",
     "seed:admin": "tsx scripts/seed-admin.ts",
     "storage:backfill-images": "tsx scripts/backfill-question-images.ts",
+    "storage:smoke-r2": "tsx scripts/r2-smoke-test.ts",
     "test": "tsx --test --test-concurrency=1 test/**/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },

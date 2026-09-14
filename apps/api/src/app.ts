@@ -17,6 +17,7 @@ import { profileRouter } from "./modules/profile/profile.routes.js";
 import { requireCompletedProfile } from "./modules/profile/profile.middleware.js";
 import { questionRouter } from "./modules/questions/question.routes.js";
 import { reviewRouter } from "./modules/review/review.routes.js";
+import { securityHeaders } from "./modules/security/security.middleware.js";
 import { sessionRouter } from "./modules/sessions/session.routes.js";
 
 const jsonErrorHandler: ErrorRequestHandler = (error, _request, response, next) => {
@@ -45,6 +46,7 @@ const corsOptions: CorsOptions = {
 
 export const createApp = () => {
   const app = express();
+  app.disable("x-powered-by");
 
   recoverInterruptedImportJobs();
 
@@ -52,6 +54,7 @@ export const createApp = () => {
     app.set("trust proxy", 1);
   }
 
+  app.use(securityHeaders);
   app.options("*", cors(corsOptions));
   app.use(cors(corsOptions));
   app.use(cookieParser());

@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { isAbsolute } from "node:path";
 
 const toPort = (value: string | undefined, fallback: number) => {
   const parsed = Number(value);
@@ -97,7 +98,7 @@ const toFrontendOrigins = (value: string | undefined) => {
 };
 
 const nodeEnv = process.env.NODE_ENV ?? "development";
-const jwtSecret = process.env.JWT_SECRET ?? "development-only-change-me";
+const jwtSecret = toOptionalString(process.env.JWT_SECRET) ?? "development-only-change-me";
 const frontendOriginValue =
   process.env.FRONTEND_ORIGIN ??
   process.env.CORS_ORIGIN ??
@@ -119,13 +120,35 @@ const r2AccountId = toOptionalString(process.env.R2_ACCOUNT_ID);
 const r2Bucket = toOptionalString(process.env.R2_BUCKET);
 const r2AccessKeyId = toOptionalString(process.env.R2_ACCESS_KEY_ID);
 const r2SecretAccessKey = toOptionalString(process.env.R2_SECRET_ACCESS_KEY);
+const sessionCookieSameSite = toCookieSameSite(
+  process.env.SESSION_COOKIE_SAMESITE,
+  nodeEnv === "production" ? "none" : "lax"
+);
 
 if (nodeEnv === "production" && jwtSecret === "development-only-change-me") {
   throw new Error("JWT_SECRET must be set in production.");
 }
 
+if (nodeEnv === "production" && jwtSecret.length < 32) {
+  throw new Error("JWT_SECRET must be at least 32 characters in production.");
+}
+
 if (nodeEnv === "production" && frontendOrigins.length === 0) {
   throw new Error("FRONTEND_ORIGIN must be set in production.");
+}
+
+if (nodeEnv === "production" && sessionCookieSameSite !== "none") {
+  throw new Error(
+    "SESSION_COOKIE_SAMESITE must be none in production so Vercel can send cookies to the Render API."
+  );
+}
+
+const databasePath = process.env.DATABASE_PATH ?? "./data/abqoor.sqlite";
+
+if (nodeEnv === "production" && !isAbsolute(databasePath)) {
+  throw new Error(
+    "DATABASE_PATH must be an absolute persistent-disk path in production, for example /var/data/abqoor.sqlite."
+  );
 }
 
 if (
@@ -141,14 +164,11 @@ export const env = {
   nodeEnv,
   port: toPort(process.env.PORT, 4000),
   frontendOrigins,
-  databasePath: process.env.DATABASE_PATH ?? "./data/abqoor.sqlite",
+  databasePath,
   jwtSecret,
   sessionCookieName: process.env.SESSION_COOKIE_NAME ?? "abqoor_session",
   sessionCookieDomain: toOptionalString(process.env.SESSION_COOKIE_DOMAIN),
-  sessionCookieSameSite: toCookieSameSite(
-    process.env.SESSION_COOKIE_SAMESITE,
-    nodeEnv === "production" ? "none" : "lax"
-  ),
+  sessionCookieSameSite,
   adminEmails,
   initialAdminEmail,
   initialAdminPassword,

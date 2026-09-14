@@ -1,5 +1,6 @@
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { Router } from "express";
+import { env } from "../../config/env.js";
 import { findQuestionById } from "../questions/question.repository.js";
 import {
   getLegacyQuestionImagePath,
@@ -25,6 +26,10 @@ mediaRouter.get(`${questionImagesPublicPath}/:fileName`, async (request, respons
 
     const questionId = match[1];
     const question = findQuestionById(questionId);
+    if (!question && env.isProduction) {
+      response.status(404).json({ message: "Question image not found." });
+      return;
+    }
 
     if (question?.image_storage_key) {
       const storedImage = await objectStorage.getObject(question.image_storage_key);
@@ -36,8 +41,13 @@ mediaRouter.get(`${questionImagesPublicPath}/:fileName`, async (request, respons
         if (storedImage.contentLength !== undefined) {
           response.setHeader("content-length", String(storedImage.contentLength));
         }
-        response.setHeader("cache-control", "public, max-age=31536000, immutable");
+        response.setHeader("cache-control", "public, max-age=300");
         storedImage.body.pipe(response);
+        return;
+      }
+
+      if (env.isProduction) {
+        response.status(404).json({ message: "Question image not found." });
         return;
       }
     }
@@ -60,7 +70,7 @@ mediaRouter.get(`${questionImagesPublicPath}/:fileName`, async (request, respons
     const stats = statSync(fallbackPath);
     response.setHeader("content-type", contentTypeForKey(fallbackPath));
     response.setHeader("content-length", String(stats.size));
-    response.setHeader("cache-control", "public, max-age=86400");
+    response.setHeader("cache-control", "public, max-age=300");
     createReadStream(fallbackPath).pipe(response);
   } catch (error) {
     next(error);

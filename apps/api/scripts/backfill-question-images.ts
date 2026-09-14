@@ -54,60 +54,74 @@ const backfillQuestionImages = async () => {
   let migrated = 0;
   let skipped = 0;
   let missing = 0;
+  let failed = 0;
 
   for (const question of questions) {
-    const targetKey = question.image_storage_key ?? getQuestionImageStorageKey(question.id);
-    if (question.image_storage_key && (await objectStorage.objectExists(targetKey))) {
-      skipped += 1;
-      continue;
-    }
+    try {
+      const targetKey = question.image_storage_key ?? getQuestionImageStorageKey(question.id);
+      if (question.image_storage_key && (await objectStorage.objectExists(targetKey))) {
+        skipped += 1;
+        continue;
+      }
 
-    if (await objectStorage.objectExists(targetKey)) {
+      if (await objectStorage.objectExists(targetKey)) {
+        updateQuestionStorageStatement.run({
+          id: question.id,
+          imageStorageKey: targetKey,
+          questionImageUrl: getQuestionImageUrl(question.id),
+          updatedAt: new Date().toISOString()
+        });
+        skipped += 1;
+        continue;
+      }
+
+      const localPath = localImagePathForQuestion(question);
+      if (!localPath) {
+        console.warn(`Missing local image for ${question.id}; leaving row unchanged.`);
+        missing += 1;
+        continue;
+      }
+
+      const localImage = readFileSync(localPath);
+      const uploadImage = isPngBuffer(localImage)
+        ? (await optimizeQuestionImage(localImage)).buffer
+        : localImage;
+
+      await objectStorage.uploadObject({
+        body: uploadImage,
+        contentType: contentTypeForKey(targetKey),
+        key: targetKey
+      });
+
+      if (!(await objectStorage.objectExists(targetKey))) {
+        throw new Error(`Uploaded object could not be verified: ${targetKey}`);
+      }
+
       updateQuestionStorageStatement.run({
         id: question.id,
         imageStorageKey: targetKey,
         questionImageUrl: getQuestionImageUrl(question.id),
         updatedAt: new Date().toISOString()
       });
-      skipped += 1;
-      continue;
+      migrated += 1;
+      console.log(`Migrated ${question.id} -> ${targetKey}`);
+    } catch (error) {
+      failed += 1;
+      console.error(
+        `Failed to migrate ${question.id}: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
-
-    const localPath = localImagePathForQuestion(question);
-    if (!localPath) {
-      console.warn(`Missing local image for ${question.id}; leaving row unchanged.`);
-      missing += 1;
-      continue;
-    }
-
-    const localImage = readFileSync(localPath);
-    const uploadImage = isPngBuffer(localImage)
-      ? (await optimizeQuestionImage(localImage)).buffer
-      : localImage;
-
-    await objectStorage.uploadObject({
-      body: uploadImage,
-      contentType: contentTypeForKey(targetKey),
-      key: targetKey
-    });
-
-    if (!(await objectStorage.objectExists(targetKey))) {
-      throw new Error(`Uploaded object could not be verified: ${targetKey}`);
-    }
-
-    updateQuestionStorageStatement.run({
-      id: question.id,
-      imageStorageKey: targetKey,
-      questionImageUrl: getQuestionImageUrl(question.id),
-      updatedAt: new Date().toISOString()
-    });
-    migrated += 1;
-    console.log(`Migrated ${question.id} -> ${targetKey}`);
   }
 
   console.log(
-    `Question image backfill complete. migrated=${migrated} skipped=${skipped} missing=${missing}`
+    `Question image backfill complete. migrated=${migrated} skipped=${skipped} missing=${missing} failed=${failed}`
   );
+
+  if (failed > 0) {
+    process.exitCode = 1;
+  }
 };
 
 await backfillQuestionImages();

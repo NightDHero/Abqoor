@@ -266,6 +266,9 @@ export const stageQuestionImageObject = async (
     contentType: contentTypeForKey(key),
     key
   });
+  if (!(await objectStorage.objectExists(key))) {
+    throw new Error(`Staged question image upload could not be verified: ${questionId}.`);
+  }
   return key;
 };
 
@@ -287,6 +290,9 @@ export const commitStagedQuestionImageObject = async (
   await objectStorage.copyObject(source, target, {
     contentType: contentTypeForKey(target)
   });
+  if (!(await objectStorage.objectExists(target))) {
+    throw new Error(`Promoted question image could not be verified: ${questionId}.`);
+  }
   return target;
 };
 
@@ -320,6 +326,9 @@ export const restoreQuestionImageObjectBackup = async (
   await objectStorage.copyObject(backup, target, {
     contentType: contentTypeForKey(target)
   });
+  if (!(await objectStorage.objectExists(target))) {
+    throw new Error(`Restored question image could not be verified: ${questionId}.`);
+  }
 };
 
 export const removeQuestionImageObject = async (questionId: string) => {
@@ -344,6 +353,9 @@ export const writeQuestionImageObject = async (
     contentType: contentTypeForKey(key),
     key
   });
+  if (!(await objectStorage.objectExists(key))) {
+    throw new Error(`Question image upload could not be verified: ${questionId}.`);
+  }
   return key;
 };
 

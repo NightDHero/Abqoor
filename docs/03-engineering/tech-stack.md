@@ -130,15 +130,17 @@ TODO:
 
 ### Question Image Storage
 
-Question images are stored as static files under:
+Production question images and source PDFs are stored in private Cloudflare R2 through the backend object-storage abstraction. Local filesystem storage is used for local development, tests, migration/backfill input, and temporary processing only.
+
+Question image object keys use:
 
 ```text
-/media/questions/
+questions/{questionId}/question.webp
 ```
 
 ### Media Serving
 
-Question images are served through the public question image path defined by the Media System:
+Question images are served through the backend route defined by the Media System:
 
 ```text
 /question-images/
@@ -154,7 +156,6 @@ Related document:
 
 TODO:
 
-- Define production object storage or CDN strategy.
 - Define backup and retention policy for media files.
 
 ---

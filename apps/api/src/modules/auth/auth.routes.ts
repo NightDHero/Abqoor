@@ -3,6 +3,7 @@ import { Router } from "express";
 import { env } from "../../config/env.js";
 import { isUserAdministrator } from "../admin/admin.service.js";
 import { getStudentProfileIdentity } from "../profile/profile.repository.js";
+import { authRateLimit } from "../security/security.middleware.js";
 import { requireAuth } from "./auth.middleware.js";
 import {
   AuthError,
@@ -60,7 +61,7 @@ const handleAuthError = (error: unknown, response: Response) => {
   response.status(500).json({ message: "Authentication request failed." });
 };
 
-authRouter.post("/register", async (request, response) => {
+authRouter.post("/register", authRateLimit, async (request, response) => {
   try {
     const { email, password } = getCredentials(request);
     const user = await registerUser(email, password);
@@ -72,7 +73,7 @@ authRouter.post("/register", async (request, response) => {
   }
 });
 
-authRouter.post("/login", async (request, response) => {
+authRouter.post("/login", authRateLimit, async (request, response) => {
   try {
     const { email, password } = getCredentials(request);
     const user = await loginUser(email, password);

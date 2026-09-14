@@ -56,7 +56,10 @@ import {
   setImportJobSourcePdf,
   updateImportItemResult
 } from "./import-job.repository.js";
-import { createSourcePdf } from "../../source-pdfs/source-pdf.repository.js";
+import {
+  createSourcePdf,
+  updateSourcePdfStatus
+} from "../../source-pdfs/source-pdf.repository.js";
 import { objectStorage } from "../../storage/object-storage.service.js";
 import { toQuestionId } from "./question-format.mapper.js";
 import type {
@@ -209,37 +212,45 @@ const analyzePdfMedia = async (
 
   setImportJobSourcePdf({ id: jobId, sourcePdfId });
 
-  const pages = selectPdfPages(
-    pageCount,
-    request.startQuestionNumber as number
-  );
-  const mapping = new Map<number, { pageNumber: number; sourceImageName: string }>();
+  try {
+    const pages = selectPdfPages(
+      pageCount,
+      request.startQuestionNumber as number
+    );
+    const mapping = new Map<number, { pageNumber: number; sourceImageName: string }>();
 
-  for (const page of pages) {
-    const questionId = toQuestionId(page.questionNumber);
-    try {
-      const image = await renderPdfPageToPng(pdf.buffer, page.pageIndex);
-      if (!isPngBuffer(image)) {
-        throw new Error("Rendered output is not PNG.");
+    for (const page of pages) {
+      const questionId = toQuestionId(page.questionNumber);
+      let optimizedImage: Awaited<ReturnType<typeof optimizeQuestionImage>>;
+      try {
+        const image = await renderPdfPageToPng(pdf.buffer, page.pageIndex);
+        if (!isPngBuffer(image)) {
+          throw new Error("Rendered output is not PNG.");
+        }
+        optimizedImage = await optimizeQuestionImage(image);
+      } catch {
+        issues.push(
+          errorIssue(
+            "pdf_render_failed",
+            `تعذر تحويل الصفحة ${page.pageIndex} الخاصة بالسؤال ${page.questionNumber} إلى صورة.`,
+            page.questionNumber
+          )
+        );
+        continue;
       }
-      const optimizedImage = await optimizeQuestionImage(image);
+
       await stageQuestionImageObject(jobId, questionId, optimizedImage.buffer);
       mapping.set(page.questionNumber, {
         pageNumber: page.pageIndex,
         sourceImageName: `الصفحة ${page.pageIndex}`
       });
-    } catch {
-      issues.push(
-        errorIssue(
-          "pdf_render_failed",
-          `تعذر تحويل الصفحة ${page.pageIndex} الخاصة بالسؤال ${page.questionNumber} إلى صورة.`,
-          page.questionNumber
-        )
-      );
     }
-  }
 
-  return { found: pageCount, mapping, sourcePdfId, totalPages: pageCount };
+    return { found: pageCount, mapping, sourcePdfId, totalPages: pageCount };
+  } catch (error) {
+    updateSourcePdfStatus(sourcePdfId, "failed");
+    throw error;
+  }
 };
 
 const analyzeImageMedia = async (
@@ -388,6 +399,10 @@ export const analyzeQuestionImport = async (
 
     return getImportJobDetail(job.id);
   } catch (error) {
+    const failedJob = findImportJob(job.id);
+    if (failedJob?.sourcePdfId) {
+      updateSourcePdfStatus(failedJob.sourcePdfId, "failed");
+    }
     const message =
       error instanceof Error
         ? `تعذر تحليل ملفات الاستيراد: ${error.message}`

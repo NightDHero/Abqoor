@@ -47,6 +47,12 @@ const findSourcePdfByIdStatement = db.prepare<string, SourcePdfRecord>(
   "SELECT * FROM source_pdfs WHERE id = ?"
 );
 
+const updateSourcePdfStatusStatement = db.prepare(`
+  UPDATE source_pdfs
+  SET status = @status, updated_at = @updatedAt
+  WHERE id = @id
+`);
+
 export const createSourcePdf = (input: {
   createdBy: string;
   fileSize: number;
@@ -76,4 +82,16 @@ export const createSourcePdf = (input: {
 
 export const findSourcePdfById = (id: string) => {
   return findSourcePdfByIdStatement.get(id) ?? null;
+};
+
+export const updateSourcePdfStatus = (
+  id: string,
+  status: SourcePdfStatus
+) => {
+  updateSourcePdfStatusStatement.run({
+    id,
+    status,
+    updatedAt: new Date().toISOString()
+  });
+  return findSourcePdfById(id);
 };

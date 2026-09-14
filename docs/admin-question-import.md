@@ -19,7 +19,7 @@ The feature extends the existing Abqoor modules:
 
 - Authentication continues to use the existing session cookie and `ADMIN_EMAILS` authorization rule.
 - Questions continue to use the existing `questions` table, repository, service validation, deterministic `Q-NNN` IDs, and image-based student contract.
-- Media continues to use `/media/questions/` and `/question-images/`.
+- Media continues to use the public `/question-images/` application contract, while production binaries are stored in private object storage through the backend media system.
 - PDF rendering continues to use the existing PDF adapter and Poppler integration.
 - Excel parsing continues to use `read-excel-file`.
 - `import_jobs` is the batch source of truth and `import_job_items` records per-question analysis, decisions, outcomes, and rollback snapshots.
@@ -234,7 +234,7 @@ All routes are under the existing admin import router and require admin authoriz
 | `POST` | `/admin/import/jobs/:id/rollback` | Roll back one completed import |
 | `GET` | `/admin/import/questions` | Paginated question-bank search and sorting |
 
-The earlier `/admin/import/pdf` endpoint remains available for compatibility but is not used by the new administrator workflow.
+The earlier `/admin/import/pdf` endpoint is no longer the active import workflow and returns a retirement response. Administrators use the analyze, confirm, cancel, rollback, history, and question-bank endpoints above.
 
 ## Frontend Flow
 

@@ -552,6 +552,17 @@ test("allows configured admins and rejects ordinary authenticated users", async 
     assert.equal(adminResponse.status, 200);
     assert.equal(userResponse.status, 403);
 
+    const userPdfResponse = await fetch(
+      `${baseUrl}/admin/import/source-pdfs/source-pdf-test/file`,
+      { headers: { cookie: userCookie } }
+    );
+    const adminPdfResponse = await fetch(
+      `${baseUrl}/admin/import/source-pdfs/source-pdf-test/file`,
+      { headers: { cookie: adminCookie } }
+    );
+    assert.equal(userPdfResponse.status, 403);
+    assert.equal(adminPdfResponse.status, 404);
+
     const form = new FormData();
     form.append(
       "excel",

@@ -17,6 +17,8 @@ Document backend API conventions and endpoints.
 
 ## Implemented Endpoints
 
+The API sends credential-aware CORS responses only for configured frontend origins, sets baseline security headers, and applies modest in-process throttling to sensitive authentication and admin-import mutation endpoints. The throttling is useful abuse friction for the current Render service, but it is not a distributed global rate limit.
+
 ### Core
 
 - `GET /health`
@@ -41,15 +43,15 @@ Supported `GET /questions` filters:
 
 ### Admin Importer
 
-- `POST /admin/import/pdf`
+All admin import routes require authenticated administrator access.
 
-The admin PDF import endpoint supports:
+- `POST /admin/import/analyze`
+- `GET /admin/import/jobs`
+- `GET /admin/import/jobs/:id`
+- `POST /admin/import/jobs/:id/confirm`
+- `POST /admin/import/jobs/:id/cancel`
+- `POST /admin/import/jobs/:id/rollback`
+- `GET /admin/import/questions`
+- `GET /admin/import/source-pdfs/:id/file`
 
-- PDF upload
-- Excel metadata enrichment
-- page range selection
-- `startQuestionNumber`
-- `preview` mode
-- `commit` mode
-- `overwriteExisting`
-- per-page import manifest results
+The retired `POST /admin/import/pdf` endpoint is kept only as an explicit legacy response and is not the active importer.

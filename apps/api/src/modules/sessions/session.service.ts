@@ -5,6 +5,7 @@ import { recordWrongAnswerReview } from "../review/review.service.js";
 import {
   countSessionAnswers,
   createSession,
+  findSessionAnswer,
   findUserAnswerHistory,
   findSession,
   markSessionCompleted,
@@ -344,6 +345,10 @@ export const submitSessionAnswer = (
     throw new SessionError("Question is not part of this session.", 404);
   }
 
+  if (findSessionAnswer(session.session_id, input.questionId)) {
+    throw new SessionError("Question has already been answered.", 409);
+  }
+
   const question = getBootstrapQuestionById(input.questionId);
 
   if (!question) {
@@ -363,7 +368,7 @@ export const submitSessionAnswer = (
     answeredAt: new Date().toISOString()
   };
 
-  saveSessionAnswerAndThen(
+  const saved = saveSessionAnswerAndThen(
     {
       sessionId: session.session_id,
       questionId: answer.questionId,
@@ -380,6 +385,10 @@ export const submitSessionAnswer = (
       completeSessionIfReady(session, sessionQuestionIds.length);
     }
   );
+
+  if (!saved) {
+    throw new SessionError("Question has already been answered.", 409);
+  }
 
   return {
     sessionId: session.session_id,

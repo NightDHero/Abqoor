@@ -17,6 +17,7 @@ import {
   ensureQuestionImportUploadDirectory,
   questionImportUploadDirectory
 } from "../../media/media.service.js";
+import { adminImportRateLimit } from "../../security/security.middleware.js";
 import {
   AdminImportError,
   analyzeQuestionImport,
@@ -146,7 +147,7 @@ const acceptAnalyzeUpload = (
   });
 };
 
-importerRouter.post("/analyze", acceptAnalyzeUpload, async (request, response) => {
+importerRouter.post("/analyze", adminImportRateLimit, acceptAnalyzeUpload, async (request, response) => {
   try {
     const files = request.files as
       | Record<string, Express.Multer.File[]>
@@ -209,10 +210,11 @@ importerRouter.get("/jobs/:id", (request, response) => {
   }
 });
 
-importerRouter.post("/jobs/:id/confirm", (request, response) => {
+importerRouter.post("/jobs/:id/confirm", adminImportRateLimit, (request, response) => {
   try {
+    const jobId = String(request.params.id);
     const detail = confirmQuestionImport(
-      request.params.id,
+      jobId,
       (request.body ?? {}) as ConfirmImportRequest
     );
     response.status(202).json(detail);
@@ -221,17 +223,17 @@ importerRouter.post("/jobs/:id/confirm", (request, response) => {
   }
 });
 
-importerRouter.post("/jobs/:id/cancel", async (request, response) => {
+importerRouter.post("/jobs/:id/cancel", adminImportRateLimit, async (request, response) => {
   try {
-    response.status(200).json(await cancelQuestionImport(request.params.id));
+    response.status(200).json(await cancelQuestionImport(String(request.params.id)));
   } catch (error) {
     handleRouteError(error, response);
   }
 });
 
-importerRouter.post("/jobs/:id/rollback", async (request, response) => {
+importerRouter.post("/jobs/:id/rollback", adminImportRateLimit, async (request, response) => {
   try {
-    response.status(200).json(await rollbackQuestionImport(request.params.id));
+    response.status(200).json(await rollbackQuestionImport(String(request.params.id)));
   } catch (error) {
     handleRouteError(error, response);
   }

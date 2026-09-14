@@ -44,6 +44,8 @@ export type ObjectStorage = {
   uploadObject(input: ObjectUploadInput): Promise<void>;
 };
 
+type S3StorageClient = Pick<S3Client, "send">;
+
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = resolve(moduleDirectory, "../../../../..");
 const localObjectStorageDirectory = resolve(workspaceRoot, "media", "object-storage");
@@ -125,18 +127,10 @@ const streamToBuffer = async (stream: Readable) => {
   return Buffer.concat(chunks);
 };
 
-const createR2Storage = (): ObjectStorage => {
-  const bucket = env.r2.bucket as string;
-  const client = new S3Client({
-    credentials: {
-      accessKeyId: env.r2.accessKeyId as string,
-      secretAccessKey: env.r2.secretAccessKey as string
-    },
-    endpoint: `https://${env.r2.accountId}.r2.cloudflarestorage.com`,
-    forcePathStyle: true,
-    region: "auto"
-  });
-
+export const createR2ObjectStorage = (
+  client: S3StorageClient,
+  bucket: string
+): ObjectStorage => {
   return {
     async copyObject(sourceKey, targetKey, options) {
       assertObjectKey(sourceKey);
@@ -254,6 +248,21 @@ const createR2Storage = (): ObjectStorage => {
       );
     }
   };
+};
+
+const createR2Storage = (): ObjectStorage => {
+  const bucket = env.r2.bucket as string;
+  const client = new S3Client({
+    credentials: {
+      accessKeyId: env.r2.accessKeyId as string,
+      secretAccessKey: env.r2.secretAccessKey as string
+    },
+    endpoint: `https://${env.r2.accountId}.r2.cloudflarestorage.com`,
+    forcePathStyle: true,
+    region: "auto"
+  });
+
+  return createR2ObjectStorage(client, bucket);
 };
 
 const isStorageNotFoundError = (error: unknown) => {

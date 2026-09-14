@@ -90,6 +90,72 @@ const insertQuestion = (input: {
   });
 };
 
+const insertBootstrapQuestion = (id: string, correctAnswer: "A" | "B" = "A") => {
+  const now = new Date().toISOString();
+  db.prepare(
+    `
+      INSERT OR IGNORE INTO questions (
+        id,
+        question_image_url,
+        correct_answer,
+        subject,
+        subject_id,
+        topic,
+        topic_id,
+        subtopic,
+        subtopic_id,
+        difficulty,
+        difficulty_score,
+        estimated_time_seconds,
+        source,
+        version,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        @id,
+        @questionImageUrl,
+        @correctAnswer,
+        'quantitative',
+        'math',
+        'النسب',
+        'ratios',
+        NULL,
+        NULL,
+        4,
+        4,
+        60,
+        'pdf',
+        1,
+        @now,
+        @now
+      )
+    `
+  ).run({
+    correctAnswer,
+    id,
+    now,
+    questionImageUrl: `/question-images/${id}.png`
+  });
+};
+
+const completeProfile = (input: { userId: string; username: string }) => {
+  upsertStudentProfile({
+    attemptCount: null,
+    examDate: null,
+    hasExamDate: false,
+    hasTakenQudurat: false,
+    latestScore: null,
+    studyStrategyPreference: "balanced",
+    studyStylePreference: "no_preference",
+    targetScore: 90,
+    userId: input.userId,
+    username: input.username,
+    weakerSection: "both",
+    weeklyStudyHours: "5_to_10"
+  });
+};
+
 const insertAnsweredQuestion = (input: {
   activeDurationSeconds: number | null;
   answeredAt: string;
@@ -161,20 +227,7 @@ const getCurrentUtcYearDayCount = () => {
 
 test("summarizes real session activity into study progress windows", async () => {
   const user = await registerUser("progress@example.com", password);
-  upsertStudentProfile({
-    attemptCount: null,
-    examDate: null,
-    hasExamDate: false,
-    hasTakenQudurat: false,
-    latestScore: null,
-    studyStrategyPreference: "balanced",
-    studyStylePreference: "no_preference",
-    targetScore: 90,
-    userId: user.id,
-    username: "progress_user",
-    weakerSection: "both",
-    weeklyStudyHours: "5_to_10"
-  });
+  completeProfile({ userId: user.id, username: "progress_user" });
 
   insertQuestion({ estimatedTimeSeconds: 120, id: "Q-PROGRESS-001" });
   insertQuestion({ estimatedTimeSeconds: null, id: "Q-PROGRESS-002" });
@@ -320,6 +373,95 @@ test("summarizes real session activity into study progress windows", async () =>
     }
   );
   assert.equal(invalidMonthResponse.status, 400);
+});
+
+test("prevents duplicate study answer mutation and cross-user session access", async () => {
+  for (let index = 1; index <= 49; index += 1) {
+    insertBootstrapQuestion(`Q-${String(index).padStart(3, "0")}`);
+  }
+
+  const owner = await registerUser("session-owner@example.com", password);
+  const otherUser = await registerUser("session-other@example.com", password);
+  completeProfile({ userId: owner.id, username: "session_owner" });
+  completeProfile({ userId: otherUser.id, username: "session_other" });
+
+  const ownerLogin = await login("session-owner@example.com");
+  const otherLogin = await login("session-other@example.com");
+  assert.equal(ownerLogin.response.status, 200);
+  assert.equal(otherLogin.response.status, 200);
+
+  const startResponse = await fetch(`${baseUrl}/sessions/start`, {
+    body: JSON.stringify({ questionLimit: 2 }),
+    headers: {
+      "content-type": "application/json",
+      cookie: ownerLogin.cookie
+    },
+    method: "POST"
+  });
+  assert.equal(startResponse.status, 201);
+  const started = (await startResponse.json()) as {
+    questions: Array<{ id: string }>;
+    sessionId: string;
+  };
+  const firstQuestionId = started.questions[0]?.id;
+  assert.ok(firstQuestionId);
+
+  const firstSubmit = await fetch(`${baseUrl}/sessions/submit`, {
+    body: JSON.stringify({
+      activeDurationSeconds: 15,
+      questionId: firstQuestionId,
+      sessionId: started.sessionId,
+      userAnswer: "B"
+    }),
+    headers: {
+      "content-type": "application/json",
+      cookie: ownerLogin.cookie
+    },
+    method: "POST"
+  });
+  assert.equal(firstSubmit.status, 200);
+
+  const duplicateSubmit = await fetch(`${baseUrl}/sessions/submit`, {
+    body: JSON.stringify({
+      activeDurationSeconds: 20,
+      questionId: firstQuestionId,
+      sessionId: started.sessionId,
+      userAnswer: "A"
+    }),
+    headers: {
+      "content-type": "application/json",
+      cookie: ownerLogin.cookie
+    },
+    method: "POST"
+  });
+  assert.equal(duplicateSubmit.status, 409);
+
+  const storedAnswer = db
+    .prepare(
+      `
+        SELECT user_answer, is_correct, active_duration_seconds
+        FROM session_answers
+        WHERE session_id = ? AND question_id = ?
+      `
+    )
+    .get(started.sessionId, firstQuestionId) as
+    | {
+        active_duration_seconds: number;
+        is_correct: 0 | 1;
+        user_answer: string;
+      }
+    | undefined;
+  assert.equal(storedAnswer?.user_answer, "B");
+  assert.equal(storedAnswer?.is_correct, 0);
+  assert.equal(storedAnswer?.active_duration_seconds, 15);
+
+  const otherUserResult = await fetch(
+    `${baseUrl}/sessions/${started.sessionId}/result`,
+    {
+      headers: { cookie: otherLogin.cookie }
+    }
+  );
+  assert.equal(otherUserResult.status, 404);
 });
 
 after(async () => {

@@ -46,8 +46,8 @@ const findSessionStatement = db.prepare<string, SessionRecord>(`
   WHERE session_id = ?
 `);
 
-const upsertAnswerStatement = db.prepare(`
-  INSERT INTO session_answers (
+const insertAnswerStatement = db.prepare(`
+  INSERT OR IGNORE INTO session_answers (
     session_id,
     question_id,
     user_answer,
@@ -63,11 +63,6 @@ const upsertAnswerStatement = db.prepare(`
     @activeDurationSeconds,
     @createdAt
   )
-  ON CONFLICT(session_id, question_id) DO UPDATE SET
-    user_answer = excluded.user_answer,
-    is_correct = excluded.is_correct,
-    active_duration_seconds = excluded.active_duration_seconds,
-    created_at = excluded.created_at
 `);
 
 const touchSessionStatement = db.prepare(`
@@ -95,6 +90,22 @@ const countSessionAnswersStatement = db.prepare<string, {
   WHERE session_id = ?
 `);
 
+const findSessionAnswerStatement = db.prepare<
+  { questionId: string; sessionId: string },
+  SessionAnswerRecord
+>(`
+  SELECT
+    session_id,
+    question_id,
+    user_answer,
+    is_correct,
+    active_duration_seconds,
+    created_at
+  FROM session_answers
+  WHERE session_id = @sessionId
+    AND question_id = @questionId
+`);
+
 const findUserAnswerHistoryStatement = db.prepare<string, SessionAnswerRecord>(`
   SELECT
     session_answers.session_id,
@@ -117,14 +128,20 @@ const writeSessionAnswer = (input: {
   activeDurationSeconds: number | null;
   createdAt: string;
 }) => {
-  upsertAnswerStatement.run({
+  const result = insertAnswerStatement.run({
     ...input,
     isCorrect: input.isCorrect ? 1 : 0
   });
+
+  if (result.changes === 0) {
+    return false;
+  }
+
   touchSessionStatement.run({
     sessionId: input.sessionId,
     updatedAt: input.createdAt
   });
+  return true;
 };
 
 export const createSession = (input: {
@@ -146,6 +163,10 @@ export const findSession = (sessionId: string) => {
   return findSessionStatement.get(sessionId) ?? null;
 };
 
+export const findSessionAnswer = (sessionId: string, questionId: string) => {
+  return findSessionAnswerStatement.get({ questionId, sessionId }) ?? null;
+};
+
 export const saveSessionAnswer = (input: {
   sessionId: string;
   questionId: string;
@@ -155,13 +176,13 @@ export const saveSessionAnswer = (input: {
   createdAt: string;
 }) => {
   const transaction = db.transaction(() => {
-    writeSessionAnswer(input);
+    return writeSessionAnswer(input);
   });
 
-  transaction();
+  return transaction();
 };
 
-export const saveSessionAnswerAndThen = <T>(
+export const saveSessionAnswerAndThen = (
   input: {
     sessionId: string;
     questionId: string;
@@ -170,11 +191,15 @@ export const saveSessionAnswerAndThen = <T>(
     activeDurationSeconds: number | null;
     createdAt: string;
   },
-  afterSave: () => T
+  afterSave: () => void
 ) => {
   const transaction = db.transaction(() => {
-    writeSessionAnswer(input);
-    return afterSave();
+    if (!writeSessionAnswer(input)) {
+      return false;
+    }
+
+    afterSave();
+    return true;
   });
 
   return transaction();
