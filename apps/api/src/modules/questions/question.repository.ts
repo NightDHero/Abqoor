@@ -202,11 +202,11 @@ const questionReferenceCountStatement = db.prepare(`
     (SELECT COUNT(*) FROM review_items WHERE question_id = @id) AS count
 `);
 
-export const findQuestionById = (id: string) => {
-  return findQuestionByIdStatement.get(id) ?? null;
+export const findQuestionById = async (id: string) => {
+  return (await findQuestionByIdStatement.get(id)) ?? null;
 };
 
-export const listQuestions = (filters: QuestionFilters = {}) => {
+export const listQuestions = async (filters: QuestionFilters = {}) => {
   const clauses: string[] = [];
   const values: Array<string | number> = [];
 
@@ -246,15 +246,15 @@ export const listQuestions = (filters: QuestionFilters = {}) => {
   }
 
   const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
-  return db
+  return (await db
     .prepare(`SELECT * FROM questions ${where} ORDER BY id ASC`)
-    .all(...values) as QuestionRecord[];
+    .all(...values)) as QuestionRecord[];
 };
 
-export const insertQuestion = (question: QuestionWriteInput) => {
+export const insertQuestion = async (question: QuestionWriteInput) => {
   const now = new Date().toISOString();
 
-  insertQuestionStatement.run({
+  await insertQuestionStatement.run({
     ...question,
     difficultyScore: question.difficultyScore ?? question.difficulty,
     imageStorageKey: question.imageStorageKey ?? null,
@@ -272,11 +272,11 @@ export const insertQuestion = (question: QuestionWriteInput) => {
   return findQuestionById(question.id);
 };
 
-export const upsertQuestion = (question: QuestionWriteInput) => {
-  const existing = findQuestionById(question.id);
+export const upsertQuestion = async (question: QuestionWriteInput) => {
+  const existing = await findQuestionById(question.id);
   const now = new Date().toISOString();
 
-  upsertQuestionStatement.run({
+  await upsertQuestionStatement.run({
     ...question,
     difficultyScore: question.difficultyScore ?? question.difficulty,
     imageStorageKey: question.imageStorageKey ?? null,
@@ -294,16 +294,16 @@ export const upsertQuestion = (question: QuestionWriteInput) => {
   return findQuestionById(question.id);
 };
 
-export const restoreQuestionRecord = (question: QuestionRecord) => {
-  restoreQuestionStatement.run(question);
+export const restoreQuestionRecord = async (question: QuestionRecord) => {
+  await restoreQuestionStatement.run(question);
   return findQuestionById(question.id);
 };
 
-export const deleteQuestion = (id: string) => {
-  return deleteQuestionStatement.run(id).changes > 0;
+export const deleteQuestion = async (id: string) => {
+  return (await deleteQuestionStatement.run(id)).changes > 0;
 };
 
-export const countQuestionReferences = (id: string) => {
-  const result = questionReferenceCountStatement.get({ id }) as { count: number };
+export const countQuestionReferences = async (id: string) => {
+  const result = (await questionReferenceCountStatement.get({ id })) as { count: number };
   return result.count;
 };

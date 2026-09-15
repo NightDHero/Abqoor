@@ -121,19 +121,19 @@ export const validateQuestionInput = (question: QuestionWriteInput) => {
   }
 };
 
-export const getQuestions = (filters: QuestionFilters) => {
-  return listQuestions(filters).map(toQuestion);
+export const getQuestions = async (filters: QuestionFilters) => {
+  return (await listQuestions(filters)).map(toQuestion);
 };
 
-export const getQuestion = (id: string) => {
-  const question = findQuestionById(id);
+export const getQuestion = async (id: string) => {
+  const question = await findQuestionById(id);
   return question ? toQuestion(question) : null;
 };
 
-export const saveQuestion = (question: QuestionWriteInput) => {
+export const saveQuestion = async (question: QuestionWriteInput) => {
   const enrichedQuestion = enrichQuestionInput(question);
   validateQuestionInput(enrichedQuestion);
-  const saved = upsertQuestion(enrichedQuestion);
+  const saved = await upsertQuestion(enrichedQuestion);
 
   if (!saved) {
     throw new QuestionError("Question save failed.", 500);

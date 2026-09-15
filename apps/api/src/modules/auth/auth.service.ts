@@ -38,7 +38,7 @@ export const registerUser = async (emailInput: string, password: string) => {
   const email = normalizeEmail(emailInput);
   validateCredentials(email, password);
 
-  if (findUserByEmail(email)) {
+  if (await findUserByEmail(email)) {
     throw new AuthError("Email is already registered.", 409);
   }
 
@@ -48,7 +48,7 @@ export const registerUser = async (emailInput: string, password: string) => {
 
 export const loginUser = async (emailInput: string, password: string) => {
   const email = normalizeEmail(emailInput);
-  const user = findUserByEmail(email);
+  const user = await findUserByEmail(email);
 
   if (!user) {
     throw new AuthError("Invalid email or password.", 401);
@@ -70,8 +70,7 @@ export const verifySessionToken = (token: string) => {
   return jwt.verify(token, env.jwtSecret) as AuthTokenPayload;
 };
 
-export const getUserFromToken = (token: string) => {
+export const getUserFromToken = async (token: string) => {
   const payload = verifySessionToken(token);
   return findUserById(payload.sub);
 };
-

@@ -1,10 +1,12 @@
 import { createApp } from "./app.js";
 import { env } from "./config/env.js";
+import { closeDatabase } from "./database/client.js";
 import { ensureConfiguredSeedAdminAccount } from "./modules/admin/admin.service.js";
 
-const app = createApp();
+let app: Awaited<ReturnType<typeof createApp>>;
 
 try {
+  app = await createApp();
   const configuredAdmin = await ensureConfiguredSeedAdminAccount();
 
   if (configuredAdmin) {
@@ -19,7 +21,21 @@ try {
   process.exit(1);
 }
 
-app.listen(env.port, () => {
+const server = app.listen(env.port, () => {
   console.log(`Abqoor API listening on port ${env.port}`);
   console.log(`Allowed frontend origins: ${env.frontendOrigins.join(", ")}`);
+});
+
+const shutdown = async () => {
+  server.close(async () => {
+    await closeDatabase();
+    process.exit(0);
+  });
+};
+
+process.on("SIGINT", () => {
+  void shutdown();
+});
+process.on("SIGTERM", () => {
+  void shutdown();
 });

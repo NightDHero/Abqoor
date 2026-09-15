@@ -17,7 +17,7 @@ export class ReviewError extends Error {
   }
 }
 
-export const addReviewQuestion = (
+export const addReviewQuestion = async (
   userId: string,
   questionId: string,
   source: ReviewSource
@@ -30,13 +30,13 @@ export const addReviewQuestion = (
     throw new ReviewError("questionId is required.");
   }
 
-  const question = findQuestionById(questionId);
+  const question = await findQuestionById(questionId);
 
   if (!question) {
     throw new ReviewError("Question not found.", 404);
   }
 
-  const reviewItem = upsertReviewItem({
+  const reviewItem = await upsertReviewItem({
     questionId,
     source,
     userId
@@ -49,8 +49,8 @@ export const addReviewQuestion = (
   return toReviewItem(reviewItem);
 };
 
-export const getReviewBank = (userId: string): ReviewBank => {
-  const reviewItems = listReviewItems(userId).map(toReviewItem);
+export const getReviewBank = async (userId: string): Promise<ReviewBank> => {
+  const reviewItems = (await listReviewItems(userId)).map(toReviewItem);
 
   return {
     savedQuestions: reviewItems.filter((item) => item.source === "manual"),
@@ -58,20 +58,20 @@ export const getReviewBank = (userId: string): ReviewBank => {
   };
 };
 
-export const removeReviewQuestion = (userId: string, reviewItemId: string) => {
+export const removeReviewQuestion = async (userId: string, reviewItemId: string) => {
   if (!reviewItemId.trim()) {
     throw new ReviewError("reviewItemId is required.");
   }
 
-  const existing = findReviewItemById(userId, reviewItemId);
+  const existing = await findReviewItemById(userId, reviewItemId);
 
   if (!existing) {
     throw new ReviewError("Review item not found.", 404);
   }
 
-  deleteReviewItem(userId, reviewItemId);
+  await deleteReviewItem(userId, reviewItemId);
 };
 
-export const recordWrongAnswerReview = (userId: string, questionId: string) => {
+export const recordWrongAnswerReview = async (userId: string, questionId: string) => {
   return addReviewQuestion(userId, questionId, "wrong_answer");
 };

@@ -187,7 +187,7 @@ An interrupted `importing` job is recovered as `failed` when the API restarts. P
 
 ## Transaction And File Safety
 
-- All question and import-item database writes for confirmation run in one SQLite transaction.
+- All question and import-item database writes for confirmation run in one database transaction.
 - Rendered/uploaded images are staged before confirmation.
 - Existing images are backed up inside the import directory before replacement.
 - If commit fails, file changes are compensated and the database transaction is rolled back.
@@ -218,7 +218,7 @@ Rollback is available only for completed imports and requires explicit confirmat
 - A conflicting later modification causes rollback to fail safely rather than overwrite newer content.
 - The job becomes `rolled_back` and remains visible in history.
 
-Rollback database changes use one SQLite transaction with compensating file restoration on failure.
+Rollback database changes use one database transaction with compensating file restoration on failure.
 
 ## API
 

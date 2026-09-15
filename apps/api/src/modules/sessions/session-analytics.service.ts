@@ -10,7 +10,7 @@ const toPercentage = (correct: number, total: number) => {
   return total === 0 ? 0 : Math.round((correct / total) * 100);
 };
 
-export const recordExamResultAfterCompletion = (
+export const recordExamResultAfterCompletion = async (
   session: SessionRecord,
   result: SessionResult
 ) => {
@@ -18,7 +18,7 @@ export const recordExamResultAfterCompletion = (
     return null;
   }
 
-  const answers = findSessionAnswerAnalytics(session.session_id);
+  const answers = await findSessionAnswerAnalytics(session.session_id);
   const mathAnswers = answers.filter(
     (answer: SessionAnswerAnalyticsRecord) =>
       answer.subject === "quantitative"

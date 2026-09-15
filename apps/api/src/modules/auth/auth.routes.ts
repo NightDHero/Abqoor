@@ -29,13 +29,13 @@ const setSessionCookie = (response: Response, user: { id: string; email: string 
   response.cookie(env.sessionCookieName, token, sessionCookieOptions);
 };
 
-const toAuthResponseUser = (user: UserRecord) => {
-  const profileIdentity = getStudentProfileIdentity(user.id);
+const toAuthResponseUser = async (user: UserRecord) => {
+  const profileIdentity = await getStudentProfileIdentity(user.id);
   return toPublicUser(
     user,
     profileIdentity.profileCompleted,
     profileIdentity.username,
-    isUserAdministrator(user.id, user.email)
+    await isUserAdministrator(user.id, user.email)
   );
 };
 
@@ -67,7 +67,7 @@ authRouter.post("/register", authRateLimit, async (request, response) => {
     const user = await registerUser(email, password);
 
     setSessionCookie(response, user);
-    response.status(201).json({ user: toAuthResponseUser(user) });
+    response.status(201).json({ user: await toAuthResponseUser(user) });
   } catch (error) {
     handleAuthError(error, response);
   }
@@ -79,7 +79,7 @@ authRouter.post("/login", authRateLimit, async (request, response) => {
     const user = await loginUser(email, password);
 
     setSessionCookie(response, user);
-    response.status(200).json({ user: toAuthResponseUser(user) });
+    response.status(200).json({ user: await toAuthResponseUser(user) });
   } catch (error) {
     handleAuthError(error, response);
   }

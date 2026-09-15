@@ -45,20 +45,20 @@ const listAllUsersStatement = db.prepare<[], UserRecord>(
   "SELECT * FROM users ORDER BY created_at ASC"
 );
 
-export const adminAccountTransaction = <T>(operation: () => T) =>
-  db.transaction(operation)();
+export const adminAccountTransaction = <T>(operation: () => T | Promise<T>) =>
+  db.transaction(operation);
 
-export const isManagedAdminUser = (userId: string) => {
-  return Boolean(findManagedAdminByUserIdStatement.get(userId));
+export const isManagedAdminUser = async (userId: string) => {
+  return Boolean(await findManagedAdminByUserIdStatement.get(userId));
 };
 
-export const grantManagedAdmin = (
+export const grantManagedAdmin = async (
   userId: string,
   grantedBy: string | null
 ) => {
   const now = new Date().toISOString();
 
-  grantManagedAdminStatement.run({
+  await grantManagedAdminStatement.run({
     createdAt: now,
     grantedBy,
     updatedAt: now,
@@ -66,14 +66,14 @@ export const grantManagedAdmin = (
   });
 };
 
-export const removeManagedAdmin = (userId: string) => {
-  removeManagedAdminStatement.run(userId);
+export const removeManagedAdmin = async (userId: string) => {
+  await removeManagedAdminStatement.run(userId);
 };
 
-export const listManagedAdmins = () => {
-  return listManagedAdminsStatement.all();
+export const listManagedAdmins = async () => {
+  return await listManagedAdminsStatement.all();
 };
 
-export const listAllUsers = () => {
-  return listAllUsersStatement.all();
+export const listAllUsers = async () => {
+  return await listAllUsersStatement.all();
 };

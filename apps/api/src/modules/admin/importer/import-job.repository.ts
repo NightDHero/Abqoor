@@ -285,7 +285,7 @@ const updateImportItemStatement = db.prepare(`
   WHERE import_job_id = @importJobId AND question_number = @questionNumber
 `);
 
-export const createImportJob = (input: {
+export const createImportJob = async (input: {
   sourceType: ImportSourceType;
   status: ImportJobStatus;
   startQuestionNumber: number | null;
@@ -329,22 +329,23 @@ export const createImportJob = (input: {
     rolledBackAt: null
   };
 
-  createImportJobStatement.run(record);
-  return findImportJob(record.id) as ImportJob;
+  await createImportJobStatement.run(record);
+  return (await findImportJob(record.id)) as ImportJob;
 };
 
-export const findImportJob = (id: string) => {
-  const record = findImportJobStatement.get(id);
+export const findImportJob = async (id: string) => {
+  const record = await findImportJobStatement.get(id);
   return record ? toImportJob(record) : null;
 };
 
-export const listImportJobs = () => listImportJobsStatement.all().map(toImportJob);
+export const listImportJobs = async () =>
+  (await listImportJobsStatement.all()).map(toImportJob);
 
-export const setImportJobSourcePdf = (input: {
+export const setImportJobSourcePdf = async (input: {
   id: string;
   sourcePdfId: string;
 }) => {
-  updateImportJobSourcePdfStatement.run({
+  await updateImportJobSourcePdfStatement.run({
     id: input.id,
     sourcePdfId: input.sourcePdfId,
     updatedAt: new Date().toISOString()
@@ -352,10 +353,10 @@ export const setImportJobSourcePdf = (input: {
   return findImportJob(input.id);
 };
 
-export const insertImportItems = (items: ImportJobItem[]) => {
-  const insertAll = db.transaction(() => {
+export const insertImportItems = async (items: ImportJobItem[]) => {
+  await db.transaction(async () => {
     for (const item of items) {
-      insertImportItemStatement.run({
+      await insertImportItemStatement.run({
         ...item,
         optionsJson: JSON.stringify(item.options),
         errorsJson: JSON.stringify(item.errors),
@@ -370,13 +371,12 @@ export const insertImportItems = (items: ImportJobItem[]) => {
       });
     }
   });
-  insertAll();
 };
 
-export const listImportJobItems = (jobId: string) =>
-  listImportItemsStatement.all(jobId).map(toImportJobItem);
+export const listImportJobItems = async (jobId: string) =>
+  (await listImportItemsStatement.all(jobId)).map(toImportJobItem);
 
-export const completeImportAnalysis = (input: {
+export const completeImportAnalysis = async (input: {
   id: string;
   status: "ready" | "failed";
   totalPages: number;
@@ -391,7 +391,7 @@ export const completeImportAnalysis = (input: {
   issues: ImportValidationIssue[];
   errorMessage?: string | null;
 }) => {
-  updateAnalysisStatement.run({
+  await updateAnalysisStatement.run({
     ...input,
     updatedAt: new Date().toISOString(),
     sheetSummaryJson: JSON.stringify(input.sheetSummary),
@@ -402,10 +402,11 @@ export const completeImportAnalysis = (input: {
   return findImportJob(input.id);
 };
 
-export const markImportJobImporting = (id: string) =>
-  markImportingStatement.run({ id, now: new Date().toISOString() }).changes > 0;
+export const markImportJobImporting = async (id: string) =>
+  (await markImportingStatement.run({ id, now: new Date().toISOString() }))
+    .changes > 0;
 
-export const completeImportJob = (input: {
+export const completeImportJob = async (input: {
   id: string;
   processedCount: number;
   successCount: number;
@@ -414,20 +415,22 @@ export const completeImportJob = (input: {
   replacedCount: number;
   skippedCount: number;
 }) => {
-  completeImportStatement.run({ ...input, now: new Date().toISOString() });
+  await completeImportStatement.run({ ...input, now: new Date().toISOString() });
 };
 
-export const failImportJob = (id: string, message: string) => {
-  failImportStatement.run({ id, message, now: new Date().toISOString() });
+export const failImportJob = async (id: string, message: string) => {
+  await failImportStatement.run({ id, message, now: new Date().toISOString() });
 };
 
-export const cancelImportJob = (id: string) =>
-  cancelImportStatement.run({ id, now: new Date().toISOString() }).changes > 0;
+export const cancelImportJob = async (id: string) =>
+  (await cancelImportStatement.run({ id, now: new Date().toISOString() }))
+    .changes > 0;
 
-export const markImportJobRolledBack = (id: string) =>
-  rollbackImportStatement.run({ id, now: new Date().toISOString() }).changes > 0;
+export const markImportJobRolledBack = async (id: string) =>
+  (await rollbackImportStatement.run({ id, now: new Date().toISOString() }))
+    .changes > 0;
 
-export const updateImportItemResult = (input: {
+export const updateImportItemResult = async (input: {
   importJobId: string;
   questionNumber: number;
   duplicateAction: DuplicateAction | null;
@@ -436,7 +439,7 @@ export const updateImportItemResult = (input: {
   appliedQuestion: QuestionRecord | null;
   previousImageExisted: boolean;
 }) => {
-  updateImportItemStatement.run({
+  await updateImportItemStatement.run({
     ...input,
     previousQuestionJson: input.previousQuestion
       ? JSON.stringify(input.previousQuestion)
@@ -449,8 +452,8 @@ export const updateImportItemResult = (input: {
   });
 };
 
-export const recoverInterruptedImportJobs = () => {
-  db.prepare(`
+export const recoverInterruptedImportJobs = async () => {
+  await db.prepare(`
     UPDATE import_jobs
     SET status = 'failed', updated_at = @now,
         error_message = 'توقفت عملية الاستيراد قبل اكتمال المعاملة.'
@@ -458,11 +461,11 @@ export const recoverInterruptedImportJobs = () => {
   `).run({ now: new Date().toISOString() });
 };
 
-export const runImportTransaction = <T>(operation: () => T) =>
-  db.transaction(operation)();
+export const runImportTransaction = <T>(operation: () => T | Promise<T>) =>
+  db.transaction(operation);
 
-export const listAdminQuestionTopicCounts = () => {
-  return db.prepare<[], AdminQuestionTopicCountRecord>(`
+export const listAdminQuestionTopicCounts = async () => {
+  return await db.prepare<[], AdminQuestionTopicCountRecord>(`
     SELECT
       subject,
       subject_id,
@@ -474,10 +477,10 @@ export const listAdminQuestionTopicCounts = () => {
     FROM questions
     GROUP BY subject, subject_id, topic, topic_id, subtopic, subtopic_id
     ORDER BY subject_id ASC, topic_id ASC, subtopic_id ASC
-  `).all();
+`).all();
 };
 
-export const listAdminQuestions = (input: {
+export const listAdminQuestions = async (input: {
   query?: string;
   page: number;
   pageSize: number;
@@ -493,7 +496,7 @@ export const listAdminQuestions = (input: {
     offset: (input.page - 1) * input.pageSize
   };
   const order = input.sort === "desc" ? "DESC" : "ASC";
-  const rows = db.prepare(`
+  const rows = await db.prepare(`
     SELECT
       questions.id,
       questions.question_image_url AS questionImageUrl,
@@ -512,7 +515,7 @@ export const listAdminQuestions = (input: {
     ORDER BY CAST(SUBSTR(questions.id, 3) AS INTEGER) ${order}
     LIMIT @limit OFFSET @offset
   `).all(params);
-  const count = db.prepare(`
+  const count = await db.prepare(`
     SELECT COUNT(*) AS count FROM questions ${where}
   `).get(params) as { count: number };
 

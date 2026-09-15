@@ -20,27 +20,27 @@ const handleExamError = (error: unknown, response: Response) => {
   response.status(500).json({ message: "Exam request failed." });
 };
 
-examRouter.get("/history", requireAuth, (request, response) => {
+examRouter.get("/history", requireAuth, async (request, response) => {
   try {
     response.status(200).json({
-      examResults: getExamHistory(request.user?.id ?? "")
+      examResults: await getExamHistory(request.user?.id ?? "")
     });
   } catch (error) {
     handleExamError(error, response);
   }
 });
 
-examRouter.post("/start", requireAuth, (request, response) => {
+examRouter.post("/start", requireAuth, async (request, response) => {
   try {
     response.status(201).json({
-      exam: startOfficialExam(request.user?.id ?? "")
+      exam: await startOfficialExam(request.user?.id ?? "")
     });
   } catch (error) {
     handleExamError(error, response);
   }
 });
 
-examRouter.get("/attempts/:id", requireAuth, (request, response) => {
+examRouter.get("/attempts/:id", requireAuth, async (request, response) => {
   try {
     const examId = request.params.id;
 
@@ -49,14 +49,14 @@ examRouter.get("/attempts/:id", requireAuth, (request, response) => {
     }
 
     response.status(200).json({
-      exam: getOfficialExam(request.user?.id ?? "", examId)
+      exam: await getOfficialExam(request.user?.id ?? "", examId)
     });
   } catch (error) {
     handleExamError(error, response);
   }
 });
 
-examRouter.patch("/attempts/:id/answers", requireAuth, (request, response) => {
+examRouter.patch("/attempts/:id/answers", requireAuth, async (request, response) => {
   try {
     const examId = request.params.id;
     const body = (request.body ?? {}) as {
@@ -70,7 +70,7 @@ examRouter.patch("/attempts/:id/answers", requireAuth, (request, response) => {
     }
 
     response.status(200).json({
-      exam: answerOfficialExamQuestion(request.user?.id ?? "", {
+      exam: await answerOfficialExamQuestion(request.user?.id ?? "", {
         examId,
         positionInSection: Number(body.positionInSection),
         sectionNumber: Number(body.sectionNumber),
@@ -82,7 +82,7 @@ examRouter.patch("/attempts/:id/answers", requireAuth, (request, response) => {
   }
 });
 
-examRouter.patch("/attempts/:id/flags", requireAuth, (request, response) => {
+examRouter.patch("/attempts/:id/flags", requireAuth, async (request, response) => {
   try {
     const examId = request.params.id;
     const body = (request.body ?? {}) as {
@@ -96,7 +96,7 @@ examRouter.patch("/attempts/:id/flags", requireAuth, (request, response) => {
     }
 
     response.status(200).json({
-      exam: flagOfficialExamQuestion(request.user?.id ?? "", {
+      exam: await flagOfficialExamQuestion(request.user?.id ?? "", {
         examId,
         flagged: body.flagged,
         positionInSection: Number(body.positionInSection),
@@ -111,7 +111,7 @@ examRouter.patch("/attempts/:id/flags", requireAuth, (request, response) => {
 examRouter.post(
   "/attempts/:id/sections/:sectionNumber/complete",
   requireAuth,
-  (request, response) => {
+  async (request, response) => {
     try {
       const examId = request.params.id;
       const sectionNumber = Number(request.params.sectionNumber);
@@ -121,7 +121,7 @@ examRouter.post(
       }
 
       response.status(200).json(
-        completeOfficialExamSectionFlow(
+        await completeOfficialExamSectionFlow(
           request.user?.id ?? "",
           examId,
           sectionNumber
@@ -133,7 +133,7 @@ examRouter.post(
   }
 );
 
-examRouter.get("/:id", requireAuth, (request, response) => {
+examRouter.get("/:id", requireAuth, async (request, response) => {
   try {
     const examId = request.params.id;
 
@@ -142,7 +142,7 @@ examRouter.get("/:id", requireAuth, (request, response) => {
     }
 
     response.status(200).json({
-      examResult: getExamResult(request.user?.id ?? "", examId)
+      examResult: await getExamResult(request.user?.id ?? "", examId)
     });
   } catch (error) {
     handleExamError(error, response);

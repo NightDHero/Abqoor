@@ -271,7 +271,7 @@ const findOfficialResultByIdForUserStatement = db.prepare<
     AND user_id = @userId
 `);
 
-export const createOfficialExam = (input: {
+export const createOfficialExam = async (input: {
   examId: string;
   userId: string;
   questions: Array<{
@@ -283,8 +283,8 @@ export const createOfficialExam = (input: {
   }>;
 }) => {
   const now = new Date().toISOString();
-  const create = db.transaction(() => {
-    createExamStatement.run({
+  await db.transaction(async () => {
+    await createExamStatement.run({
       createdAt: now,
       currentSection: 1,
       id: input.examId,
@@ -295,7 +295,7 @@ export const createOfficialExam = (input: {
     });
 
     for (let sectionNumber = 1; sectionNumber <= 5; sectionNumber += 1) {
-      insertSectionStatement.run({
+      await insertSectionStatement.run({
         examId: input.examId,
         sectionNumber,
         startedAt: sectionNumber === 1 ? now : null,
@@ -307,7 +307,7 @@ export const createOfficialExam = (input: {
     }
 
     for (const question of input.questions) {
-      insertQuestionStatement.run({
+      await insertQuestionStatement.run({
         ...question,
         examId: input.examId,
         updatedAt: now
@@ -315,64 +315,64 @@ export const createOfficialExam = (input: {
     }
   });
 
-  create();
   return findOfficialExam(input.examId);
 };
 
 export const createOfficialExamId = () => randomUUID();
 
-export const findOfficialExam = (examId: string) => {
-  return findExamStatement.get(examId) ?? null;
+export const findOfficialExam = async (examId: string) => {
+  return (await findExamStatement.get(examId)) ?? null;
 };
 
-export const findOfficialExamSections = (examId: string) => {
-  return findSectionsStatement.all(examId) as OfficialExamSectionRecord[];
+export const findOfficialExamSections = async (examId: string) => {
+  return (await findSectionsStatement.all(examId)) as OfficialExamSectionRecord[];
 };
 
-export const findOfficialExamQuestions = (examId: string) => {
-  return findQuestionsStatement.all(examId) as OfficialExamQuestionRecord[];
+export const findOfficialExamQuestions = async (examId: string) => {
+  return (await findQuestionsStatement.all(examId)) as OfficialExamQuestionRecord[];
 };
 
-export const updateOfficialExamAnswer = (input: {
+export const updateOfficialExamAnswer = async (input: {
   examId: string;
   sectionNumber: number;
   positionInSection: number;
   userAnswer: CorrectAnswer;
 }) => {
   const now = new Date().toISOString();
-  return updateAnswerStatement.run({
+  return (await updateAnswerStatement.run({
     ...input,
     answeredAt: now,
     updatedAt: now
-  }).changes;
+  })).changes;
 };
 
-export const updateOfficialExamFlag = (input: {
+export const updateOfficialExamFlag = async (input: {
   examId: string;
   sectionNumber: number;
   positionInSection: number;
   flagged: boolean;
 }) => {
-  return updateFlagStatement.run({
+  return (await updateFlagStatement.run({
     ...input,
     flagged: input.flagged ? 1 : 0,
     updatedAt: new Date().toISOString()
-  }).changes;
+  })).changes;
 };
 
-export const runOfficialExamTransaction = <T>(operation: () => T) => {
-  const transaction = db.transaction(operation);
-  return transaction();
+export const runOfficialExamTransaction = <T>(
+  operation: () => T | Promise<T>
+) => {
+  return db.transaction(operation);
 };
 
-export const completeOfficialExamSection = (input: {
+export const completeOfficialExamSection = async (input: {
   examId: string;
   sectionNumber: number;
   nextSectionNumber?: number;
 }) => {
   const now = new Date().toISOString();
 
-  updateSectionStatement.run({
+  await updateSectionStatement.run({
     completedAt: now,
     examId: input.examId,
     sectionNumber: input.sectionNumber,
@@ -381,14 +381,14 @@ export const completeOfficialExamSection = (input: {
   });
 
   if (input.nextSectionNumber) {
-    updateSectionStatement.run({
+    await updateSectionStatement.run({
       completedAt: null,
       examId: input.examId,
       sectionNumber: input.nextSectionNumber,
       startedAt: now,
       status: "active" satisfies OfficialExamSectionStatus
     });
-    updateExamStatement.run({
+    await updateExamStatement.run({
       completedAt: null,
       currentSection: input.nextSectionNumber,
       examId: input.examId,
@@ -398,20 +398,20 @@ export const completeOfficialExamSection = (input: {
   }
 };
 
-export const completeOfficialExam = (input: {
+export const completeOfficialExam = async (input: {
   examId: string;
   currentSection: number;
 }) => {
   const now = new Date().toISOString();
 
-  updateSectionStatement.run({
+  await updateSectionStatement.run({
     completedAt: now,
     examId: input.examId,
     sectionNumber: input.currentSection,
     startedAt: null,
     status: "completed" satisfies OfficialExamSectionStatus
   });
-  updateExamStatement.run({
+  await updateExamStatement.run({
     completedAt: now,
     currentSection: input.currentSection,
     examId: input.examId,
@@ -420,7 +420,7 @@ export const completeOfficialExam = (input: {
   });
 };
 
-export const insertOfficialExamResult = (input: {
+export const insertOfficialExamResult = async (input: {
   examId: string;
   userId: string;
   mathScore: number;
@@ -428,7 +428,7 @@ export const insertOfficialExamResult = (input: {
   finalScore: number;
   sectionScores: number[];
 }) => {
-  const existing = findResultByExamIdStatement.get(input.examId);
+  const existing = await findResultByExamIdStatement.get(input.examId);
 
   if (existing) {
     return existing;
@@ -449,23 +449,23 @@ export const insertOfficialExamResult = (input: {
     section5Score: input.sectionScores[4] ?? 0
   };
 
-  insertResultStatement.run(record);
-  return findResultByExamIdStatement.get(input.examId) ?? null;
+  await insertResultStatement.run(record);
+  return (await findResultByExamIdStatement.get(input.examId)) ?? null;
 };
 
-export const findOfficialExamResultByExamId = (examId: string) => {
-  return findResultByExamIdStatement.get(examId) ?? null;
+export const findOfficialExamResultByExamId = async (examId: string) => {
+  return (await findResultByExamIdStatement.get(examId)) ?? null;
 };
 
-export const findOfficialExamResultsByUser = (userId: string) => {
-  return findOfficialResultsByUserStatement.all(userId);
+export const findOfficialExamResultsByUser = async (userId: string) => {
+  return await findOfficialResultsByUserStatement.all(userId);
 };
 
-export const findOfficialExamResultByIdForUser = (
+export const findOfficialExamResultByIdForUser = async (
   resultId: string,
   userId: string
 ) => {
   return (
-    findOfficialResultByIdForUserStatement.get({ id: resultId, userId }) ?? null
+    (await findOfficialResultByIdForUserStatement.get({ id: resultId, userId })) ?? null
   );
 };

@@ -18,20 +18,20 @@ const handleProfileError = (error: unknown, response: Response) => {
   response.status(500).json({ message: "Profile request failed." });
 };
 
-profileRouter.get("/", requireAuth, (request, response) => {
+profileRouter.get("/", requireAuth, async (request, response) => {
   try {
     response.status(200).json({
-      profile: getStudentProfile(request.user?.id ?? "")
+      profile: await getStudentProfile(request.user?.id ?? "")
     });
   } catch (error) {
     handleProfileError(error, response);
   }
 });
 
-profileRouter.put("/", requireAuth, (request, response) => {
+profileRouter.put("/", requireAuth, async (request, response) => {
   try {
     response.status(200).json({
-      profile: saveStudentProfile(
+      profile: await saveStudentProfile(
         request.user?.id ?? "",
         (request.body ?? {}) as UpdateStudentProfileInput
       )

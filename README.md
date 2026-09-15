@@ -38,7 +38,7 @@ curl http://localhost:4000/health
 
 ## Authentication
 
-The API stores users in SQLite and uses an HTTP-only JWT session cookie.
+The API stores users in the configured backend database and uses an HTTP-only JWT session cookie. Production uses PostgreSQL; local development can use SQLite.
 
 Copy the API environment example before running locally:
 

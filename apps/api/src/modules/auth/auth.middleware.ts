@@ -27,21 +27,25 @@ export const requireAuth = (
   }
 
   try {
-    const user = getUserFromToken(token);
+    void (async () => {
+      const user = await getUserFromToken(token);
 
-    if (!user) {
+      if (!user) {
+        response.status(401).json({ message: "Authentication required." });
+        return;
+      }
+
+      const profileIdentity = await getStudentProfileIdentity(user.id);
+      request.user = toPublicUser(
+        user,
+        profileIdentity.profileCompleted,
+        profileIdentity.username,
+        await isUserAdministrator(user.id, user.email)
+      );
+      next();
+    })().catch(() => {
       response.status(401).json({ message: "Authentication required." });
-      return;
-    }
-
-    const profileIdentity = getStudentProfileIdentity(user.id);
-    request.user = toPublicUser(
-      user,
-      profileIdentity.profileCompleted,
-      profileIdentity.username,
-      isUserAdministrator(user.id, user.email)
-    );
-    next();
+    });
   } catch {
     response.status(401).json({ message: "Authentication required." });
   }

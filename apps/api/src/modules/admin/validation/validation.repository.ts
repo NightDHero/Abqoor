@@ -78,17 +78,17 @@ const toValidationQuestion = (record: ValidationQuestionRecord) => {
   };
 };
 
-export const getValidationQuestions = () => {
-  return (importedQuestionsStatement.all() as ValidationQuestionRecord[]).map(
+export const getValidationQuestions = async () => {
+  return ((await importedQuestionsStatement.all()) as ValidationQuestionRecord[]).map(
     toValidationQuestion
   );
 };
 
-export const getValidationSummary = () => {
-  const questions = getValidationQuestions();
-  const total = totalQuestionsStatement.get() as { totalQuestions: number };
+export const getValidationSummary = async () => {
+  const questions = await getValidationQuestions();
+  const total = (await totalQuestionsStatement.get()) as { totalQuestions: number };
   const latestImportJob =
-    latestImportJobStatement.get() as LatestImportJobRecord;
+    (await latestImportJobStatement.get()) as LatestImportJobRecord;
 
   return {
     totalQuestions: total.totalQuestions,

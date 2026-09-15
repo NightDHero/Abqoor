@@ -19,15 +19,15 @@ const handleReviewError = (error: unknown, response: Response) => {
   response.status(500).json({ message: "Review Bank request failed." });
 };
 
-reviewRouter.get("/", requireAuth, (request, response) => {
+reviewRouter.get("/", requireAuth, async (request, response) => {
   try {
-    response.status(200).json(getReviewBank(request.user?.id ?? ""));
+    response.status(200).json(await getReviewBank(request.user?.id ?? ""));
   } catch (error) {
     handleReviewError(error, response);
   }
 });
 
-reviewRouter.post("/", requireAuth, (request, response) => {
+reviewRouter.post("/", requireAuth, async (request, response) => {
   try {
     const body = (request.body ?? {}) as {
       questionId?: unknown;
@@ -44,13 +44,13 @@ reviewRouter.post("/", requireAuth, (request, response) => {
 
     response
       .status(201)
-      .json(addReviewQuestion(request.user?.id ?? "", body.questionId, body.source));
+      .json(await addReviewQuestion(request.user?.id ?? "", body.questionId, body.source));
   } catch (error) {
     handleReviewError(error, response);
   }
 });
 
-reviewRouter.delete("/:id", requireAuth, (request, response) => {
+reviewRouter.delete("/:id", requireAuth, async (request, response) => {
   try {
     const reviewItemId = request.params.id;
 
@@ -58,7 +58,7 @@ reviewRouter.delete("/:id", requireAuth, (request, response) => {
       throw new ReviewError("reviewItemId is required.");
     }
 
-    removeReviewQuestion(request.user?.id ?? "", reviewItemId);
+    await removeReviewQuestion(request.user?.id ?? "", reviewItemId);
     response.status(204).send();
   } catch (error) {
     handleReviewError(error, response);

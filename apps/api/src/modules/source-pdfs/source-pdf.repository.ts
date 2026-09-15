@@ -53,7 +53,7 @@ const updateSourcePdfStatusStatement = db.prepare(`
   WHERE id = @id
 `);
 
-export const createSourcePdf = (input: {
+export const createSourcePdf = async (input: {
   createdBy: string;
   fileSize: number;
   id?: string;
@@ -76,19 +76,19 @@ export const createSourcePdf = (input: {
     uploadedAt: now
   };
 
-  insertSourcePdfStatement.run(record);
-  return findSourcePdfById(record.id) as SourcePdfRecord;
+  await insertSourcePdfStatement.run(record);
+  return (await findSourcePdfById(record.id)) as SourcePdfRecord;
 };
 
-export const findSourcePdfById = (id: string) => {
-  return findSourcePdfByIdStatement.get(id) ?? null;
+export const findSourcePdfById = async (id: string) => {
+  return (await findSourcePdfByIdStatement.get(id)) ?? null;
 };
 
-export const updateSourcePdfStatus = (
+export const updateSourcePdfStatus = async (
   id: string,
   status: SourcePdfStatus
 ) => {
-  updateSourcePdfStatusStatement.run({
+  await updateSourcePdfStatusStatement.run({
     id,
     status,
     updatedAt: new Date().toISOString()

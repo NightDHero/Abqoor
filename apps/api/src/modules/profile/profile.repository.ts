@@ -89,17 +89,17 @@ const findProfileByUsernameStatement = db.prepare<
     AND user_id <> @userId
 `);
 
-export const findStudentProfileByUserId = (userId: string) => {
-  return findProfileByUserIdStatement.get(userId) ?? null;
+export const findStudentProfileByUserId = async (userId: string) => {
+  return (await findProfileByUserIdStatement.get(userId)) ?? null;
 };
 
-export const isStudentProfileCompleted = (userId: string) => {
-  const profile = findStudentProfileByUserId(userId);
+export const isStudentProfileCompleted = async (userId: string) => {
+  const profile = await findStudentProfileByUserId(userId);
   return profile?.profile_completed === 1 && Boolean(profile.username);
 };
 
-export const getStudentProfileIdentity = (userId: string) => {
-  const profile = findStudentProfileByUserId(userId);
+export const getStudentProfileIdentity = async (userId: string) => {
+  const profile = await findStudentProfileByUserId(userId);
 
   return {
     profileCompleted:
@@ -108,11 +108,11 @@ export const getStudentProfileIdentity = (userId: string) => {
   };
 };
 
-export const isUsernameAvailable = (username: string, userId: string) => {
-  return !findProfileByUsernameStatement.get({ userId, username });
+export const isUsernameAvailable = async (username: string, userId: string) => {
+  return !(await findProfileByUsernameStatement.get({ userId, username }));
 };
 
-export const upsertStudentProfile = (input: {
+export const upsertStudentProfile = async (input: {
   attemptCount: number | null;
   examDate: string | null;
   hasExamDate: boolean;
@@ -127,9 +127,9 @@ export const upsertStudentProfile = (input: {
   weeklyStudyHours: WeeklyStudyHours;
 }) => {
   const now = new Date().toISOString();
-  const existing = findStudentProfileByUserId(input.userId);
+  const existing = await findStudentProfileByUserId(input.userId);
 
-  upsertProfileStatement.run({
+  await upsertProfileStatement.run({
     attemptCount: input.attemptCount,
     createdAt: existing?.created_at ?? now,
     examDate: input.examDate,

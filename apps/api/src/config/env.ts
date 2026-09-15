@@ -1,5 +1,4 @@
 import "dotenv/config";
-import { isAbsolute } from "node:path";
 
 const toPort = (value: string | undefined, fallback: number) => {
   const parsed = Number(value);
@@ -42,6 +41,38 @@ const toStorageDriver = (value: string | undefined, fallback: "local" | "r2") =>
   }
 
   throw new Error("STORAGE_DRIVER must be one of: local, r2.");
+};
+
+const toDatabaseDriver = (
+  value: string | undefined,
+  fallback: "postgres" | "sqlite"
+) => {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized) {
+    return fallback;
+  }
+
+  if (normalized === "postgres" || normalized === "sqlite") {
+    return normalized;
+  }
+
+  throw new Error("DATABASE_DRIVER must be one of: postgres, sqlite.");
+};
+
+const toBooleanEnv = (value: string | undefined, fallback: boolean) => {
+  if (!value?.trim()) {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
+
+  throw new Error("Boolean environment values must be true or false.");
 };
 
 const toIntegerInRange = (
@@ -112,6 +143,23 @@ const adminEmails = (process.env.ADMIN_EMAILS ?? "")
   .filter(Boolean);
 const initialAdminEmail = toOptionalString(process.env.INITIAL_ADMIN_EMAIL);
 const initialAdminPassword = toOptionalString(process.env.INITIAL_ADMIN_PASSWORD);
+const databaseDriver = toDatabaseDriver(
+  process.env.DATABASE_DRIVER,
+  nodeEnv === "production" ? "postgres" : "sqlite"
+);
+const databaseUrl = toOptionalString(process.env.DATABASE_URL);
+const databasePath = process.env.DATABASE_PATH ?? "./data/abqoor.sqlite";
+const databasePoolMax = toIntegerInRange(
+  process.env.DATABASE_POOL_MAX,
+  nodeEnv === "production" ? 3 : 5,
+  1,
+  20,
+  "DATABASE_POOL_MAX"
+);
+const databaseSsl = toBooleanEnv(
+  process.env.DATABASE_SSL,
+  databaseDriver === "postgres" && nodeEnv === "production"
+);
 const storageDriver = toStorageDriver(
   process.env.STORAGE_DRIVER,
   nodeEnv === "production" ? "r2" : "local"
@@ -137,17 +185,21 @@ if (nodeEnv === "production" && frontendOrigins.length === 0) {
   throw new Error("FRONTEND_ORIGIN must be set in production.");
 }
 
+if (nodeEnv === "production" && databaseDriver !== "postgres") {
+  throw new Error("DATABASE_DRIVER must be postgres in production.");
+}
+
+if (databaseDriver === "postgres" && !databaseUrl) {
+  throw new Error("DATABASE_URL is required when DATABASE_DRIVER=postgres.");
+}
+
+if (nodeEnv === "production" && !databaseUrl) {
+  throw new Error("DATABASE_URL is required in production.");
+}
+
 if (nodeEnv === "production" && sessionCookieSameSite !== "none") {
   throw new Error(
     "SESSION_COOKIE_SAMESITE must be none in production so Vercel can send cookies to the Render API."
-  );
-}
-
-const databasePath = process.env.DATABASE_PATH ?? "./data/abqoor.sqlite";
-
-if (nodeEnv === "production" && !isAbsolute(databasePath)) {
-  throw new Error(
-    "DATABASE_PATH must be an absolute persistent-disk path in production, for example /var/data/abqoor.sqlite."
   );
 }
 
@@ -164,6 +216,13 @@ export const env = {
   nodeEnv,
   port: toPort(process.env.PORT, 4000),
   frontendOrigins,
+  database: {
+    driver: databaseDriver,
+    path: databasePath,
+    poolMax: databasePoolMax,
+    ssl: databaseSsl,
+    url: databaseUrl
+  },
   databasePath,
   jwtSecret,
   sessionCookieName: process.env.SESSION_COOKIE_NAME ?? "abqoor_session",

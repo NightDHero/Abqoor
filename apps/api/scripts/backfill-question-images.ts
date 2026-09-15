@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { db } from "../src/database/client.js";
+import { closeDatabase, db } from "../src/database/client.js";
 import {
   getLegacyQuestionImagePath,
   getQuestionImagePath,
@@ -41,7 +41,7 @@ const localImagePathForQuestion = (question: QuestionImageRow) => {
 };
 
 const backfillQuestionImages = async () => {
-  const questions = db
+  const questions = await db
     .prepare<[], QuestionImageRow>(
       `
         SELECT id, question_image_url, image_storage_key
@@ -65,7 +65,7 @@ const backfillQuestionImages = async () => {
       }
 
       if (await objectStorage.objectExists(targetKey)) {
-        updateQuestionStorageStatement.run({
+        await updateQuestionStorageStatement.run({
           id: question.id,
           imageStorageKey: targetKey,
           questionImageUrl: getQuestionImageUrl(question.id),
@@ -97,7 +97,7 @@ const backfillQuestionImages = async () => {
         throw new Error(`Uploaded object could not be verified: ${targetKey}`);
       }
 
-      updateQuestionStorageStatement.run({
+      await updateQuestionStorageStatement.run({
         id: question.id,
         imageStorageKey: targetKey,
         questionImageUrl: getQuestionImageUrl(question.id),
@@ -125,4 +125,4 @@ const backfillQuestionImages = async () => {
 };
 
 await backfillQuestionImages();
-db.close();
+await closeDatabase();

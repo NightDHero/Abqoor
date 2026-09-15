@@ -12,12 +12,12 @@ process.env.JWT_SECRET = "admin-accounts-test-secret";
 process.env.NODE_ENV = "test";
 
 const { createApp } = await import("../src/app.js");
-const { db } = await import("../src/database/client.js");
+const { closeDatabase, db } = await import("../src/database/client.js");
 const { ensureSeedAdminAccount } = await import(
   "../src/modules/admin/admin.service.js"
 );
 
-const app = createApp();
+const app = await createApp();
 const server = app.listen(0);
 await new Promise<void>((resolve) => server.once("listening", resolve));
 const address = server.address();
@@ -261,6 +261,6 @@ after(async () => {
   await new Promise<void>((resolve, reject) =>
     server.close((error) => (error ? reject(error) : resolve()))
   );
-  db.close();
+  await closeDatabase();
   rmSync(testDirectory, { force: true, recursive: true });
 });

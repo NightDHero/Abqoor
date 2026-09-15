@@ -12,6 +12,7 @@ import {
   runSessionLifecycleTransaction,
   saveSessionAnswerAndThen
 } from "./session.repository.js";
+import type { SessionRecord } from "./session.repository.js";
 import { recordExamResultAfterCompletion } from "./session-analytics.service.js";
 import type {
   InternalSessionQuestion,
@@ -61,9 +62,9 @@ const toPublicQuestion = (question: InternalSessionQuestion): SessionQuestion =>
   difficultyScore: question.difficultyScore
 });
 
-const getBootstrapQuestions = () => {
+const getBootstrapQuestions = async () => {
   const questionsById = new Map(
-    getQuestions({})
+    (await getQuestions({}))
       .filter((question) => question.source === "pdf")
       .map((question) => [question.id, question] as const)
   );
@@ -133,10 +134,10 @@ const getSessionQuestionIds = (questionOrder: string) => {
   return selectedQuestionIds.length > 0 ? selectedQuestionIds : bootstrapQuestionIds;
 };
 
-const buildQuestionHistory = (userId: string) => {
+const buildQuestionHistory = async (userId: string) => {
   const history = new Map<string, { attempts: number; lastIsCorrect: boolean }>();
 
-  for (const answer of findUserAnswerHistory(userId)) {
+  for (const answer of await findUserAnswerHistory(userId)) {
     const existing = history.get(answer.question_id);
 
     history.set(answer.question_id, {
@@ -148,12 +149,12 @@ const buildQuestionHistory = (userId: string) => {
   return history;
 };
 
-const selectAdaptiveQuestions = (
+const selectAdaptiveQuestions = async (
   questions: InternalSessionQuestion[],
   userId: string,
   questionLimit = adaptiveSessionQuestionLimit
 ) => {
-  const history = buildQuestionHistory(userId);
+  const history = await buildQuestionHistory(userId);
   const hasHistory = history.size > 0;
   const groupedQuestions = groupByTopic(questions);
   const topicBuckets = [...groupedQuestions.values()].map((topicQuestions) => {
@@ -201,20 +202,20 @@ const selectAdaptiveQuestions = (
   return selectedQuestions;
 };
 
-const getBootstrapQuestionById = (questionId: string) => {
+const getBootstrapQuestionById = async (questionId: string) => {
   if (!bootstrapQuestionIds.includes(questionId)) {
     return null;
   }
 
-  const question = getQuestions({}).find(
+  const question = (await getQuestions({})).find(
     (candidate) => candidate.id === questionId && candidate.source === "pdf"
   );
 
   return question ? toSessionQuestion(question) : null;
 };
 
-const getOwnedSession = (sessionId: string, userId: string) => {
-  const session = findSession(sessionId);
+const getOwnedSession = async (sessionId: string, userId: string) => {
+  const session = await findSession(sessionId);
 
   if (!session || session.user_id !== userId) {
     throw new SessionError("Session not found.", 404);
@@ -223,8 +224,11 @@ const getOwnedSession = (sessionId: string, userId: string) => {
   return session;
 };
 
-const calculateResult = (sessionId: string, totalQuestions: number): SessionResult => {
-  const { answeredQuestions, correctAnswers } = countSessionAnswers(sessionId);
+const calculateResult = async (
+  sessionId: string,
+  totalQuestions: number
+): Promise<SessionResult> => {
+  const { answeredQuestions, correctAnswers } = await countSessionAnswers(sessionId);
   const incorrectAnswers = answeredQuestions - correctAnswers;
   const finalScorePercentage =
     answeredQuestions === 0
@@ -243,22 +247,24 @@ const calculateResult = (sessionId: string, totalQuestions: number): SessionResu
 };
 
 const completeSessionIfReady = (
-  session: ReturnType<typeof getOwnedSession>,
+  session: SessionRecord,
   totalQuestions: number
 ) => {
-  const result = calculateResult(session.session_id, totalQuestions);
+  return (async () => {
+    const result = await calculateResult(session.session_id, totalQuestions);
 
-  if (result.answeredQuestions !== result.totalQuestions) {
-    return;
-  }
+    if (result.answeredQuestions !== result.totalQuestions) {
+      return;
+    }
 
-  const examResult = recordExamResultAfterCompletion(session, result);
-  if (examResult) {
-    markSessionCompleted(session.session_id);
-  }
+    const examResult = await recordExamResultAfterCompletion(session, result);
+    if (examResult) {
+      await markSessionCompleted(session.session_id);
+    }
+  })();
 };
 
-export const startLearningSession = (
+export const startLearningSession = async (
   userId: string,
   options: { questionLimit?: number } = {}
 ) => {
@@ -274,14 +280,14 @@ export const startLearningSession = (
     );
   }
 
-  const questions = getBootstrapQuestions();
-  const selectedQuestions = selectAdaptiveQuestions(
+  const questions = await getBootstrapQuestions();
+  const selectedQuestions = await selectAdaptiveQuestions(
     questions,
     userId,
     questionLimit
   );
   const now = new Date().toISOString();
-  const session = createSession({
+  const session = await createSession({
     sessionId: randomUUID(),
     userId,
     questionOrder: selectedQuestions.map((question) => question.id),
@@ -301,7 +307,7 @@ export const startLearningSession = (
   };
 };
 
-export const submitSessionAnswer = (
+export const submitSessionAnswer = async (
   userId: string,
   input: {
     sessionId: string;
@@ -322,20 +328,20 @@ export const submitSessionAnswer = (
     throw new SessionError("userAnswer must be one of A, B, C, D.");
   }
 
-  const session = getOwnedSession(input.sessionId, userId);
+  const session = await getOwnedSession(input.sessionId, userId);
 
   if (session.status === "completed") {
     throw new SessionError("Completed sessions cannot be modified.", 409);
   }
 
   const sessionQuestionIds = getSessionQuestionIds(session.question_order);
-  const currentResult = calculateResult(
+  const currentResult = await calculateResult(
     session.session_id,
     sessionQuestionIds.length
   );
 
   if (currentResult.answeredQuestions === currentResult.totalQuestions) {
-    runSessionLifecycleTransaction(() =>
+    await runSessionLifecycleTransaction(() =>
       completeSessionIfReady(session, sessionQuestionIds.length)
     );
     throw new SessionError("Completed sessions cannot be modified.", 409);
@@ -345,11 +351,11 @@ export const submitSessionAnswer = (
     throw new SessionError("Question is not part of this session.", 404);
   }
 
-  if (findSessionAnswer(session.session_id, input.questionId)) {
+  if (await findSessionAnswer(session.session_id, input.questionId)) {
     throw new SessionError("Question has already been answered.", 409);
   }
 
-  const question = getBootstrapQuestionById(input.questionId);
+  const question = await getBootstrapQuestionById(input.questionId);
 
   if (!question) {
     throw new SessionError("Question is not part of this session.", 404);
@@ -368,7 +374,7 @@ export const submitSessionAnswer = (
     answeredAt: new Date().toISOString()
   };
 
-  const saved = saveSessionAnswerAndThen(
+  const saved = await saveSessionAnswerAndThen(
     {
       sessionId: session.session_id,
       questionId: answer.questionId,
@@ -377,12 +383,12 @@ export const submitSessionAnswer = (
       activeDurationSeconds: answer.activeDurationSeconds,
       createdAt: answer.answeredAt
     },
-    () => {
+    async () => {
       if (!answer.isCorrect) {
-        recordWrongAnswerReview(userId, answer.questionId);
+        await recordWrongAnswerReview(userId, answer.questionId);
       }
 
-      completeSessionIfReady(session, sessionQuestionIds.length);
+      await completeSessionIfReady(session, sessionQuestionIds.length);
     }
   );
 
@@ -396,13 +402,13 @@ export const submitSessionAnswer = (
   };
 };
 
-export const getSessionResult = (userId: string, sessionId: string) => {
+export const getSessionResult = async (userId: string, sessionId: string) => {
   if (!sessionId.trim()) {
     throw new SessionError("sessionId is required.");
   }
 
-  const session = getOwnedSession(sessionId, userId);
-  const result = calculateResult(
+  const session = await getOwnedSession(sessionId, userId);
+  const result = await calculateResult(
     session.session_id,
     getSessionQuestionIds(session.question_order).length
   );

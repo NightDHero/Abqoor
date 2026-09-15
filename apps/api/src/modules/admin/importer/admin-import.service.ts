@@ -171,13 +171,13 @@ const withProgress = (detail: ImportJobDetail): ImportJobDetail => {
     : { ...detail, job: { ...detail.job, processedCount: progress } };
 };
 
-export const getImportJobDetail = (jobId: string) => {
-  const job = findImportJob(jobId);
+export const getImportJobDetail = async (jobId: string) => {
+  const job = await findImportJob(jobId);
   if (!job) {
     throw new AdminImportError("عملية الاستيراد غير موجودة.", 404);
   }
 
-  return withProgress({ job, items: listImportJobItems(jobId) });
+  return withProgress({ job, items: await listImportJobItems(jobId) });
 };
 
 const analyzePdfMedia = async (
@@ -197,7 +197,7 @@ const analyzePdfMedia = async (
   });
 
   try {
-    createSourcePdf({
+    await createSourcePdf({
       createdBy: request.createdBy,
       fileSize: pdf.buffer.length,
       id: sourcePdfId,
@@ -210,7 +210,7 @@ const analyzePdfMedia = async (
     throw error;
   }
 
-  setImportJobSourcePdf({ id: jobId, sourcePdfId });
+  await setImportJobSourcePdf({ id: jobId, sourcePdfId });
 
   try {
     const pages = selectPdfPages(
@@ -248,7 +248,7 @@ const analyzePdfMedia = async (
 
     return { found: pageCount, mapping, sourcePdfId, totalPages: pageCount };
   } catch (error) {
-    updateSourcePdfStatus(sourcePdfId, "failed");
+    await updateSourcePdfStatus(sourcePdfId, "failed");
     throw error;
   }
 };
@@ -293,7 +293,7 @@ export const analyzeQuestionImport = async (
 
   const sourceType = request.pdf ? "pdf" : "images";
   const mediaFilename = request.pdf?.originalname ?? `${request.images?.length ?? 0} صور PNG`;
-  const job = createImportJob({
+  const job = await createImportJob({
     createdBy: request.createdBy,
     excelFilename: request.excel.originalname,
     mediaFilename,
@@ -325,7 +325,8 @@ export const analyzeQuestionImport = async (
     }
 
     const now = new Date().toISOString();
-    const items: ImportJobItem[] = workbook.questions.map((question) => {
+    const items: ImportJobItem[] = [];
+    for (const question of workbook.questions) {
       const mediaMatch = media.mapping.get(question.questionNumber);
       const itemIssues = [...question.issues];
       if (!mediaMatch) {
@@ -338,7 +339,7 @@ export const analyzeQuestionImport = async (
         issues.push(missing);
       }
 
-      return {
+      items.push({
         importJobId: job.id,
         questionNumber: question.questionNumber,
         questionId: toQuestionId(question.questionNumber),
@@ -358,7 +359,9 @@ export const analyzeQuestionImport = async (
           ? "error"
           : "valid",
         errors: itemIssues,
-        isDuplicate: Boolean(findQuestionById(toQuestionId(question.questionNumber))),
+        isDuplicate: Boolean(
+          await findQuestionById(toQuestionId(question.questionNumber))
+        ),
         duplicateAction: null,
         outcome: "pending",
         previousQuestion: null,
@@ -366,10 +369,10 @@ export const analyzeQuestionImport = async (
         previousImageExisted: false,
         createdAt: now,
         updatedAt: now
-      };
-    });
+      });
+    }
 
-    insertImportItems(items);
+    await insertImportItems(items);
 
     const matched = items.filter((item) => item.imageStatus === "matched").length;
     const mediaSummary: MediaSummary = {
@@ -382,7 +385,7 @@ export const analyzeQuestionImport = async (
     const validCount = items.filter((item) => item.validationStatus === "valid").length;
     const errorCount = issues.filter((item) => item.severity === "error").length;
 
-    completeImportAnalysis({
+    await completeImportAnalysis({
       id: job.id,
       status: "ready",
       totalPages: media.totalPages,
@@ -399,9 +402,9 @@ export const analyzeQuestionImport = async (
 
     return getImportJobDetail(job.id);
   } catch (error) {
-    const failedJob = findImportJob(job.id);
+    const failedJob = await findImportJob(job.id);
     if (failedJob?.sourcePdfId) {
-      updateSourcePdfStatus(failedJob.sourcePdfId, "failed");
+      await updateSourcePdfStatus(failedJob.sourcePdfId, "failed");
     }
     const message =
       error instanceof Error
@@ -409,7 +412,7 @@ export const analyzeQuestionImport = async (
         : "تعذر تحليل ملفات الاستيراد.";
     removeImportMedia(job.id);
     await removeImportObjectMedia(job.id);
-    completeImportAnalysis({
+    await completeImportAnalysis({
       id: job.id,
       status: "failed",
       totalPages: 0,
@@ -494,8 +497,8 @@ const commitImport = async (
   const promotedItems: PromotedImportItem[] = [];
 
   try {
-    const job = findImportJob(jobId);
-    const items = listImportJobItems(jobId);
+    const job = await findImportJob(jobId);
+    const items = await listImportJobItems(jobId);
     if (!job || job.status !== "importing") {
       throw new Error("Import job is not ready for commit.");
     }
@@ -527,7 +530,7 @@ const commitImport = async (
         continue;
       }
 
-      const existing = findQuestionById(item.questionId);
+      const existing = await findQuestionById(item.questionId);
       if (item.isDuplicate && !existing) {
         throw new Error(`السؤال ${item.questionNumber} تغير بعد المعاينة.`);
       }
@@ -569,9 +572,9 @@ const commitImport = async (
       activeProgress.set(jobId, processedCount);
     }
 
-    runImportTransaction(() => {
+    await runImportTransaction(async () => {
       for (const skipped of skippedUpdates) {
-        updateImportItemResult({
+        await updateImportItemResult({
           importJobId: jobId,
           questionNumber: skipped.item.questionNumber,
           duplicateAction: skipped.action,
@@ -583,7 +586,7 @@ const commitImport = async (
       }
 
       for (const update of databaseUpdates) {
-        saveQuestion({
+        await saveQuestion({
           id: update.item.questionId,
           questionImageUrl: getQuestionImageUrl(update.item.questionId),
           imageStorageKey: update.targetStorageKey,
@@ -601,12 +604,12 @@ const commitImport = async (
           importJobId: jobId
         });
 
-        const applied = findQuestionById(update.item.questionId);
+        const applied = await findQuestionById(update.item.questionId);
         if (!applied) {
           throw new Error(`تعذر حفظ السؤال ${update.item.questionNumber}.`);
         }
 
-        updateImportItemResult({
+        await updateImportItemResult({
           importJobId: jobId,
           questionNumber: update.item.questionNumber,
           duplicateAction: update.action,
@@ -617,7 +620,7 @@ const commitImport = async (
         });
       }
 
-      completeImportJob({
+      await completeImportJob({
         id: jobId,
         processedCount,
         successCount: createdCount + replacedCount,
@@ -634,7 +637,7 @@ const commitImport = async (
     await restorePromotedImages(jobId, promotedItems);
     removeImportMedia(jobId);
     await removeImportObjectMedia(jobId);
-    failImportJob(
+    await failImportJob(
       jobId,
       error instanceof Error ? error.message : "فشلت معاملة الاستيراد."
     );
@@ -643,11 +646,11 @@ const commitImport = async (
   }
 };
 
-export const confirmQuestionImport = (
+export const confirmQuestionImport = async (
   jobId: string,
   request: ConfirmImportRequest
 ) => {
-  const detail = getImportJobDetail(jobId);
+  const detail = await getImportJobDetail(jobId);
   if (detail.job.status !== "ready") {
     throw new AdminImportError("عملية الاستيراد ليست جاهزة للتأكيد.", 409);
   }
@@ -656,7 +659,7 @@ export const confirmQuestionImport = (
   }
 
   const decisions = planDuplicateActions(detail.items, request);
-  if (!markImportJobImporting(jobId)) {
+  if (!(await markImportJobImporting(jobId))) {
     throw new AdminImportError("تم تغيير حالة الاستيراد. حدّث الصفحة وحاول مجدداً.", 409);
   }
 
@@ -666,7 +669,7 @@ export const confirmQuestionImport = (
 };
 
 export const cancelQuestionImport = async (jobId: string) => {
-  if (!cancelImportJob(jobId)) {
+  if (!(await cancelImportJob(jobId))) {
     throw new AdminImportError("لا يمكن إلغاء عملية الاستيراد في حالتها الحالية.", 409);
   }
   removeImportMedia(jobId);
@@ -675,7 +678,7 @@ export const cancelQuestionImport = async (jobId: string) => {
 };
 
 export const rollbackQuestionImport = async (jobId: string) => {
-  const detail = getImportJobDetail(jobId);
+  const detail = await getImportJobDetail(jobId);
   if (detail.job.status !== "completed") {
     throw new AdminImportError("يمكن التراجع عن عمليات الاستيراد المكتملة فقط.", 409);
   }
@@ -684,14 +687,17 @@ export const rollbackQuestionImport = async (jobId: string) => {
     (item) => item.outcome === "created" || item.outcome === "replaced"
   );
   for (const item of changedItems) {
-    const current = findQuestionById(item.questionId);
+    const current = await findQuestionById(item.questionId);
     if (!current || current.import_job_id !== jobId) {
       throw new AdminImportError(
         `تعذر التراجع لأن السؤال ${item.questionNumber} تغير بعد هذا الاستيراد.`,
         409
       );
     }
-    if (item.outcome === "created" && countQuestionReferences(item.questionId) > 0) {
+    if (
+      item.outcome === "created" &&
+      (await countQuestionReferences(item.questionId)) > 0
+    ) {
       throw new AdminImportError(
         `تعذر حذف السؤال ${item.questionNumber} لأنه مستخدم في بيانات تعلم حالية.`,
         409
@@ -705,7 +711,7 @@ export const rollbackQuestionImport = async (jobId: string) => {
   >();
   try {
     for (const item of changedItems) {
-      const current = findQuestionById(item.questionId);
+      const current = await findQuestionById(item.questionId);
       objectSnapshots.set(item.questionId, {
         buffer: current
           ? await readQuestionImageObject(item.questionId, current.image_storage_key)
@@ -733,20 +739,20 @@ export const rollbackQuestionImport = async (jobId: string) => {
       }
     }
 
-    runImportTransaction(() => {
+    await runImportTransaction(async () => {
       for (const item of changedItems) {
         if (item.outcome === "created") {
-          deleteQuestion(item.questionId);
+          await deleteQuestion(item.questionId);
           continue;
         }
 
         if (!item.previousQuestion) {
           throw new Error(`لقطة السؤال ${item.questionNumber} السابقة غير موجودة.`);
         }
-        restoreQuestionRecord(item.previousQuestion);
+        await restoreQuestionRecord(item.previousQuestion);
       }
 
-      if (!markImportJobRolledBack(jobId)) {
+      if (!(await markImportJobRolledBack(jobId))) {
         throw new Error("تعذر تحديث سجل التراجع.");
       }
     });
@@ -769,7 +775,7 @@ export const rollbackQuestionImport = async (jobId: string) => {
   return getImportJobDetail(jobId);
 };
 
-export const getImportHistory = () => ({ jobs: listImportJobs() });
+export const getImportHistory = async () => ({ jobs: await listImportJobs() });
 
 const normalizeTopicCountKey = (
   subjectId: LearningSubject,
@@ -779,7 +785,7 @@ const normalizeTopicCountKey = (
   return `${subjectId}:${topicId ?? topicLabel}`;
 };
 
-const toQuestionCountOverview = () => {
+const toQuestionCountOverview = async () => {
   const topicMaps = new Map<
     LearningSubject,
     Map<string, MutableAdminQuestionTopicCount>
@@ -812,7 +818,7 @@ const toQuestionCountOverview = () => {
     topicMaps.set(subjectId, topics);
   }
 
-  for (const row of listAdminQuestionTopicCounts()) {
+  for (const row of await listAdminQuestionTopicCounts()) {
     const subjectId = row.subject_id ?? legacySubjectToSubject[row.subject];
     const topics = topicMaps.get(subjectId);
 
@@ -882,13 +888,13 @@ const toQuestionCountOverview = () => {
   return { subjects };
 };
 
-export const getAdminQuestionBank = (input: {
+export const getAdminQuestionBank = async (input: {
   query?: string;
   page: number;
   pageSize: number;
   sort: "asc" | "desc";
 }) => {
-  const result = listAdminQuestions(input) as {
+  const result = (await listAdminQuestions(input)) as {
     page: number;
     pageSize: number;
     total: number;
@@ -898,7 +904,7 @@ export const getAdminQuestionBank = (input: {
   };
   return {
     ...result,
-    questionCounts: toQuestionCountOverview(),
+    questionCounts: await toQuestionCountOverview(),
     questions: result.questions.map((question) => ({
       ...question,
       imageExists: Boolean(question.imageStorageKey) || questionImageExists(question.id),

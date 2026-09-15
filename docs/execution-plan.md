@@ -23,7 +23,7 @@ This document is the master execution control file for the entire Abqoor project
 Tasks:
 
 - Backend setup with Express, Node.js, and TypeScript
-- Database connection with SQLite
+- Database connection with the configured relational database
 - Authentication system
 - Media system for question image storage
 - Base project structure

@@ -22,6 +22,6 @@ const findUserProgressActivityStatement = db.prepare<
   ORDER BY session_answers.created_at ASC
 `);
 
-export const findUserProgressActivity = (userId: string) => {
-  return findUserProgressActivityStatement.all(userId);
+export const findUserProgressActivity = async (userId: string) => {
+  return await findUserProgressActivityStatement.all(userId);
 };

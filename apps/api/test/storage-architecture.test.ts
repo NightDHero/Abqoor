@@ -15,7 +15,7 @@ process.env.NODE_ENV = "test";
 process.env.STORAGE_DRIVER = "local";
 
 const { createApp } = await import("../src/app.js");
-const { db } = await import("../src/database/client.js");
+const { closeDatabase, db } = await import("../src/database/client.js");
 const { optimizeQuestionImage } = await import(
   "../src/modules/media/question-image-optimizer.service.js"
 );
@@ -30,7 +30,7 @@ const { createR2ObjectStorage } = await import(
   "../src/modules/storage/object-storage.service.js"
 );
 
-const app = createApp();
+const app = await createApp();
 const server = app.listen(0);
 await new Promise<void>((resolve) => server.once("listening", resolve));
 const address = server.address();
@@ -297,6 +297,6 @@ after(async () => {
   await new Promise<void>((resolve, reject) =>
     server.close((error) => (error ? reject(error) : resolve()))
   );
-  db.close();
+  await closeDatabase();
   rmSync(testDirectory, { force: true, recursive: true });
 });

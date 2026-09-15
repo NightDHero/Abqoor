@@ -4,10 +4,10 @@
 
 Abqoor production uses two persistent stores:
 
-- SQLite on a Render persistent disk for structured application data.
+- Supabase PostgreSQL for structured application data.
 - Private Cloudflare R2 for PDF and question-image binaries.
 
-The local filesystem is not permanent production storage. It is used for local development, tests, upload scratch files, PDF rendering scratch files, and pre-backfill legacy image input.
+Render Free does not provide persistent disks, so production must not rely on SQLite files for durable structured data. The local filesystem is only for local development, tests, upload scratch files, PDF rendering scratch files, and pre-backfill legacy image input.
 
 ## Production Configuration
 
@@ -15,7 +15,10 @@ Render backend:
 
 ```text
 NODE_ENV=production
-DATABASE_PATH=/var/data/abqoor.sqlite
+DATABASE_DRIVER=postgres
+DATABASE_URL=postgresql://...
+DATABASE_POOL_MAX=3
+DATABASE_SSL=true
 STORAGE_DRIVER=r2
 R2_ACCOUNT_ID=...
 R2_BUCKET=...
@@ -25,9 +28,10 @@ QUESTION_IMAGE_WEBP_QUALITY=88
 JWT_SECRET=<at least 32 characters>
 SESSION_COOKIE_NAME=abqoor_session
 SESSION_COOKIE_SAMESITE=none
+FRONTEND_ORIGIN=https://abqoor-web.vercel.app
 ```
 
-`R2_PUBLIC_BASE_URL` may be present but is intentionally unused while the bucket remains private and images are served through the API.
+Use the Supabase dashboard connection string that is compatible with Render's network environment. Supavisor session mode is the recommended starting point for a persistent Node backend. Do not expose `DATABASE_URL` to the frontend.
 
 Vercel frontend:
 
@@ -35,17 +39,43 @@ Vercel frontend:
 VITE_API_URL=https://<render-api-host>
 ```
 
-## SQLite
+`R2_PUBLIC_BASE_URL` may be present but is intentionally unused while the bucket remains private and images are served through the API.
 
-The backend owns database initialization and migrations. Production must use the persistent disk path:
+## Local Development
+
+Local development defaults to SQLite unless `DATABASE_DRIVER=postgres` is set:
 
 ```text
-/var/data/abqoor.sqlite
+DATABASE_DRIVER=sqlite
+DATABASE_PATH=./data/abqoor.sqlite
 ```
 
-Relative production database paths are rejected at startup to avoid accidentally creating a fresh database inside Render's ephemeral working directory.
+SQLite remains only for local development, tests, and intentional migration tooling. Production fails fast unless `DATABASE_DRIVER=postgres` and `DATABASE_URL` are configured.
 
-SQLite runs with WAL, foreign keys, a short busy timeout, and WAL-friendly synchronous settings. This supports Abqoor's current single Render API process while letting concurrent requests wait briefly on write locks.
+## PostgreSQL
+
+The backend owns PostgreSQL schema initialization. Startup applies the schema migrations through one shared `pg` connection pool. Pool size is intentionally small for Render Free.
+
+Structured data includes users, profiles, admin accounts, questions, source PDF metadata, import jobs, sessions, answers, exam attempts/results, and review-bank items. Timestamps are stored as ISO text strings to preserve the existing application-level date and timezone behavior.
+
+## SQLite To PostgreSQL Migration
+
+Run the migration intentionally after configuring a safe target `DATABASE_URL`:
+
+```text
+SQLITE_DATABASE_PATH=./data/abqoor.sqlite DATABASE_URL=postgresql://... npm run db:migrate-sqlite-to-postgres -w apps/api
+```
+
+The command:
+
+- applies the PostgreSQL schema,
+- copies rows in dependency order,
+- preserves existing IDs and timestamps,
+- upserts rows so it is safe to rerun,
+- reports source and target row counts,
+- never deletes or modifies the SQLite source file.
+
+Do not run the migration against a disposable or production database by accident. Keep a SQLite backup until production has been verified.
 
 ## R2
 
@@ -98,7 +128,7 @@ Critical object writes and promotions are verified. The importer should fail vis
 
 ## Question Image Serving
 
-Clients use `/question-images/:fileName`. The backend resolves the canonical question, reads `image_storage_key`, and streams the object with the correct content type.
+Clients use `/question-images/:fileName`. The backend resolves the canonical question from PostgreSQL, reads `image_storage_key`, and streams the object with the correct content type.
 
 Production does not serve arbitrary local fallback files for missing question records or missing stored objects. Development can still use legacy local images for compatibility.
 
@@ -110,7 +140,7 @@ Run only after R2 configuration is validated:
 npm run storage:backfill-images -w apps/api
 ```
 
-The script uploads local legacy images to object storage, verifies each write, and updates SQLite only after successful storage. It is resumable and does not delete local images.
+The script uploads local legacy images to object storage, verifies each write, and updates database metadata only after successful storage. It is resumable and does not delete local images.
 
 ## R2 Smoke Test
 
@@ -122,6 +152,16 @@ npm run storage:smoke-r2 -w apps/api
 
 The smoke test writes, reads, copies, deletes, and verifies one generated temporary object. It must not be run without intended R2 credentials.
 
-## Recovery Limits
+## Cutover And Rollback
 
-SQLite data is recoverable only if the Render persistent disk is intact or separately backed up. R2 stores PDFs and question images, but R2 does not back up SQLite. A complete recovery plan needs both the SQLite file and the R2 bucket contents.
+Recommended cutover:
+
+1. Create the Supabase project.
+2. Copy the Supavisor/session-mode `DATABASE_URL`.
+3. Run the SQLite-to-PostgreSQL migration against the target database.
+4. Set Render `DATABASE_DRIVER=postgres` and `DATABASE_URL`.
+5. Deploy the backend.
+6. Verify health, login, admin, question loading, study sessions, progress, importer, and R2 image serving.
+7. Keep the old SQLite file as a backup.
+
+If the PostgreSQL deployment fails before accepting new writes, revert Render env/code to the previous known-good deployment and keep SQLite untouched. If PostgreSQL has accepted new production writes, rollback requires a deliberate data reconciliation plan; SQLite is no longer an automatic rollback source.

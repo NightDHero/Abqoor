@@ -181,7 +181,7 @@ importerRouter.post("/analyze", adminImportRateLimit, acceptAnalyzeUpload, async
   }
 });
 
-importerRouter.get("/questions", (request, response) => {
+importerRouter.get("/questions", async (request, response) => {
   try {
     const page = toPositiveInteger(request.query.page) ?? 1;
     const requestedPageSize = toPositiveInteger(request.query.pageSize) ?? 50;
@@ -191,29 +191,29 @@ importerRouter.get("/questions", (request, response) => {
       typeof request.query.query === "string" ? request.query.query : undefined;
 
     response.status(200).json(
-      getAdminQuestionBank({ page, pageSize, query, sort })
+      await getAdminQuestionBank({ page, pageSize, query, sort })
     );
   } catch (error) {
     handleRouteError(error, response);
   }
 });
 
-importerRouter.get("/jobs", (_request, response) => {
-  response.status(200).json(getImportHistory());
+importerRouter.get("/jobs", async (_request, response) => {
+  response.status(200).json(await getImportHistory());
 });
 
-importerRouter.get("/jobs/:id", (request, response) => {
+importerRouter.get("/jobs/:id", async (request, response) => {
   try {
-    response.status(200).json(getImportJobDetail(request.params.id));
+    response.status(200).json(await getImportJobDetail(request.params.id));
   } catch (error) {
     handleRouteError(error, response);
   }
 });
 
-importerRouter.post("/jobs/:id/confirm", adminImportRateLimit, (request, response) => {
+importerRouter.post("/jobs/:id/confirm", adminImportRateLimit, async (request, response) => {
   try {
     const jobId = String(request.params.id);
-    const detail = confirmQuestionImport(
+    const detail = await confirmQuestionImport(
       jobId,
       (request.body ?? {}) as ConfirmImportRequest
     );
@@ -241,7 +241,7 @@ importerRouter.post("/jobs/:id/rollback", adminImportRateLimit, async (request, 
 
 importerRouter.get("/source-pdfs/:id/file", async (request, response) => {
   try {
-    const sourcePdf = findSourcePdfById(request.params.id);
+    const sourcePdf = await findSourcePdfById(request.params.id);
     if (!sourcePdf) {
       response.status(404).json({ message: "ملف PDF غير موجود." });
       return;

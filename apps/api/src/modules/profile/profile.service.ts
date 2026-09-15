@@ -185,29 +185,29 @@ const normalizeProfileInput = (input: UpdateStudentProfileInput) => {
   };
 };
 
-export const getStudentProfile = (userId: string): StudentProfile => {
+export const getStudentProfile = async (userId: string): Promise<StudentProfile> => {
   if (!userId.trim()) {
     throw new ProfileError("تسجيل الدخول مطلوب.", 401);
   }
 
-  return toStudentProfile(userId, findStudentProfileByUserId(userId));
+  return toStudentProfile(userId, await findStudentProfileByUserId(userId));
 };
 
-export const saveStudentProfile = (
+export const saveStudentProfile = async (
   userId: string,
   input: UpdateStudentProfileInput
-): StudentProfile => {
+): Promise<StudentProfile> => {
   if (!userId.trim()) {
     throw new ProfileError("تسجيل الدخول مطلوب.", 401);
   }
 
   const normalized = normalizeProfileInput(input);
 
-  if (!isUsernameAvailable(normalized.username, userId)) {
+  if (!(await isUsernameAvailable(normalized.username, userId))) {
     throw new ProfileError("اسم المستخدم مستخدم بالفعل. اختر اسماً آخر.", 409);
   }
 
-  const savedProfile = upsertStudentProfile({
+  const savedProfile = await upsertStudentProfile({
     ...normalized,
     userId
   });

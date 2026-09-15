@@ -36,14 +36,14 @@ sessionRouter.post(
   "/start",
   requireAuth,
   studySessionRateLimit,
-  (request: Request, response: Response) => {
+  async (request: Request, response: Response) => {
     try {
       const body = (request.body ?? {}) as {
         questionLimit?: unknown;
       };
       const questionLimit =
         typeof body.questionLimit === "number" ? body.questionLimit : undefined;
-      const session = startLearningSession(request.user?.id ?? "", {
+      const session = await startLearningSession(request.user?.id ?? "", {
         questionLimit
       });
       response.status(201).json(session);
@@ -57,7 +57,7 @@ sessionRouter.post(
   "/submit",
   requireAuth,
   studySessionRateLimit,
-  (request: Request, response: Response) => {
+  async (request: Request, response: Response) => {
     try {
       const body = request.body as {
         sessionId?: unknown;
@@ -74,7 +74,7 @@ sessionRouter.post(
         throw new SessionError("questionId is required.");
       }
 
-      const result = submitSessionAnswer(request.user?.id ?? "", {
+      const result = await submitSessionAnswer(request.user?.id ?? "", {
         sessionId: body.sessionId,
         questionId: body.questionId,
         userAnswer: body.userAnswer,
@@ -88,10 +88,10 @@ sessionRouter.post(
   }
 );
 
-sessionRouter.get("/progress", requireAuth, (request: Request, response: Response) => {
+sessionRouter.get("/progress", requireAuth, async (request: Request, response: Response) => {
   try {
     response.status(200).json(
-      getStudyProgress(request.user?.id ?? "", {
+      await getStudyProgress(request.user?.id ?? "", {
         month: request.query.month,
         timeZone: request.query.timeZone
       })
@@ -101,7 +101,7 @@ sessionRouter.get("/progress", requireAuth, (request: Request, response: Respons
   }
 });
 
-sessionRouter.get("/:id/result", requireAuth, (request: Request, response: Response) => {
+sessionRouter.get("/:id/result", requireAuth, async (request: Request, response: Response) => {
   try {
     const sessionId = request.params.id;
 
@@ -111,7 +111,7 @@ sessionRouter.get("/:id/result", requireAuth, (request: Request, response: Respo
 
     response
       .status(200)
-      .json(getSessionResult(request.user?.id ?? "", sessionId));
+      .json(await getSessionResult(request.user?.id ?? "", sessionId));
   } catch (error) {
     handleSessionError(error, response);
   }

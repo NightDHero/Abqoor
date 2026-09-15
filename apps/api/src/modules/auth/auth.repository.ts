@@ -22,15 +22,15 @@ const updateUserPasswordHashStatement = db.prepare(`
   WHERE id = @id
 `);
 
-export const findUserByEmail = (email: string) => {
-  return findUserByEmailStatement.get(email.toLowerCase()) ?? null;
+export const findUserByEmail = async (email: string) => {
+  return (await findUserByEmailStatement.get(email.toLowerCase())) ?? null;
 };
 
-export const findUserById = (id: string) => {
-  return findUserByIdStatement.get(id) ?? null;
+export const findUserById = async (id: string) => {
+  return (await findUserByIdStatement.get(id)) ?? null;
 };
 
-export const createUser = (email: string, passwordHash: string) => {
+export const createUser = async (email: string, passwordHash: string) => {
   const now = new Date().toISOString();
   const user = {
     id: randomUUID(),
@@ -40,9 +40,9 @@ export const createUser = (email: string, passwordHash: string) => {
     updatedAt: now
   };
 
-  createUserStatement.run(user);
+  await createUserStatement.run(user);
 
-  const createdUser = findUserById(user.id);
+  const createdUser = await findUserById(user.id);
   if (!createdUser) {
     throw new Error("User creation failed.");
   }
@@ -50,14 +50,17 @@ export const createUser = (email: string, passwordHash: string) => {
   return createdUser;
 };
 
-export const updateUserPasswordHash = (userId: string, passwordHash: string) => {
-  updateUserPasswordHashStatement.run({
+export const updateUserPasswordHash = async (
+  userId: string,
+  passwordHash: string
+) => {
+  await updateUserPasswordHashStatement.run({
     id: userId,
     passwordHash,
     updatedAt: new Date().toISOString()
   });
 
-  const updatedUser = findUserById(userId);
+  const updatedUser = await findUserById(userId);
   if (!updatedUser) {
     throw new Error("User password update failed.");
   }

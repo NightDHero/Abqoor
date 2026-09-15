@@ -10,11 +10,15 @@ export const requireAdmin = (
   requireAuth(request, response, () => {
     const user = request.user;
 
-    if (!user || !isUserAdministrator(user.id, user.email)) {
-      response.status(403).json({ message: "Admin access required." });
-      return;
-    }
+    void (async () => {
+      if (!user || !(await isUserAdministrator(user.id, user.email))) {
+        response.status(403).json({ message: "Admin access required." });
+        return;
+      }
 
-    next();
+      next();
+    })().catch(() => {
+      response.status(500).json({ message: "Admin request failed." });
+    });
   });
 };

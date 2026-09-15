@@ -1,4 +1,4 @@
-import "../src/database/client.js";
+import { closeDatabase } from "../src/database/client.js";
 import { ensureSeedAdminAccount } from "../src/modules/admin/admin.service.js";
 
 const email = process.env.INITIAL_ADMIN_EMAIL?.trim();
@@ -14,3 +14,4 @@ if (!email || !password) {
 const user = await ensureSeedAdminAccount({ email, password });
 
 console.log(`Seed administrator is ready: ${user.email}`);
+await closeDatabase();

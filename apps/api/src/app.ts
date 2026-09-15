@@ -3,6 +3,7 @@ import cors, { type CorsOptions } from "cors";
 import type { ErrorRequestHandler } from "express";
 import express from "express";
 import { env } from "./config/env.js";
+import { initializeDatabase } from "./database/client.js";
 import { adminRouter } from "./modules/admin/admin.routes.js";
 import { importerRouter } from "./modules/admin/importer/importer.routes.js";
 import { recoverInterruptedImportJobs } from "./modules/admin/importer/import-job.repository.js";
@@ -71,11 +72,12 @@ const corsOptions: CorsOptions = {
   optionsSuccessStatus: 204
 };
 
-export const createApp = () => {
+export const createApp = async () => {
   const app = express();
   app.disable("x-powered-by");
 
-  recoverInterruptedImportJobs();
+  await initializeDatabase();
+  await recoverInterruptedImportJobs();
 
   if (env.isProduction) {
     app.set("trust proxy", 1);

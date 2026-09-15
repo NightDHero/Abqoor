@@ -283,17 +283,17 @@ const calculateStreaks = (
   };
 };
 
-export const getStudyProgress = (
+export const getStudyProgress = async (
   userId: string,
   input: { month?: unknown; timeZone?: unknown } = {}
-): StudyProgressResponse => {
+): Promise<StudyProgressResponse> => {
   const timeZone = normalizeTimeZone(input.timeZone);
   const todayDate = getDateKey(new Date(), timeZone);
   const displayedMonthKey = normalizeMonthKey(input.month, todayDate);
   const displayedMonthDates = getCalendarMonthRange(`${displayedMonthKey}-01`);
   const activityByDate = new Map<string, StudyProgressDay>();
 
-  for (const record of findUserProgressActivity(userId)) {
+  for (const record of await findUserProgressActivity(userId)) {
     const date = getDateKey(new Date(record.answered_at), timeZone);
 
     if (date > todayDate) {

@@ -25,7 +25,7 @@ mediaRouter.get(`${questionImagesPublicPath}/:fileName`, async (request, respons
     }
 
     const questionId = match[1];
-    const question = findQuestionById(questionId);
+    const question = await findQuestionById(questionId);
     if (!question && env.isProduction) {
       response.status(404).json({ message: "Question image not found." });
       return;

@@ -110,18 +110,18 @@ const findExamResultBySessionIdStatement = db.prepare<string, ExamResultRecord>(
   WHERE session_id = ?
 `);
 
-export const findSessionAnswerAnalytics = (sessionId: string) => {
-  return sessionAnswerAnalyticsStatement.all(sessionId);
+export const findSessionAnswerAnalytics = async (sessionId: string) => {
+  return await sessionAnswerAnalyticsStatement.all(sessionId);
 };
 
-export const insertExamResult = (input: {
+export const insertExamResult = async (input: {
   sessionId: string;
   userId: string;
   mathScore: number;
   arabicScore: number;
   finalScore: number;
 }) => {
-  const existing = findExamResultBySessionIdStatement.get(input.sessionId);
+  const existing = await findExamResultBySessionIdStatement.get(input.sessionId);
 
   if (existing) {
     return existing;
@@ -133,18 +133,18 @@ export const insertExamResult = (input: {
     ...input
   };
 
-  insertExamResultStatement.run(record);
-  return findExamResultBySessionIdStatement.get(record.sessionId) ?? null;
+  await insertExamResultStatement.run(record);
+  return (await findExamResultBySessionIdStatement.get(record.sessionId)) ?? null;
 };
 
-export const findExamResultsByUser = (userId: string) => {
-  return findExamResultsByUserStatement.all(userId);
+export const findExamResultsByUser = async (userId: string) => {
+  return await findExamResultsByUserStatement.all(userId);
 };
 
-export const findExamResultByIdForUser = (id: string, userId: string) => {
-  return findExamResultByIdForUserStatement.get({ id, userId }) ?? null;
+export const findExamResultByIdForUser = async (id: string, userId: string) => {
+  return (await findExamResultByIdForUserStatement.get({ id, userId })) ?? null;
 };
 
-export const findExamResultBySessionId = (sessionId: string) => {
-  return findExamResultBySessionIdStatement.get(sessionId) ?? null;
+export const findExamResultBySessionId = async (sessionId: string) => {
+  return (await findExamResultBySessionIdStatement.get(sessionId)) ?? null;
 };

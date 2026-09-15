@@ -77,30 +77,30 @@ const deleteReviewItemStatement = db.prepare(`
     AND id = ?
 `);
 
-export const findReviewItem = (
+export const findReviewItem = async (
   userId: string,
   questionId: string,
   source: ReviewSource
 ) => {
-  return findReviewItemByUniqueStatement.get(userId, questionId, source) ?? null;
+  return (await findReviewItemByUniqueStatement.get(userId, questionId, source)) ?? null;
 };
 
-export const findReviewItemById = (userId: string, reviewItemId: string) => {
-  return findReviewItemByIdStatement.get(userId, reviewItemId) ?? null;
+export const findReviewItemById = async (userId: string, reviewItemId: string) => {
+  return (await findReviewItemByIdStatement.get(userId, reviewItemId)) ?? null;
 };
 
-export const listReviewItems = (userId: string) => {
-  return listReviewItemsStatement.all(userId) as ReviewItemRecord[];
+export const listReviewItems = async (userId: string) => {
+  return (await listReviewItemsStatement.all(userId)) as ReviewItemRecord[];
 };
 
-export const upsertReviewItem = (input: {
+export const upsertReviewItem = async (input: {
   userId: string;
   questionId: string;
   source: ReviewSource;
 }) => {
   const now = new Date().toISOString();
 
-  upsertReviewItemStatement.run({
+  await upsertReviewItemStatement.run({
     id: randomUUID(),
     now,
     ...input
@@ -109,6 +109,6 @@ export const upsertReviewItem = (input: {
   return findReviewItem(input.userId, input.questionId, input.source);
 };
 
-export const deleteReviewItem = (userId: string, reviewItemId: string) => {
-  return deleteReviewItemStatement.run(userId, reviewItemId).changes;
+export const deleteReviewItem = async (userId: string, reviewItemId: string) => {
+  return (await deleteReviewItemStatement.run(userId, reviewItemId)).changes;
 };

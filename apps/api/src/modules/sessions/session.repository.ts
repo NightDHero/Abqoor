@@ -47,7 +47,7 @@ const findSessionStatement = db.prepare<string, SessionRecord>(`
 `);
 
 const insertAnswerStatement = db.prepare(`
-  INSERT OR IGNORE INTO session_answers (
+  INSERT INTO session_answers (
     session_id,
     question_id,
     user_answer,
@@ -63,6 +63,7 @@ const insertAnswerStatement = db.prepare(`
     @activeDurationSeconds,
     @createdAt
   )
+  ON CONFLICT(session_id, question_id) DO NOTHING
 `);
 
 const touchSessionStatement = db.prepare(`
@@ -120,7 +121,7 @@ const findUserAnswerHistoryStatement = db.prepare<string, SessionAnswerRecord>(`
   ORDER BY session_answers.created_at ASC
 `);
 
-const writeSessionAnswer = (input: {
+const writeSessionAnswer = async (input: {
   sessionId: string;
   questionId: string;
   userAnswer: CorrectAnswer;
@@ -128,7 +129,7 @@ const writeSessionAnswer = (input: {
   activeDurationSeconds: number | null;
   createdAt: string;
 }) => {
-  const result = insertAnswerStatement.run({
+  const result = await insertAnswerStatement.run({
     ...input,
     isCorrect: input.isCorrect ? 1 : 0
   });
@@ -137,14 +138,14 @@ const writeSessionAnswer = (input: {
     return false;
   }
 
-  touchSessionStatement.run({
+  await touchSessionStatement.run({
     sessionId: input.sessionId,
     updatedAt: input.createdAt
   });
   return true;
 };
 
-export const createSession = (input: {
+export const createSession = async (input: {
   sessionId: string;
   userId: string;
   questionOrder: string[];
@@ -152,22 +153,22 @@ export const createSession = (input: {
   updatedAt: string;
   status: SessionStatus;
 }) => {
-  createSessionStatement.run({
+  await createSessionStatement.run({
     ...input,
     questionOrder: JSON.stringify(input.questionOrder)
   });
   return findSession(input.sessionId);
 };
 
-export const findSession = (sessionId: string) => {
-  return findSessionStatement.get(sessionId) ?? null;
+export const findSession = async (sessionId: string) => {
+  return (await findSessionStatement.get(sessionId)) ?? null;
 };
 
-export const findSessionAnswer = (sessionId: string, questionId: string) => {
-  return findSessionAnswerStatement.get({ questionId, sessionId }) ?? null;
+export const findSessionAnswer = async (sessionId: string, questionId: string) => {
+  return (await findSessionAnswerStatement.get({ questionId, sessionId })) ?? null;
 };
 
-export const saveSessionAnswer = (input: {
+export const saveSessionAnswer = async (input: {
   sessionId: string;
   questionId: string;
   userAnswer: CorrectAnswer;
@@ -175,14 +176,12 @@ export const saveSessionAnswer = (input: {
   activeDurationSeconds: number | null;
   createdAt: string;
 }) => {
-  const transaction = db.transaction(() => {
+  return db.transaction(() => {
     return writeSessionAnswer(input);
   });
-
-  return transaction();
 };
 
-export const saveSessionAnswerAndThen = (
+export const saveSessionAnswerAndThen = async (
   input: {
     sessionId: string;
     questionId: string;
@@ -191,27 +190,26 @@ export const saveSessionAnswerAndThen = (
     activeDurationSeconds: number | null;
     createdAt: string;
   },
-  afterSave: () => void
+  afterSave: () => void | Promise<void>
 ) => {
-  const transaction = db.transaction(() => {
-    if (!writeSessionAnswer(input)) {
+  return db.transaction(async () => {
+    if (!(await writeSessionAnswer(input))) {
       return false;
     }
 
-    afterSave();
+    await afterSave();
     return true;
   });
-
-  return transaction();
 };
 
-export const runSessionLifecycleTransaction = <T>(operation: () => T) => {
-  const transaction = db.transaction(operation);
-  return transaction();
+export const runSessionLifecycleTransaction = <T>(
+  operation: () => T | Promise<T>
+) => {
+  return db.transaction(operation);
 };
 
-export const countSessionAnswers = (sessionId: string) => {
-  const counts = countSessionAnswersStatement.get(sessionId);
+export const countSessionAnswers = async (sessionId: string) => {
+  const counts = await countSessionAnswersStatement.get(sessionId);
 
   return {
     answeredQuestions: counts?.answeredQuestions ?? 0,
@@ -219,12 +217,12 @@ export const countSessionAnswers = (sessionId: string) => {
   };
 };
 
-export const findUserAnswerHistory = (userId: string) => {
-  return findUserAnswerHistoryStatement.all(userId) as SessionAnswerRecord[];
+export const findUserAnswerHistory = async (userId: string) => {
+  return (await findUserAnswerHistoryStatement.all(userId)) as SessionAnswerRecord[];
 };
 
-export const markSessionCompleted = (sessionId: string) => {
-  completeSessionStatement.run({
+export const markSessionCompleted = async (sessionId: string) => {
+  await completeSessionStatement.run({
     sessionId,
     updatedAt: new Date().toISOString()
   });

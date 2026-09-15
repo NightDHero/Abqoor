@@ -58,8 +58,8 @@ const normalizeEmail = (email: string) => email.trim().toLowerCase();
 const isConfiguredAdminEmail = (email: string) =>
   env.adminEmails.includes(email.toLowerCase());
 
-export const isUserAdministrator = (userId: string, email: string) => {
-  return isConfiguredAdminEmail(email) || isManagedAdminUser(userId);
+export const isUserAdministrator = async (userId: string, email: string) => {
+  return isConfiguredAdminEmail(email) || (await isManagedAdminUser(userId));
 };
 
 const toSeedUsernameBase = (email: string) => {
@@ -73,17 +73,17 @@ const toSeedUsernameBase = (email: string) => {
   return normalized.length >= 3 ? normalized : "admin";
 };
 
-const getAvailableSeedUsername = (email: string, userId: string) => {
+const getAvailableSeedUsername = async (email: string, userId: string) => {
   const base = toSeedUsernameBase(email);
 
-  if (isUsernameAvailable(base, userId)) {
+  if (await isUsernameAvailable(base, userId)) {
     return base;
   }
 
   for (let index = 2; index <= 999; index += 1) {
     const suffix = String(index);
     const candidate = `${base.slice(0, 24 - suffix.length)}${suffix}`;
-    if (isUsernameAvailable(candidate, userId)) {
+    if (await isUsernameAvailable(candidate, userId)) {
       return candidate;
     }
   }
@@ -91,14 +91,14 @@ const getAvailableSeedUsername = (email: string, userId: string) => {
   throw new AdminAccountError("تعذر إنشاء اسم مستخدم فريد للمدير الأول.", 500);
 };
 
-const ensureSeedAdminProfile = (user: UserRecord) => {
-  const profile = findStudentProfileByUserId(user.id);
+const ensureSeedAdminProfile = async (user: UserRecord) => {
+  const profile = await findStudentProfileByUserId(user.id);
 
   if (profile?.profile_completed === 1 && profile.username) {
     return;
   }
 
-  upsertStudentProfile({
+  await upsertStudentProfile({
     attemptCount: null,
     examDate: null,
     hasExamDate: false,
@@ -108,7 +108,8 @@ const ensureSeedAdminProfile = (user: UserRecord) => {
     studyStylePreference: "no_preference",
     targetScore: 90,
     userId: user.id,
-    username: profile?.username ?? getAvailableSeedUsername(user.email, user.id),
+    username:
+      profile?.username ?? (await getAvailableSeedUsername(user.email, user.id)),
     weakerSection: "both",
     weeklyStudyHours: "more_than_15"
   });
@@ -147,12 +148,12 @@ const validateCreateAdminAccountInput = (input: CreateAdminAccountInput) => {
   };
 };
 
-const getEffectiveAdminUsers = () => {
+const getEffectiveAdminUsers = async () => {
   const managedAdminIds = new Set(
-    listManagedAdmins().map((admin) => admin.user_id)
+    (await listManagedAdmins()).map((admin) => admin.user_id)
   );
 
-  return listAllUsers().filter(
+  return (await listAllUsers()).filter(
     (user) => managedAdminIds.has(user.id) || isConfiguredAdminEmail(user.email)
   );
 };
@@ -181,12 +182,14 @@ const getRemovalBlockReason = (
   return null;
 };
 
-export const listAdminAccounts = (currentUserId: string): PublicAdminAccount[] => {
-  const managedAdmins = listManagedAdmins();
+export const listAdminAccounts = async (
+  currentUserId: string
+): Promise<PublicAdminAccount[]> => {
+  const managedAdmins = await listManagedAdmins();
   const managedByUserId = new Map(
     managedAdmins.map((admin) => [admin.user_id, admin])
   );
-  const effectiveAdminUsers = getEffectiveAdminUsers();
+  const effectiveAdminUsers = await getEffectiveAdminUsers();
   const effectiveAdminCount = effectiveAdminUsers.length;
 
   return effectiveAdminUsers
@@ -233,7 +236,7 @@ export const createAdminAccount = async (
 ) => {
   const { email, password } = validateCreateAdminAccountInput(input);
 
-  if (findUserByEmail(email)) {
+  if (await findUserByEmail(email)) {
     throw new AdminAccountError(
       "يوجد حساب بهذا البريد الإلكتروني. استخدم تسجيل الدخول بدلا من إنشاء حساب جديد.",
       409
@@ -241,26 +244,29 @@ export const createAdminAccount = async (
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
-  const user = adminAccountTransaction(() => {
-    const createdUser = createUser(email, passwordHash);
-    grantManagedAdmin(createdUser.id, grantedByUserId);
+  const user = await adminAccountTransaction(async () => {
+    const createdUser = await createUser(email, passwordHash);
+    await grantManagedAdmin(createdUser.id, grantedByUserId);
     return createdUser;
   });
 
   return user;
 };
 
-export const removeAdminPrivileges = (
+export const removeAdminPrivileges = async (
   targetUserId: string,
   currentUserId: string
 ) => {
-  const targetUser = findUserById(targetUserId);
+  const targetUser = await findUserById(targetUserId);
 
-  if (!targetUser || !isUserAdministrator(targetUser.id, targetUser.email)) {
+  if (
+    !targetUser ||
+    !(await isUserAdministrator(targetUser.id, targetUser.email))
+  ) {
     throw new AdminAccountError("لم يتم العثور على المدير المطلوب.", 404);
   }
 
-  const account = listAdminAccounts(currentUserId).find(
+  const account = (await listAdminAccounts(currentUserId)).find(
     (admin) => admin.userId === targetUserId
   );
 
@@ -275,7 +281,7 @@ export const removeAdminPrivileges = (
     );
   }
 
-  removeManagedAdmin(targetUserId);
+  await removeManagedAdmin(targetUserId);
 };
 
 export const ensureSeedAdminAccount = async (input: {
@@ -287,7 +293,7 @@ export const ensureSeedAdminAccount = async (input: {
     password: input.password,
     passwordConfirmation: input.password
   });
-  const existingUser = findUserByEmail(validated.email);
+  const existingUser = await findUserByEmail(validated.email);
   const existingPasswordHash = existingUser?.password_hash ?? null;
   const passwordMatches = existingPasswordHash
     ? await bcrypt.compare(validated.password, existingPasswordHash)
@@ -296,18 +302,18 @@ export const ensureSeedAdminAccount = async (input: {
     ? existingPasswordHash
     : await bcrypt.hash(validated.password, 12);
 
-  return adminAccountTransaction<UserRecord>(() => {
+  return adminAccountTransaction<UserRecord>(async () => {
     const user = existingUser
       ? passwordMatches
         ? existingUser
-        : updateUserPasswordHash(existingUser.id, passwordHash)
-      : createUser(validated.email, passwordHash);
+        : await updateUserPasswordHash(existingUser.id, passwordHash)
+      : await createUser(validated.email, passwordHash);
 
-    if (!isManagedAdminUser(user.id)) {
-      grantManagedAdmin(user.id, null);
+    if (!(await isManagedAdminUser(user.id))) {
+      await grantManagedAdmin(user.id, null);
     }
 
-    ensureSeedAdminProfile(user);
+    await ensureSeedAdminProfile(user);
     return user;
   });
 };

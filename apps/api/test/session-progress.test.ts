@@ -11,13 +11,13 @@ process.env.JWT_SECRET = "session-progress-test-secret";
 process.env.NODE_ENV = "test";
 
 const { createApp } = await import("../src/app.js");
-const { db } = await import("../src/database/client.js");
+const { closeDatabase, db } = await import("../src/database/client.js");
 const { registerUser } = await import("../src/modules/auth/auth.service.js");
 const { upsertStudentProfile } = await import(
   "../src/modules/profile/profile.repository.js"
 );
 
-const app = createApp();
+const app = await createApp();
 const server = app.listen(0);
 await new Promise<void>((resolve) => server.once("listening", resolve));
 const address = server.address();
@@ -94,7 +94,7 @@ const insertBootstrapQuestion = (id: string, correctAnswer: "A" | "B" = "A") => 
   const now = new Date().toISOString();
   db.prepare(
     `
-      INSERT OR IGNORE INTO questions (
+      INSERT INTO questions (
         id,
         question_image_url,
         correct_answer,
@@ -130,6 +130,7 @@ const insertBootstrapQuestion = (id: string, correctAnswer: "A" | "B" = "A") => 
         @now,
         @now
       )
+      ON CONFLICT(id) DO NOTHING
     `
   ).run({
     correctAnswer,
@@ -139,8 +140,8 @@ const insertBootstrapQuestion = (id: string, correctAnswer: "A" | "B" = "A") => 
   });
 };
 
-const completeProfile = (input: { userId: string; username: string }) => {
-  upsertStudentProfile({
+const completeProfile = async (input: { userId: string; username: string }) => {
+  await upsertStudentProfile({
     attemptCount: null,
     examDate: null,
     hasExamDate: false,
@@ -227,7 +228,7 @@ const getCurrentUtcYearDayCount = () => {
 
 test("summarizes real session activity into study progress windows", async () => {
   const user = await registerUser("progress@example.com", password);
-  completeProfile({ userId: user.id, username: "progress_user" });
+  await completeProfile({ userId: user.id, username: "progress_user" });
 
   insertQuestion({ estimatedTimeSeconds: 120, id: "Q-PROGRESS-001" });
   insertQuestion({ estimatedTimeSeconds: null, id: "Q-PROGRESS-002" });
@@ -377,7 +378,7 @@ test("summarizes real session activity into study progress windows", async () =>
 
 test("anchors current streak to today and ignores future-dated activity", async () => {
   const user = await registerUser("progress-stale@example.com", password);
-  completeProfile({ userId: user.id, username: "progress_stale_user" });
+  await completeProfile({ userId: user.id, username: "progress_stale_user" });
 
   insertQuestion({ estimatedTimeSeconds: 60, id: "Q-PROGRESS-STALE-001" });
   insertQuestion({ estimatedTimeSeconds: 60, id: "Q-PROGRESS-STALE-002" });
@@ -437,8 +438,8 @@ test("prevents duplicate study answer mutation and cross-user session access", a
 
   const owner = await registerUser("session-owner@example.com", password);
   const otherUser = await registerUser("session-other@example.com", password);
-  completeProfile({ userId: owner.id, username: "session_owner" });
-  completeProfile({ userId: otherUser.id, username: "session_other" });
+  await completeProfile({ userId: owner.id, username: "session_owner" });
+  await completeProfile({ userId: otherUser.id, username: "session_other" });
 
   const ownerLogin = await login("session-owner@example.com");
   const otherLogin = await login("session-other@example.com");
@@ -523,6 +524,6 @@ after(async () => {
   await new Promise<void>((resolve, reject) =>
     server.close((error) => (error ? reject(error) : resolve()))
   );
-  db.close();
+  await closeDatabase();
   rmSync(testDirectory, { force: true, recursive: true });
 });

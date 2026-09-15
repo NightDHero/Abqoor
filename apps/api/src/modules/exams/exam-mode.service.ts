@@ -121,8 +121,8 @@ const repeatQuestionsToLength = (
   });
 };
 
-const getOfficialQuestionPools = () => {
-  const allQuestions = sortByQuestionId(getQuestions({}));
+const getOfficialQuestionPools = async () => {
+  const allQuestions = sortByQuestionId(await getQuestions({}));
   const mathQuestions = sortByQuestionId(
     allQuestions.filter(
       (question) =>
@@ -198,10 +198,12 @@ const buildOfficialExamQuestionPlan = (
   return plannedQuestions;
 };
 
-const toOfficialExam = (exam: OfficialExamRecord): OfficialExam => {
-  const sections = findOfficialExamSections(exam.id);
-  const questions = findOfficialExamQuestions(exam.id).map(toOfficialExamQuestion);
-  const result = findOfficialExamResultByExamId(exam.id);
+const toOfficialExam = async (exam: OfficialExamRecord): Promise<OfficialExam> => {
+  const sections = await findOfficialExamSections(exam.id);
+  const questions = (await findOfficialExamQuestions(exam.id)).map(
+    toOfficialExamQuestion
+  );
+  const result = await findOfficialExamResultByExamId(exam.id);
   const uniqueQuestionIds = new Set(
     questions.map((question) => question.questionId)
   );
@@ -237,12 +239,12 @@ const toOfficialExam = (exam: OfficialExamRecord): OfficialExam => {
         (question) => question.sectionNumber === section.section_number
       )
     })),
-    result: result ? toOfficialExamResultWithTopics(result) : undefined
+    result: result ? await toOfficialExamResultWithTopics(result) : undefined
   };
 };
 
-const getOwnedOfficialExamRecord = (userId: string, examId: string) => {
-  const exam = findOfficialExam(examId);
+const getOwnedOfficialExamRecord = async (userId: string, examId: string) => {
+  const exam = await findOfficialExam(examId);
 
   if (!exam || exam.user_id !== userId) {
     throw new OfficialExamError("Exam attempt not found.", 404);
@@ -325,19 +327,21 @@ const calculateTopicScores = (
   });
 };
 
-const toOfficialExamResultWithTopics = (
+const toOfficialExamResultWithTopics = async (
   record: OfficialExamResultRecord
-): OfficialExamResult => {
+): Promise<OfficialExamResult> => {
   return {
     ...toOfficialExamResult(record),
-    topicScores: calculateTopicScores(findOfficialExamQuestions(record.exam_id))
+    topicScores: calculateTopicScores(
+      await findOfficialExamQuestions(record.exam_id)
+    )
   };
 };
 
-const calculateOfficialExamResult = (
+const calculateOfficialExamResult = async (
   exam: OfficialExamRecord
-): OfficialExamResult => {
-  const questions = findOfficialExamQuestions(exam.id);
+): Promise<OfficialExamResult> => {
+  const questions = await findOfficialExamQuestions(exam.id);
   const mathScore = calculatePercentage(
     questions.filter((question) => question.category === "math")
   );
@@ -352,7 +356,7 @@ const calculateOfficialExamResult = (
         questions.filter((question) => question.section_number === index + 1)
       )
   );
-  const savedResult = insertOfficialExamResult({
+  const savedResult = await insertOfficialExamResult({
     arabicScore,
     examId: exam.id,
     finalScore,
@@ -368,10 +372,10 @@ const calculateOfficialExamResult = (
   return toOfficialExamResultWithTopics(savedResult);
 };
 
-export const startOfficialExam = (userId: string) => {
-  const { mathQuestions, arabicQuestions } = getOfficialQuestionPools();
+export const startOfficialExam = async (userId: string) => {
+  const { mathQuestions, arabicQuestions } = await getOfficialQuestionPools();
   const examId = createOfficialExamId();
-  const exam = createOfficialExam({
+  const exam = await createOfficialExam({
     examId,
     questions: buildOfficialExamQuestionPlan(mathQuestions, arabicQuestions),
     userId
@@ -384,15 +388,15 @@ export const startOfficialExam = (userId: string) => {
   return toOfficialExam(exam);
 };
 
-export const getOfficialExam = (userId: string, examId: string) => {
+export const getOfficialExam = async (userId: string, examId: string) => {
   if (!examId.trim()) {
     throw new OfficialExamError("Exam attempt id is required.");
   }
 
-  return toOfficialExam(getOwnedOfficialExamRecord(userId, examId));
+  return toOfficialExam(await getOwnedOfficialExamRecord(userId, examId));
 };
 
-export const answerOfficialExamQuestion = (
+export const answerOfficialExamQuestion = async (
   userId: string,
   input: {
     examId: string;
@@ -405,14 +409,14 @@ export const answerOfficialExamQuestion = (
     throw new OfficialExamError("userAnswer must be one of A, B, C, D.");
   }
 
-  const exam = getOwnedOfficialExamRecord(userId, input.examId);
+  const exam = await getOwnedOfficialExamRecord(userId, input.examId);
   assertWritableCurrentSection(
     exam,
     input.sectionNumber,
     input.positionInSection
   );
 
-  const changes = updateOfficialExamAnswer({
+  const changes = await updateOfficialExamAnswer({
     examId: exam.id,
     positionInSection: input.positionInSection,
     sectionNumber: input.sectionNumber,
@@ -426,7 +430,7 @@ export const answerOfficialExamQuestion = (
   return getOfficialExam(userId, exam.id);
 };
 
-export const flagOfficialExamQuestion = (
+export const flagOfficialExamQuestion = async (
   userId: string,
   input: {
     examId: string;
@@ -439,14 +443,14 @@ export const flagOfficialExamQuestion = (
     throw new OfficialExamError("flagged must be true or false.");
   }
 
-  const exam = getOwnedOfficialExamRecord(userId, input.examId);
+  const exam = await getOwnedOfficialExamRecord(userId, input.examId);
   assertWritableCurrentSection(
     exam,
     input.sectionNumber,
     input.positionInSection
   );
 
-  const changes = updateOfficialExamFlag({
+  const changes = await updateOfficialExamFlag({
     examId: exam.id,
     flagged: input.flagged,
     positionInSection: input.positionInSection,
@@ -460,64 +464,66 @@ export const flagOfficialExamQuestion = (
   return getOfficialExam(userId, exam.id);
 };
 
-export const completeOfficialExamSectionFlow = (
+export const completeOfficialExamSectionFlow = async (
   userId: string,
   examId: string,
   sectionNumber: number
 ) => {
-  const exam = getOwnedOfficialExamRecord(userId, examId);
+  const exam = await getOwnedOfficialExamRecord(userId, examId);
   assertWritableCurrentSection(exam, sectionNumber);
 
-  return runOfficialExamTransaction(() => {
+  return runOfficialExamTransaction(async () => {
     if (sectionNumber >= officialExamSectionCount) {
-      completeOfficialExam({
+      await completeOfficialExam({
         currentSection: sectionNumber,
         examId: exam.id
       });
-      const completedExam = findOfficialExam(exam.id);
+      const completedExam = await findOfficialExam(exam.id);
 
       if (!completedExam) {
         throw new OfficialExamError("Exam attempt not found.", 404);
       }
 
-      const result = calculateOfficialExamResult(completedExam);
+      const result = await calculateOfficialExamResult(completedExam);
 
       return {
-        exam: toOfficialExam(completedExam),
+        exam: await toOfficialExam(completedExam),
         result
       };
     }
 
-    completeOfficialExamSection({
+    await completeOfficialExamSection({
       examId: exam.id,
       nextSectionNumber: sectionNumber + 1,
       sectionNumber
     });
 
-    const updatedExam = findOfficialExam(exam.id);
+    const updatedExam = await findOfficialExam(exam.id);
 
     if (!updatedExam) {
       throw new OfficialExamError("Exam attempt not found.", 404);
     }
 
     return {
-      exam: toOfficialExam(updatedExam)
+      exam: await toOfficialExam(updatedExam)
     };
   });
 };
 
-export const getOfficialExamHistory = (userId: string) => {
-  return findOfficialExamResultsByUser(userId).map(
-    toOfficialExamResultWithTopics
+export const getOfficialExamHistory = async (userId: string) => {
+  return Promise.all(
+    (await findOfficialExamResultsByUser(userId)).map(
+      toOfficialExamResultWithTopics
+    )
   );
 };
 
-export const getOfficialExamResult = (userId: string, resultId: string) => {
+export const getOfficialExamResult = async (userId: string, resultId: string) => {
   if (!resultId.trim()) {
     throw new OfficialExamError("Exam result id is required.");
   }
 
-  const result = findOfficialExamResultByIdForUser(resultId, userId);
+  const result = await findOfficialExamResultByIdForUser(resultId, userId);
 
   if (!result) {
     throw new OfficialExamError("Exam result not found.", 404);

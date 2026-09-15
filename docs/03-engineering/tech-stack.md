@@ -104,13 +104,15 @@ TODO:
 
 ### Database Type
 
-Abqoor currently uses **SQLite** through `better-sqlite3`.
+Abqoor uses **PostgreSQL** in production through `pg`.
 
 Reason:
 
-- Simple local development and MVP operation.
-- Low operational overhead.
-- Good fit for early product iteration.
+- Hosted persistence works on Render Free without a persistent disk.
+- Direct SQL repositories match the existing backend architecture.
+- Supabase PostgreSQL keeps structured data separate from R2 binary storage.
+
+SQLite remains available for local development, tests, and intentional SQLite-to-PostgreSQL migration tooling.
 
 ### Relationship Handling Approach
 
@@ -118,11 +120,7 @@ Abqoor uses relational data modeling concepts.
 
 This document does not define table structure, foreign keys, or schema details.
 
-TODO:
-
-- Define production database migration strategy.
-- Define whether and when to move from SQLite to a managed relational database.
-- Define relationship constraints in the database specification when approved.
+See `persistent-storage.md` and `supabase-postgres.md` for deployment and migration details.
 
 ---
 

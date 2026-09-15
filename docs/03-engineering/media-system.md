@@ -6,7 +6,7 @@ Define how Abqoor stores and serves question images, source PDFs, and importer m
 
 ## Source Of Truth
 
-- Media binaries are not stored in SQLite.
+- Media binaries are not stored in the structured database.
 - Production permanent media is stored in private Cloudflare R2 through the backend storage abstraction.
 - Local filesystem media is for local development, test runs, migration/backfill input, and temporary processing only.
 - Browser clients never receive R2 credentials, storage keys, or direct R2 object URLs.
@@ -83,7 +83,7 @@ upload PDF
 -> write question records with image_storage_key, source_pdf_id, and source_page
 ```
 
-Temporary render files must be cleaned up after successful and handled failed processing. Permanent production data is the SQLite metadata plus R2 objects.
+Temporary render files must be cleaned up after successful and handled failed processing. Permanent production data is PostgreSQL metadata plus R2 objects.
 
 ## Source PDFs
 
@@ -129,6 +129,6 @@ It does not delete local source images. Do not run it against production until R
 
 - No public R2 bucket.
 - No browser-side R2 credentials.
-- No binary media in SQLite.
+- No binary media in PostgreSQL or SQLite.
 - No AI image interpretation.
 - No video handling in the current MVP.

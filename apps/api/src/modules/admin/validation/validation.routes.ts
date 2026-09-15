@@ -7,10 +7,10 @@ import {
 
 export const validationRouter = Router();
 
-validationRouter.get("/summary", requireImportAdmin, (_request, response) => {
-  response.status(200).json(getValidationSummary());
+validationRouter.get("/summary", requireImportAdmin, async (_request, response) => {
+  response.status(200).json(await getValidationSummary());
 });
 
-validationRouter.get("/questions", requireImportAdmin, (_request, response) => {
-  response.status(200).json({ questions: getValidationQuestions() });
+validationRouter.get("/questions", requireImportAdmin, async (_request, response) => {
+  response.status(200).json({ questions: await getValidationQuestions() });
 });

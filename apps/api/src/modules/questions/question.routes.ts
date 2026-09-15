@@ -9,7 +9,7 @@ import {
 
 export const questionRouter = Router();
 
-questionRouter.get("/", (request, response) => {
+questionRouter.get("/", async (request, response) => {
   const subject = request.query.subject;
   const subjectId = request.query.subjectId;
   const topic = request.query.topic;
@@ -43,7 +43,7 @@ questionRouter.get("/", (request, response) => {
     return;
   }
 
-  const questions = getQuestions({
+  const questions = await getQuestions({
     subject: subject,
     subjectId: typeof subjectId === "string" ? subjectId : undefined,
     topic: typeof topic === "string" ? topic : undefined,
@@ -56,8 +56,8 @@ questionRouter.get("/", (request, response) => {
   response.status(200).json({ questions });
 });
 
-questionRouter.get("/:id", (request, response) => {
-  const question = getQuestion(request.params.id);
+questionRouter.get("/:id", async (request, response) => {
+  const question = await getQuestion(request.params.id);
 
   if (!question) {
     response.status(404).json({ message: "Question not found." });

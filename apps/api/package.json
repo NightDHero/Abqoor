@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "seed:admin": "tsx scripts/seed-admin.ts",
+    "db:migrate-sqlite-to-postgres": "tsx scripts/migrate-sqlite-to-postgres.ts",
     "storage:backfill-images": "tsx scripts/backfill-question-images.ts",
     "storage:smoke-r2": "tsx scripts/r2-smoke-test.ts",
     "test": "tsx --test --test-concurrency=1 test/**/*.test.ts",
@@ -15,6 +16,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1131.0",
+    "@types/pg": "^8.23.1",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.11.1",
     "cookie-parser": "^1.4.7",
@@ -25,6 +27,7 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.2.0",
     "pdfjs-dist": "^5.6.205",
+    "pg": "^8.23.0",
     "read-excel-file": "^9.2.0",
     "sharp": "^0.35.4"
   },
