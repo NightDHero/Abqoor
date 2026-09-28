@@ -111,6 +111,12 @@ const toPositiveInteger = (value: unknown) => {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 };
 
+const toRange = (from: unknown, to: unknown) => {
+  const parsedFrom = toPositiveInteger(from);
+  const parsedTo = toPositiveInteger(to);
+  return parsedFrom && parsedTo ? { from: parsedFrom, to: parsedTo } : undefined;
+};
+
 const handleRouteError = (error: unknown, response: Response) => {
   if (error instanceof AdminImportError) {
     response.status(error.statusCode).json({ message: error.message });
@@ -160,17 +166,26 @@ importerRouter.post("/analyze", adminImportRateLimit, acceptAnalyzeUpload, async
       throw new AdminImportError("ملف Excel مطلوب.");
     }
 
-    const startQuestionNumber = toPositiveInteger(
-      (request.body as Record<string, unknown>).startQuestionNumber
-    );
+    const body = request.body as Record<string, unknown>;
+    const excelType = body.excelType;
+    const questionRange = toRange(body.questionFrom, body.questionTo);
+    const pdfPageRange = toRange(body.pdfPageFrom, body.pdfPageTo);
+    if (excelType !== "quantitative" && excelType !== "verbal") {
+      throw new AdminImportError("نوع بنك الأسئلة مطلوب.");
+    }
+    if (!questionRange) {
+      throw new AdminImportError("نطاق أسئلة Excel مطلوب.");
+    }
     const detail = await analyzeQuestionImport({
       createdBy: request.user?.email ?? "unknown",
       excel: toUploadedFile(excel),
+      excelType,
+      questionRange,
       pdf: pdf ? toUploadedFile(pdf) : undefined,
+      pdfPageRange,
       images: images.map((image) =>
         toUploadedFile(image, { headerOnly: true })
-      ),
-      startQuestionNumber: startQuestionNumber ?? undefined
+      )
     });
 
     response.status(200).json(detail);

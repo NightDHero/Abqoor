@@ -34,20 +34,30 @@ export const adminService = {
     }),
   analyzeImport: (input: {
     excel: File;
+    excelType: "quantitative" | "verbal";
+    questionFrom: string;
+    questionTo: string;
     pdf?: File;
+    pdfPageFrom?: string;
+    pdfPageTo?: string;
     images?: File[];
-    startQuestionNumber?: string;
   }) => {
     const formData = new FormData();
     formData.append("excel", input.excel);
+    formData.append("excelType", input.excelType);
+    formData.append("questionFrom", input.questionFrom);
+    formData.append("questionTo", input.questionTo);
     if (input.pdf) {
       formData.append("pdf", input.pdf);
     }
     for (const image of input.images ?? []) {
       formData.append("images", image);
     }
-    if (input.startQuestionNumber) {
-      formData.append("startQuestionNumber", input.startQuestionNumber);
+    if (input.pdfPageFrom) {
+      formData.append("pdfPageFrom", input.pdfPageFrom);
+    }
+    if (input.pdfPageTo) {
+      formData.append("pdfPageTo", input.pdfPageTo);
     }
     return apiRequest<ImportJobDetail>("/admin/import/analyze", {
       body: formData,

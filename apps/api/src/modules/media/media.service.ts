@@ -11,7 +11,9 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   contentTypeForKey,
-  objectStorage
+  objectStorage,
+  type ObjectStorage,
+  type ObjectUploadInput
 } from "../storage/object-storage.service.js";
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
@@ -255,20 +257,56 @@ export const removeImportStaging = (importJobId: string) => {
   });
 };
 
+export const verifyReadableObject = async (
+  storage: ObjectStorage,
+  key: string,
+  expected?: Buffer
+) => {
+  const stored = await storage.getObjectBuffer(key);
+  if (!stored || stored.length === 0) {
+    return false;
+  }
+  return expected ? stored.equals(expected) : true;
+};
+
+export const uploadVerifiedObject = async (
+  storage: ObjectStorage,
+  input: ObjectUploadInput
+) => {
+  const expected = Buffer.from(input.body);
+  await storage.uploadObject(input);
+  if (!(await verifyReadableObject(storage, input.key, expected))) {
+    throw new Error(`Uploaded object could not be verified: ${input.key}.`);
+  }
+};
+
+export const copyVerifiedObject = async (
+  storage: ObjectStorage,
+  source: string,
+  target: string,
+  contentType: string
+) => {
+  const sourceBuffer = await storage.getObjectBuffer(source);
+  if (!sourceBuffer || sourceBuffer.length === 0) {
+    throw new Error(`Source object is missing or unreadable: ${source}.`);
+  }
+  await storage.copyObject(source, target, { contentType });
+  if (!(await verifyReadableObject(storage, target, sourceBuffer))) {
+    throw new Error(`Copied object could not be verified: ${target}.`);
+  }
+};
+
 export const stageQuestionImageObject = async (
   importJobId: string,
   questionId: string,
   image: Buffer
 ) => {
   const key = getStagedQuestionImageStorageKey(importJobId, questionId);
-  await objectStorage.uploadObject({
+  await uploadVerifiedObject(objectStorage, {
     body: image,
     contentType: contentTypeForKey(key),
     key
   });
-  if (!(await objectStorage.objectExists(key))) {
-    throw new Error(`Staged question image upload could not be verified: ${questionId}.`);
-  }
   return key;
 };
 
@@ -287,12 +325,7 @@ export const commitStagedQuestionImageObject = async (
     throw new Error(`Staged question image is missing: ${questionId}.${questionImageStorageExtension}`);
   }
 
-  await objectStorage.copyObject(source, target, {
-    contentType: contentTypeForKey(target)
-  });
-  if (!(await objectStorage.objectExists(target))) {
-    throw new Error(`Promoted question image could not be verified: ${questionId}.`);
-  }
+  await copyVerifiedObject(objectStorage, source, target, contentTypeForKey(target));
   return target;
 };
 
@@ -348,14 +381,11 @@ export const writeQuestionImageObject = async (
   storageKey?: string | null
 ) => {
   const key = storageKey ?? getQuestionImageStorageKey(questionId);
-  await objectStorage.uploadObject({
+  await uploadVerifiedObject(objectStorage, {
     body: image,
     contentType: contentTypeForKey(key),
     key
   });
-  if (!(await objectStorage.objectExists(key))) {
-    throw new Error(`Question image upload could not be verified: ${questionId}.`);
-  }
   return key;
 };
 

@@ -15,6 +15,7 @@ import {
   readQuestionImageObject,
   restoreQuestionImageObjectBackup,
   stageQuestionImageObject,
+  uploadVerifiedObject,
   writeQuestionImageObject
 } from "../../media/media.service.js";
 import { optimizeQuestionImage } from "../../media/question-image-optimizer.service.js";
@@ -36,7 +37,7 @@ import { matchUploadedImages } from "./adapters/image.adapter.js";
 import {
   getPdfPageCount,
   renderPdfPageToPng,
-  selectPdfPages
+  selectPdfPagesForQuestionRange
 } from "./adapters/pdf.adapter.js";
 import {
   cancelImportJob,
@@ -118,13 +119,24 @@ type AdminQuestionSubjectCount = {
 const errorIssue = (
   code: string,
   message: string,
-  questionNumber?: number
+  questionNumber?: number,
+  sourcePage?: number
 ): ImportValidationIssue => ({
   code,
   message,
   questionNumber,
+  sourcePage,
   severity: "error"
 });
+
+const isValidRange = (range: { from: number; to: number } | undefined) =>
+  Boolean(
+    range &&
+      Number.isInteger(range.from) &&
+      Number.isInteger(range.to) &&
+      range.from > 0 &&
+      range.to >= range.from
+  );
 
 const validateExcelFile = (file: AnalyzeImportRequest["excel"]) => {
   const extension = extname(file.originalname).toLowerCase();
@@ -146,6 +158,12 @@ const validatePdfFile = (file: NonNullable<AnalyzeImportRequest["pdf"]>) => {
 
 const assertAnalysisInput = (request: AnalyzeImportRequest) => {
   validateExcelFile(request.excel);
+  if (!["quantitative", "verbal"].includes(request.excelType)) {
+    throw new AdminImportError("نوع بنك الأسئلة غير صالح.");
+  }
+  if (!isValidRange(request.questionRange)) {
+    throw new AdminImportError("نطاق أسئلة Excel غير صالح.");
+  }
   const hasPdf = Boolean(request.pdf);
   const hasImages = Boolean(request.images?.length);
 
@@ -155,11 +173,8 @@ const assertAnalysisInput = (request: AnalyzeImportRequest) => {
 
   if (request.pdf) {
     validatePdfFile(request.pdf);
-    if (
-      !Number.isInteger(request.startQuestionNumber) ||
-      (request.startQuestionNumber ?? 0) < 1
-    ) {
-      throw new AdminImportError("رقم أول سؤال في الـ PDF يجب أن يكون رقماً موجباً.");
+    if (!isValidRange(request.pdfPageRange)) {
+      throw new AdminImportError("نطاق صفحات PDF غير صالح.");
     }
   }
 };
@@ -190,7 +205,7 @@ const analyzePdfMedia = async (
   const sourcePdfId = randomUUID();
   const sourcePdfStorageKey = getSourcePdfStorageKey(sourcePdfId);
 
-  await objectStorage.uploadObject({
+  await uploadVerifiedObject(objectStorage, {
     body: pdf.buffer,
     contentType: "application/pdf",
     key: sourcePdfStorageKey
@@ -213,10 +228,27 @@ const analyzePdfMedia = async (
   await setImportJobSourcePdf({ id: jobId, sourcePdfId });
 
   try {
-    const pages = selectPdfPages(
-      pageCount,
-      request.startQuestionNumber as number
-    );
+    let pages: ReturnType<typeof selectPdfPagesForQuestionRange>;
+    try {
+      pages = selectPdfPagesForQuestionRange(
+        pageCount,
+        request.questionRange,
+        request.pdfPageRange as NonNullable<AnalyzeImportRequest["pdfPageRange"]>
+      );
+    } catch (error) {
+      const countMismatch = error instanceof Error && error.message.includes("must match");
+      const selectedPages = request.pdfPageRange
+        ? request.pdfPageRange.to - request.pdfPageRange.from + 1
+        : 0;
+      const questionCount = request.questionRange.to - request.questionRange.from + 1;
+      issues.push(errorIssue(
+        countMismatch ? "source_count_mismatch" : "pdf_range_out_of_bounds",
+        countMismatch
+          ? `عدد أسئلة Excel المحددة (${questionCount}) لا يساوي عدد صفحات PDF المحددة (${selectedPages}).`
+          : `نطاق صفحات PDF يجب أن يكون بين 1 و${pageCount}.`
+      ));
+      return { found: selectedPages, mapping: new Map<number, { pageNumber: number; sourceImageName: string }>(), sourcePdfId, totalPages: selectedPages };
+    }
     const mapping = new Map<number, { pageNumber: number; sourceImageName: string }>();
 
     for (const page of pages) {
@@ -233,20 +265,31 @@ const analyzePdfMedia = async (
           errorIssue(
             "pdf_render_failed",
             `تعذر تحويل الصفحة ${page.pageIndex} الخاصة بالسؤال ${page.questionNumber} إلى صورة.`,
-            page.questionNumber
+            page.questionNumber,
+            page.pageIndex
           )
         );
         continue;
       }
 
-      await stageQuestionImageObject(jobId, questionId, optimizedImage.buffer);
+      try {
+        await stageQuestionImageObject(jobId, questionId, optimizedImage.buffer);
+      } catch {
+        issues.push(errorIssue(
+          "storage_upload_failed",
+          `تعذر تخزين صورة السؤال ${page.questionNumber} والتحقق منها.`,
+          page.questionNumber,
+          page.pageIndex
+        ));
+        continue;
+      }
       mapping.set(page.questionNumber, {
         pageNumber: page.pageIndex,
         sourceImageName: `الصفحة ${page.pageIndex}`
       });
     }
 
-    return { found: pageCount, mapping, sourcePdfId, totalPages: pageCount };
+    return { found: pages.length, mapping, sourcePdfId, totalPages: pages.length };
   } catch (error) {
     await updateSourcePdfStatus(sourcePdfId, "failed");
     throw error;
@@ -258,20 +301,37 @@ const analyzeImageMedia = async (
   request: AnalyzeImportRequest,
   issues: ImportValidationIssue[]
 ) => {
-  const result = matchUploadedImages(request.images ?? []);
+  const expectedCount = request.questionRange.to - request.questionRange.from + 1;
+  const uploadedCount = request.images?.length ?? 0;
+  if (uploadedCount !== expectedCount) {
+    issues.push(errorIssue(
+      "source_count_mismatch",
+      `عدد أسئلة Excel المحددة (${expectedCount}) لا يساوي عدد الصور المرفوعة (${uploadedCount}).`
+    ));
+  }
+  const result = matchUploadedImages(request.images ?? [], request.questionRange);
   issues.push(...result.issues);
   const mapping = new Map<number, { pageNumber: number | null; sourceImageName: string }>();
 
   for (const image of result.byQuestionNumber.values()) {
-    const imageBuffer = image.temporaryPath
-      ? readFileSync(image.temporaryPath)
-      : image.buffer;
-    const optimizedImage = await optimizeQuestionImage(imageBuffer);
-    await stageQuestionImageObject(
-      jobId,
-      toQuestionId(image.questionNumber),
-      optimizedImage.buffer
-    );
+    try {
+      const imageBuffer = image.temporaryPath
+        ? readFileSync(image.temporaryPath)
+        : image.buffer;
+      const optimizedImage = await optimizeQuestionImage(imageBuffer);
+      await stageQuestionImageObject(
+        jobId,
+        toQuestionId(image.questionNumber),
+        optimizedImage.buffer
+      );
+    } catch {
+      issues.push(errorIssue(
+        "storage_upload_failed",
+        `تعذر معالجة صورة السؤال ${image.questionNumber} أو تخزينها والتحقق منها.`,
+        image.questionNumber
+      ));
+      continue;
+    }
     mapping.set(image.questionNumber, {
       pageNumber: null,
       sourceImageName: image.originalname
@@ -298,12 +358,16 @@ export const analyzeQuestionImport = async (
     excelFilename: request.excel.originalname,
     mediaFilename,
     sourceType,
-    startQuestionNumber: request.pdf ? request.startQuestionNumber ?? null : null,
+    startQuestionNumber: request.questionRange.from,
     status: "analyzing"
   });
 
   try {
-    const workbook = await readAdminWorkbook(request.excel.buffer);
+    const workbook = await readAdminWorkbook(
+      request.excel.buffer,
+      request.excelType,
+      request.questionRange
+    );
     const issues = [...workbook.issues];
     const media = request.pdf
       ? await analyzePdfMedia(job.id, request, issues)
@@ -348,7 +412,7 @@ export const analyzeQuestionImport = async (
         questionText: question.questionText,
         options: question.options,
         correctAnswer: question.correctAnswer,
-        subject: "verbal",
+        subject: request.excelType,
         topic: question.topic,
         topicId: question.topicId,
         difficulty: 1,
@@ -376,7 +440,7 @@ export const analyzeQuestionImport = async (
 
     const matched = items.filter((item) => item.imageStatus === "matched").length;
     const mediaSummary: MediaSummary = {
-      expected: items.length,
+      expected: request.questionRange.to - request.questionRange.from + 1,
       found: media.found,
       matched,
       missing: items.length - matched,
@@ -389,9 +453,9 @@ export const analyzeQuestionImport = async (
       id: job.id,
       status: "ready",
       totalPages: media.totalPages,
-      totalQuestions: items.length,
+      totalQuestions: request.questionRange.to - request.questionRange.from + 1,
       successCount: validCount,
-      failureCount: items.length - validCount,
+      failureCount: request.questionRange.to - request.questionRange.from + 1 - validCount,
       newCount: items.filter((item) => !item.isDuplicate).length,
       duplicateCount: items.filter((item) => item.isDuplicate).length,
       errorCount,
@@ -593,8 +657,8 @@ const commitImport = async (
           sourcePdfId: job.sourcePdfId ?? undefined,
           sourcePage: update.item.pageNumber ?? undefined,
           correctAnswer: update.item.correctAnswer as NonNullable<typeof update.item.correctAnswer>,
-          subject: "verbal",
-          subjectId: "arabic",
+          subject: update.item.subject,
+          subjectId: legacySubjectToSubject[update.item.subject],
           topic: update.item.topic,
           topicId: update.item.topicId,
           difficulty: update.item.difficulty,

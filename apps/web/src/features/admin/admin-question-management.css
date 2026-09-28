@@ -350,6 +350,41 @@
   align-items: center;
 }
 
+.admin-form-grid .admin-range-field label {
+  display: grid;
+  gap: 7px;
+  align-items: stretch;
+}
+
+.admin-segmented-field input,
+.admin-range-field input {
+  margin: 0;
+}
+
+.admin-range-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  border: 1px solid rgb(248 113 113 / 30%);
+  border-radius: 12px;
+  background: rgb(248 113 113 / 7%);
+  padding: 12px;
+  color: var(--abqoor-muted);
+}
+
+.admin-range-summary[data-matched="true"] {
+  border-color: rgb(98 217 184 / 30%);
+  background: rgb(98 217 184 / 7%);
+}
+
+.admin-range-summary span {
+  display: flex;
+  gap: 7px;
+  justify-content: center;
+}
+
+.admin-range-summary b { color: var(--abqoor-text); }
+
 .admin-workspace input:not([type="radio"]):not([type="checkbox"]),
 .admin-workspace select {
   min-height: 48px;
@@ -696,6 +731,10 @@
   object-fit: contain;
 }
 
+.admin-import-preview-table { min-width: 690px; }
+.admin-import-preview-table b[data-valid="true"] { color: #62d9b8; }
+.admin-import-preview-table b[data-valid="false"] { color: #ff9aa5; }
+
 .admin-missing { color: #ff9aa5; }
 
 .admin-pagination {
@@ -726,6 +765,7 @@
   .admin-overview-signal-strip,
   .admin-bank-overview,
   .admin-question-preview ol { grid-template-columns: 1fr; }
+  .admin-range-summary { grid-template-columns: 1fr; }
   .admin-form-actions { align-items: stretch; }
   .admin-preview-list summary { grid-template-columns: 1fr auto; }
   .admin-preview-list summary span { grid-column: 1 / -1; }

@@ -15,6 +15,7 @@ export type ImportJobStatus =
   | "cancelled"
   | "rolled_back";
 export type ImportSourceType = "pdf" | "images";
+export type QuestionBankType = "quantitative" | "verbal";
 export type MetadataSourceType = "excel";
 export type DuplicateAction = "replace" | "skip" | "stop";
 export type ImportItemOutcome =
@@ -33,6 +34,7 @@ export type ImportValidationIssue = {
   questionNumber?: number;
   rowNumber?: number;
   sheetName?: string;
+  sourcePage?: number;
 };
 
 export type ImportQuestionMetadata = {
@@ -194,9 +196,11 @@ export type UploadedImportFile = {
 export type AnalyzeImportRequest = {
   createdBy: string;
   excel: UploadedImportFile;
+  excelType: QuestionBankType;
+  questionRange: PageRange;
   pdf?: UploadedImportFile;
+  pdfPageRange?: PageRange;
   images?: UploadedImportFile[];
-  startQuestionNumber?: number;
 };
 
 export type ConfirmImportRequest = {

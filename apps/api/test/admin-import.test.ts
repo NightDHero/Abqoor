@@ -123,8 +123,7 @@ const sheetXml = (rows: unknown[][]) =>
     .join("") +
   `</sheetData></worksheet>`;
 
-const createWorkbookBuffer = () => {
-  const sheets = validSheets();
+const createWorkbookBuffer = (sheets = validSheets()) => {
   const contentTypes = [
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`,
     `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">`,
@@ -281,6 +280,52 @@ test("parses an actual five-sheet XLSX binary", async () => {
   assert.equal(analysis.questions[1]?.correctAnswer, "B");
 });
 
+test("selects and validates only one requested Excel question", () => {
+  const sheets = validSheets();
+  sheets[0]?.data.push([900, "سؤال خارج النطاق", "", "", "", "", "X"]);
+  const analysis = excelAdapter.analyzeWorkbookSheets(
+    sheets,
+    "verbal",
+    { from: 500, to: 500 }
+  );
+
+  assert.deepEqual(analysis.questions.map((question) => question.questionNumber), [500]);
+  assert.equal(analysis.issues.length, 0);
+});
+
+test("validates selected Excel ranges and ignores invalid rows outside them", () => {
+  const sheets = validSheets();
+  sheets[0]?.data.push([504, "سؤال 504", "", "ب", "ج", "د", "أ"]);
+  sheets[0]?.data.push([900, "سؤال خارج النطاق", "", "", "", "", "X"]);
+  const analysis = excelAdapter.analyzeWorkbookSheets(
+    sheets,
+    "verbal",
+    { from: 500, to: 504 }
+  );
+
+  assert.equal(analysis.questions.length, 5);
+  assert.ok(analysis.issues.some((item) => item.code === "missing_option" && item.questionNumber === 504));
+  assert.ok(!analysis.issues.some((item) => item.questionNumber === 900));
+});
+
+test("uses the repository quantitative workbook contract", () => {
+  const analysis = excelAdapter.analyzeWorkbookSheets(
+    [{
+      sheet: "الورقة1",
+      data: [
+        ["رقم السؤال", "السؤال", "أ", "ب", "ج", "د", "الصورة", "الإجابة"],
+        [1, "سؤال كمي", "1", "2", "3", "4", "", "ب"]
+      ]
+    }],
+    "quantitative",
+    { from: 1, to: 1 }
+  );
+
+  assert.equal(analysis.issues.length, 0);
+  assert.equal(analysis.questions[0]?.topic, "الكمي");
+  assert.equal(analysis.questions[0]?.correctAnswer, "B");
+});
+
 test("rejects invalid answers, duplicate numbers, and populated reading rows", () => {
   const sheets = validSheets();
   sheets[0]?.data.push([503, "مكرر", "أ", "ب", "ج", "د", "X"]);
@@ -300,6 +345,26 @@ test("maps PDF pages deterministically from a starting question number", () => {
   assert.deepEqual(pages.at(-1), { pageIndex: 201, questionNumber: 700 });
 });
 
+test("maps a selected PDF page range deterministically", () => {
+  const pages = pdfAdapter.selectPdfPages(40, 50, { from: 7, to: 9 });
+  assert.deepEqual(pages, [
+    { pageIndex: 7, questionNumber: 50 },
+    { pageIndex: 8, questionNumber: 51 },
+    { pageIndex: 9, questionNumber: 52 }
+  ]);
+});
+
+test("rejects mismatched Excel question and PDF page counts", () => {
+  assert.throws(
+    () => pdfAdapter.selectPdfPagesForQuestionRange(
+      40,
+      { from: 50, to: 52 },
+      { from: 7, to: 8 }
+    ),
+    /must match/
+  );
+});
+
 test("accepts only deterministic PNG question filenames", () => {
   const result = imageAdapter.matchUploadedImages([
     { buffer: png, originalname: "500.png", mimetype: "image/png", size: png.length },
@@ -309,6 +374,18 @@ test("accepts only deterministic PNG question filenames", () => {
 
   assert.deepEqual([...result.byQuestionNumber.keys()], [500, 501]);
   assert.equal(result.issues[0]?.code, "ambiguous_image_filename");
+});
+
+test("maps uploaded images to the selected question range in upload order", () => {
+  const result = imageAdapter.matchUploadedImages([
+    { buffer: png, originalname: "first.png", mimetype: "image/png" },
+    { buffer: png, originalname: "second.png", mimetype: "image/png" },
+    { buffer: png, originalname: "third.png", mimetype: "image/png" }
+  ], { from: 50, to: 52 });
+
+  assert.deepEqual([...result.byQuestionNumber.keys()], [50, 51, 52]);
+  assert.equal(result.byQuestionNumber.get(51)?.originalname, "second.png");
+  assert.equal(result.issues.length, 0);
 });
 
 test("requires duplicate decisions and supports apply-all", () => {
@@ -332,6 +409,8 @@ test("requires duplicate decisions and supports apply-all", () => {
 test("builds preview errors for missing and extra individual images", async () => {
   const detail = await importService.analyzeQuestionImport({
     createdBy: "admin@example.com",
+    excelType: "verbal",
+    questionRange: { from: 500, to: 503 },
     excel: {
       buffer: createWorkbookBuffer(),
       mimetype: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -345,11 +424,33 @@ test("builds preview errors for missing and extra individual images", async () =
   const codes = new Set(detail.job.issues.map((issue) => issue.code));
 
   assert.equal(detail.job.totalQuestions, 4);
-  assert.equal(detail.job.mediaSummary.matched, 1);
-  assert.equal(detail.job.mediaSummary.missing, 3);
-  assert.equal(detail.job.mediaSummary.extra, 1);
+  assert.equal(detail.job.mediaSummary.matched, 2);
+  assert.equal(detail.job.mediaSummary.missing, 2);
+  assert.equal(detail.job.mediaSummary.extra, 0);
   assert.ok(codes.has("missing_image"));
-  assert.ok(codes.has("extra_media"));
+  assert.ok(codes.has("source_count_mismatch"));
+  await importService.cancelQuestionImport(detail.job.id);
+});
+
+test("returns only the selected range in the persisted frontend preview", async () => {
+  const sheets = validSheets();
+  sheets[0]?.data.push([1500, "غير صالح خارج النطاق", "", "", "", "", "X"]);
+  const detail = await importService.analyzeQuestionImport({
+    createdBy: "admin@example.com",
+    excelType: "verbal",
+    questionRange: { from: 500, to: 500 },
+    excel: {
+      buffer: createWorkbookBuffer(sheets),
+      mimetype: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      originalname: "questions.xlsx"
+    },
+    images: [{ buffer: png, mimetype: "image/png", originalname: "first.png" }]
+  });
+
+  assert.equal(detail.job.totalQuestions, 1);
+  assert.equal(detail.job.errorCount, 0);
+  assert.deepEqual(detail.items.map((item) => item.questionNumber), [500]);
+  assert.ok(!detail.job.issues.some((item) => item.questionNumber === 1500));
   await importService.cancelQuestionImport(detail.job.id);
 });
 
@@ -357,6 +458,8 @@ test("rejects malformed Excel and PDF files before creating an import", async ()
   await assert.rejects(
     importService.analyzeQuestionImport({
       createdBy: "admin@example.com",
+      excelType: "verbal",
+      questionRange: { from: 500, to: 503 },
       excel: {
         buffer: Buffer.from("not a workbook"),
         mimetype: "application/octet-stream",
@@ -369,6 +472,8 @@ test("rejects malformed Excel and PDF files before creating an import", async ()
   await assert.rejects(
     importService.analyzeQuestionImport({
       createdBy: "admin@example.com",
+      excelType: "verbal",
+      questionRange: { from: 500, to: 503 },
       excel: {
         buffer: createWorkbookBuffer(),
         mimetype: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -379,7 +484,7 @@ test("rejects malformed Excel and PDF files before creating an import", async ()
         mimetype: "application/pdf",
         originalname: "questions.pdf"
       },
-      startQuestionNumber: 500
+      pdfPageRange: { from: 1, to: 4 }
     }),
     /PDF/
   );
@@ -521,6 +626,63 @@ test("rolls back database and file changes when a commit fails", async () => {
   mediaService.removeImportMedia(job.id);
 });
 
+test("rejects storage upload and verification failures", async () => {
+  const baseStorage = {
+    copyObject: async () => {},
+    deleteObject: async () => {},
+    deletePrefix: async () => {},
+    getObject: async () => null,
+    objectExists: async () => false
+  };
+  const uploadFailureStorage = {
+    ...baseStorage,
+    getObjectBuffer: async () => null,
+    uploadObject: async () => { throw new Error("simulated upload failure"); }
+  };
+  await assert.rejects(
+    mediaService.uploadVerifiedObject(uploadFailureStorage, {
+      body: png,
+      key: "imports/test/staged/Q-1.webp"
+    }),
+    /simulated upload failure/
+  );
+
+  const verificationFailureStorage = {
+    ...baseStorage,
+    getObjectBuffer: async () => null,
+    uploadObject: async () => {}
+  };
+  await assert.rejects(
+    mediaService.uploadVerifiedObject(verificationFailureStorage, {
+      body: png,
+      key: "imports/test/staged/Q-1.webp"
+    }),
+    /could not be verified/
+  );
+});
+
+test("rejects final image promotion when copied content is unreadable", async () => {
+  const storage = {
+    copyObject: async () => {},
+    deleteObject: async () => {},
+    deletePrefix: async () => {},
+    getObject: async () => null,
+    getObjectBuffer: async (key: string) => key.includes("staged") ? png : null,
+    objectExists: async () => true,
+    uploadObject: async () => {}
+  };
+
+  await assert.rejects(
+    mediaService.copyVerifiedObject(
+      storage,
+      "imports/test/staged/Q-1.webp",
+      "questions/Q-1/question.webp",
+      "image/webp"
+    ),
+    /could not be verified/
+  );
+});
+
 test("allows configured admins and rejects ordinary authenticated users", async () => {
   const app = await createApp();
   const server = app.listen(0);
@@ -574,6 +736,9 @@ test("allows configured admins and rejects ordinary authenticated users", async 
     for (const number of [500, 501, 502, 503]) {
       form.append("images", new Blob([png], { type: "image/png" }), `${number}.png`);
     }
+    form.append("excelType", "verbal");
+    form.append("questionFrom", "500");
+    form.append("questionTo", "503");
     const analyzeResponse = await fetch(`${baseUrl}/admin/import/analyze`, {
       method: "POST",
       headers: { cookie: adminCookie },

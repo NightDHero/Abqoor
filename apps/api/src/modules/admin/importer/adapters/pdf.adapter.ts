@@ -52,6 +52,19 @@ export const selectPdfPages = (
   });
 };
 
+export const selectPdfPagesForQuestionRange = (
+  pageCount: number,
+  questionRange: PageRange,
+  pdfPageRange: PageRange
+) => {
+  const pages = selectPdfPages(pageCount, questionRange.from, pdfPageRange);
+  const questionCount = questionRange.to - questionRange.from + 1;
+  if (pages.length !== questionCount) {
+    throw new Error("PDF page count must match the selected question count.");
+  }
+  return pages;
+};
+
 const runPdftoppm = (
   command: string,
   args: string[]

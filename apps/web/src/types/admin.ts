@@ -35,6 +35,7 @@ export type ImportIssue = {
   questionNumber?: number;
   rowNumber?: number;
   sheetName?: string;
+  sourcePage?: number;
 };
 
 export type ImportJob = {

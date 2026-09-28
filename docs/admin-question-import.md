@@ -34,7 +34,11 @@ Excel question text and options are retained in import audit items for preview a
 - Every `/admin` API independently applies the server-side admin authorization middleware.
 - Frontend visibility is not an authorization boundary.
 
-## Workbook Contract
+## Workbook Type And Contract
+
+The administrator explicitly selects `كمي` or `لفظي` before analysis. The API does not guess the bank type from arbitrary cell content.
+
+### Verbal Workbook
 
 The workbook must contain these sheets in this exact order:
 
@@ -42,7 +46,9 @@ The workbook must contain these sheets in this exact order:
 2. `اكمال الجمل عام`
 3. `الخطأ السياقي عام`
 4. `المفردة الشاذة عام`
-5. `استعياب المقروء عام`
+5. `استيعاب المقروء عام`
+
+The historical spelling `استعياب المقروء عام` remains accepted for existing workbooks.
 
 All sheets must exist. A sheet may contain zero data rows.
 
@@ -79,16 +85,28 @@ Column C is never imported as an option.
 
 ### Reading Comprehension Sheet
 
-`استعياب المقروء عام` currently accepts an empty data set. Its category remains present in the preview with a count of zero.
+`استيعاب المقروء عام` currently accepts an empty data set. Its category remains present in the preview with a count of zero.
+
+### Quantitative Workbook
+
+The quantitative contract follows the repository's existing workbook:
+
+- one sheet named `الورقة1`;
+- columns `رقم السؤال`, `السؤال`, `أ`, `ب`, `ج`, `د`, `الصورة`, `الإجابة`;
+- the external PDF or uploaded images remain the authoritative visual question content.
 
 ## Excel Validation
 
-Analysis validates, without database question writes:
+The administrator supplies an inclusive question range. Analysis validates only rows whose question numbers fall inside that range, without database question writes. Workbook structure and headers are still validated globally.
+
+For example, selecting `50–65` means malformed questions outside that range do not block the batch. Missing or malformed selected questions do block confirmation.
+
+Analysis validates:
 
 - exact sheet names and order;
 - expected headers and column positions;
 - positive integer question numbers;
-- globally unique question numbers across the workbook;
+- unique question numbers within the selected range;
 - required question text and four options;
 - valid answers `A`, `B`, `C`, `D`, or their Arabic equivalents `أ`, `ب`, `ج`, `د`;
 - malformed, partially empty, and unexpected rows.
@@ -109,20 +127,20 @@ The five sheets map to the existing Arabic taxonomy:
 
 The canonical subject is Arabic/verbal. Since the workbook has no difficulty column and the current question schema requires a value, imported rows use difficulty `1` until a future approved workbook contract supplies difficulty.
 
-## PDF Numbering And Matching
+## PDF Range And Matching
 
-The administrator supplies `startQuestionNumber`.
+The administrator supplies an Excel question range and a PDF page range. Their inclusive counts must match.
 
 ```text
-questionNumber = startQuestionNumber + zeroBasedPageIndex
+questionNumber = questionRange.from + (pageNumber - pdfPageRange.from)
 ```
 
-For a start number of 500:
+For questions `50–65` and PDF pages `1–16`:
 
 ```text
-Page 1   -> Question 500 -> Q-500
-Page 2   -> Question 501 -> Q-501
-Page 201 -> Question 700 -> Q-700
+Page 1  -> Question 50 -> Q-050
+Page 2  -> Question 51 -> Q-051
+Page 16 -> Question 65 -> Q-065
 ```
 
 Analysis reports every page mapping. Excel numbers and mapped PDF numbers must match exactly. Missing or extra mappings are reported and block confirmation.
@@ -131,18 +149,11 @@ Analysis reports every page mapping. Excel numbers and mapped PDF numbers must m
 
 An import uses either one PDF or individual PNG images, never an ambiguous mixture.
 
-Images are matched only by deterministic filenames such as:
-
-```text
-500.png
-Q-500.png
-```
-
-The numeric filename value maps to the Excel question number. Duplicate, missing, extra, non-PNG, or unparseable filenames are errors. Uploaded names are never used as storage paths.
+Images are mapped in deterministic upload order to the selected question range. For questions `50–52`, the first, second, and third uploaded PNG files map to questions 50, 51, and 52. The counts must match. Uploaded names are audit labels only and are never used as storage paths.
 
 ## Validation And Preview
 
-Analysis creates a persistent import job and item manifest, renders or copies media into an isolated staging directory, and returns:
+Analysis creates a persistent import job and item manifest, renders or copies only selected media into isolated object-storage staging, and returns only selected questions:
 
 - sheet counts;
 - total questions;
@@ -151,6 +162,8 @@ Analysis creates a persistent import job and item manifest, renders or copies me
 - missing and extra media counts;
 - global and question-level errors;
 - question text, options, answer, category, image status, and planned status.
+
+The admin UI summarizes the selected ranges and paginates the compact mapping preview instead of rendering the entire workbook.
 
 Jobs with validation errors cannot be confirmed.
 
@@ -185,12 +198,15 @@ An interrupted `importing` job is recovered as `failed` when the API restarts. P
 - The API reports persisted status and in-process item progress.
 - The frontend polls the import detail endpoint while status is `importing`.
 
-## Transaction And File Safety
+## R2, Transaction, And File Safety
 
 - All question and import-item database writes for confirmation run in one database transaction.
-- Rendered/uploaded images are staged before confirmation.
+- Rendered/uploaded images are optimized to WebP and staged under the import ID before confirmation.
+- Staged uploads are read back and verified through the shared storage abstraction.
+- Confirmation copies each staged image to the stable `questions/<questionId>/question.webp` key and verifies the copied bytes before writing its key to PostgreSQL.
 - Existing images are backed up inside the import directory before replacement.
 - If commit fails, file changes are compensated and the database transaction is rolled back.
+- Production never falls back to local disk for final question media; local files are only multipart/PDF processing scratch space.
 - Invalid questions are never inserted.
 - Temporary multipart files are deleted after analysis or a handled upload failure. Only per-job staged images and replacement backups remain until confirmation, cancellation, failure cleanup, or rollback no longer requires them.
 
@@ -245,7 +261,7 @@ The Arabic RTL dashboard provides:
 3. Question Bank
 4. Import History
 
-The import page uses a staged flow: select, analyze, inspect summary and individual items, choose duplicate behavior, confirm, monitor progress, and open history. The question bank uses server-side pagination and exact/partial question-number search without loading full-size images eagerly.
+The import page uses a staged flow: select bank type, choose question and media ranges, analyze, inspect the compact paginated mapping, choose duplicate behavior, confirm, monitor progress, and open history. The question bank uses server-side pagination and exact/partial question-number search without loading full-size images eagerly.
 
 ## Security
 

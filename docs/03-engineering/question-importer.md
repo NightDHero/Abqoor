@@ -27,18 +27,15 @@ The system must convert PDF pages into question images and assign deterministic 
 
 ## Input Format
 
-The importer accepts:
+The active admin workflow accepts:
 
-- `PDF file` - required.
-- `Excel .xlsx file` - required for MVP metadata enrichment.
-- `startQuestionNumber` - required positive integer.
-- `pageRange` - optional object:
-  - `from` - number.
-  - `to` - number.
-- `overwriteExisting` - optional boolean, default `false`.
-- `mode` - required, one of:
-  - `preview`
-  - `commit`
+- one Excel `.xlsx` metadata workbook;
+- an explicit workbook type: `quantitative` or `verbal`;
+- an inclusive Excel question range;
+- either one PDF plus an inclusive page range, or ordered individual PNG images;
+- duplicate decisions during the separate confirmation step.
+
+The selected question and media counts must match. Individual images are mapped in upload order to the selected Excel range.
 
 Google Sheets is not accepted directly by the MVP importer. Content prepared in Google Sheets must be exported as an Excel `.xlsx` workbook before import.
 
@@ -54,10 +51,11 @@ Google Sheets is not accepted directly by the MVP importer. Content prepared in 
 - Read the uploaded Excel `.xlsx` workbook.
 - Match rows to PDF questions by question number.
 - Use Excel metadata only; do not generate question content from Excel.
+- Validate row content only for the selected question range; malformed unselected rows do not block the batch.
 
 ### 2. Page Selection
 
-- If `pageRange` is provided, only process pages within that range.
+- If `pageRange` is provided, only render and process pages within that range.
 - If `pageRange` is not provided, process all pages.
 
 ### 3. Image Generation
@@ -176,8 +174,9 @@ PDF + Excel -> Image + metadata -> Question ID mapping -> Database-ready structu
 
 Google Sheets may be used outside Abqoor for authoring, but direct Google Sheets synchronization is a post-MVP enhancement.
 
-## TODO
+## Production Persistence
 
-- Define where generated PNG files are stored.
-- Define the exact `imageUrl` format.
-- Define import report persistence rules, if any.
+- PDF pages and uploaded PNG files are normalized to WebP.
+- Analysis writes verified staged objects through the shared object-storage service.
+- Confirmation promotes and verifies stable question objects before PostgreSQL stores `image_storage_key`.
+- Student clients continue to use the API-backed `/question-images/` path; R2 credentials remain server-side.
