@@ -5,6 +5,7 @@ import type {
   DuplicateAction,
   ImportJob,
   ImportJobDetail,
+  QuestionImportTaxonomy,
   ValidationQuestion,
   ValidationSummary
 } from "../types/admin";
@@ -35,6 +36,7 @@ export const adminService = {
   analyzeImport: (input: {
     excel: File;
     excelType: "quantitative" | "verbal";
+    quantitativeTopicId?: string;
     questionFrom: string;
     questionTo: string;
     pdf?: File;
@@ -45,6 +47,9 @@ export const adminService = {
     const formData = new FormData();
     formData.append("excel", input.excel);
     formData.append("excelType", input.excelType);
+    if (input.quantitativeTopicId) {
+      formData.append("quantitativeTopicId", input.quantitativeTopicId);
+    }
     formData.append("questionFrom", input.questionFrom);
     formData.append("questionTo", input.questionTo);
     if (input.pdf) {
@@ -64,6 +69,8 @@ export const adminService = {
       method: "POST"
     });
   },
+  getImportTaxonomy: () =>
+    apiRequest<QuestionImportTaxonomy>("/admin/import/taxonomy"),
   getImportJobs: () =>
     apiRequest<{ jobs: ImportJob[] }>("/admin/import/jobs"),
   getImportJob: (jobId: string) =>

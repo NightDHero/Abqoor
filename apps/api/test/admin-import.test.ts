@@ -85,6 +85,14 @@ const validSheets = () => [
   { sheet: "استعياب المقروء عام", data: [] }
 ];
 
+const validQuantitativeSheets = () => [{
+  sheet: "الورقة1",
+  data: [
+    ["رقم السؤال", "السؤال", "أ", "ب", "ج", "د", "الصورة", "الإجابة"],
+    [1, "سؤال كمي", "1", "2", "3", "4", "", "ب"]
+  ]
+}];
+
 const escapeXml = (value: unknown) =>
   String(value)
     .replaceAll("&", "&amp;")
@@ -310,20 +318,147 @@ test("validates selected Excel ranges and ignores invalid rows outside them", ()
 
 test("uses the repository quantitative workbook contract", () => {
   const analysis = excelAdapter.analyzeWorkbookSheets(
-    [{
-      sheet: "الورقة1",
-      data: [
-        ["رقم السؤال", "السؤال", "أ", "ب", "ج", "د", "الصورة", "الإجابة"],
-        [1, "سؤال كمي", "1", "2", "3", "4", "", "ب"]
-      ]
-    }],
+    validQuantitativeSheets(),
+    "quantitative",
+    { from: 1, to: 1 },
+    { topic: "الهندسة", topicId: "geometry" }
+  );
+
+  assert.equal(analysis.issues.length, 0);
+  assert.equal(analysis.questions[0]?.topic, "الهندسة");
+  assert.equal(analysis.questions[0]?.topicId, "geometry");
+  assert.equal(analysis.questions[0]?.correctAnswer, "B");
+});
+
+test("does not treat the quantitative section as a workbook topic", () => {
+  const analysis = excelAdapter.analyzeWorkbookSheets(
+    validQuantitativeSheets(),
     "quantitative",
     { from: 1, to: 1 }
   );
 
-  assert.equal(analysis.issues.length, 0);
-  assert.equal(analysis.questions[0]?.topic, "الكمي");
-  assert.equal(analysis.questions[0]?.correctAnswer, "B");
+  assert.equal(analysis.questions.length, 0);
+  assert.ok(
+    analysis.issues.some((item) => item.code === "missing_quantitative_topic")
+  );
+});
+
+test("requires an existing quantitative taxonomy topic before creating an import", async () => {
+  const input = {
+    createdBy: "admin@example.com",
+    excelType: "quantitative" as const,
+    questionRange: { from: 1, to: 1 },
+    excel: {
+      buffer: createWorkbookBuffer(validQuantitativeSheets()),
+      mimetype: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      originalname: "quantitative.xlsx"
+    },
+    images: [{ buffer: png, mimetype: "image/png", originalname: "1.png" }]
+  };
+
+  await assert.rejects(
+    importService.analyzeQuestionImport(input),
+    /موضوعاً كمياً معتمداً/
+  );
+  await assert.rejects(
+    importService.analyzeQuestionImport({
+      ...input,
+      quantitativeTopicId: "quantitative"
+    }),
+    /موضوعاً كمياً معتمداً/
+  );
+});
+
+test("classifies a quantitative import under the selected existing topic", async () => {
+  const detail = await importService.analyzeQuestionImport({
+    createdBy: "admin@example.com",
+    excelType: "quantitative",
+    quantitativeTopicId: "geometry",
+    questionRange: { from: 1, to: 1 },
+    excel: {
+      buffer: createWorkbookBuffer(validQuantitativeSheets()),
+      mimetype: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      originalname: "quantitative.xlsx"
+    },
+    images: [{ buffer: png, mimetype: "image/png", originalname: "1.png" }]
+  });
+
+  assert.equal(detail.items[0]?.subject, "quantitative");
+  assert.equal(detail.items[0]?.topic, "الهندسة");
+  assert.equal(detail.items[0]?.topicId, "geometry");
+  assert.ok(!detail.job.sheetSummary.some((item) => item.sheetName === "الكمي"));
+  await importService.cancelQuestionImport(detail.job.id);
+});
+
+test("question counts stay within the existing quantitative taxonomy", async () => {
+  const validQuestionId = "Q-910001";
+  const legacyInvalidQuestionId = "Q-910002";
+  const unrelatedLegacyQuestionId = "Q-910003";
+  const baseQuestion = {
+    questionImageUrl: mediaService.getQuestionImageUrl(validQuestionId),
+    correctAnswer: "A" as const,
+    subject: "quantitative" as const,
+    subjectId: "math" as const,
+    difficulty: 1,
+    difficultyScore: 1,
+    source: "manual" as const,
+    version: 1,
+    importJobId: null
+  };
+
+  await questionService.saveQuestion({
+    ...baseQuestion,
+    id: validQuestionId,
+    topic: "الهندسة",
+    topicId: "geometry"
+  });
+  await questionService.saveQuestion({
+    ...baseQuestion,
+    id: legacyInvalidQuestionId,
+    questionImageUrl: mediaService.getQuestionImageUrl(legacyInvalidQuestionId),
+    topic: "الكمي",
+    topicId: "quantitative"
+  });
+  await questionService.saveQuestion({
+    ...baseQuestion,
+    id: unrelatedLegacyQuestionId,
+    questionImageUrl: mediaService.getQuestionImageUrl(unrelatedLegacyQuestionId),
+    subject: "verbal",
+    subjectId: "arabic",
+    topic: "قديم",
+    topicId: "legacy"
+  });
+
+  const bank = await importService.getAdminQuestionBank({
+    page: 1,
+    pageSize: 10,
+    sort: "asc"
+  });
+  const quantitative = bank.questionCounts.subjects.find(
+    (subject) => subject.subjectId === "math"
+  );
+
+  assert.ok(quantitative);
+  assert.equal(
+    quantitative.topics.some(
+      (topic) => topic.topicId === "quantitative" || topic.topicLabel === "الكمي"
+    ),
+    false
+  );
+  assert.ok(
+    quantitative.topics.some(
+      (topic) => topic.topicId === "geometry" && topic.count >= 1
+    )
+  );
+  assert.ok(
+    bank.questionCounts.subjects
+      .find((subject) => subject.subjectId === "arabic")
+      ?.topics.some((topic) => topic.topicId === "legacy")
+  );
+
+  await questionRepository.deleteQuestion(validQuestionId);
+  await questionRepository.deleteQuestion(legacyInvalidQuestionId);
+  await questionRepository.deleteQuestion(unrelatedLegacyQuestionId);
 });
 
 test("rejects invalid answers, duplicate numbers, and populated reading rows", () => {

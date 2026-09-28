@@ -31,6 +31,7 @@ The active admin workflow accepts:
 
 - one Excel `.xlsx` metadata workbook;
 - an explicit workbook type: `quantitative` or `verbal`;
+- for quantitative workbooks, one existing math topic selected from the canonical taxonomy;
 - an inclusive Excel question range;
 - either one PDF plus an inclusive page range, or ordered individual PNG images;
 - duplicate decisions during the separate confirmation step.

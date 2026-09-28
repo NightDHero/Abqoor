@@ -27,6 +27,11 @@ export type ImportItemOutcome =
 
 export type PageRange = { from: number; to: number };
 
+export type ImportTopicSelection = {
+  topic: string;
+  topicId: string;
+};
+
 export type ImportValidationIssue = {
   code: string;
   message: string;
@@ -197,6 +202,7 @@ export type AnalyzeImportRequest = {
   createdBy: string;
   excel: UploadedImportFile;
   excelType: QuestionBankType;
+  quantitativeTopicId?: string;
   questionRange: PageRange;
   pdf?: UploadedImportFile;
   pdfPageRange?: PageRange;

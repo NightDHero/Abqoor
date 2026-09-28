@@ -26,6 +26,7 @@ import {
   getAdminQuestionBank,
   getImportHistory,
   getImportJobDetail,
+  getQuestionImportTaxonomy,
   rollbackQuestionImport
 } from "./admin-import.service.js";
 import { requireImportAdmin } from "./admin-import.middleware.js";
@@ -168,6 +169,9 @@ importerRouter.post("/analyze", adminImportRateLimit, acceptAnalyzeUpload, async
 
     const body = request.body as Record<string, unknown>;
     const excelType = body.excelType;
+    const quantitativeTopicId = typeof body.quantitativeTopicId === "string"
+      ? body.quantitativeTopicId
+      : undefined;
     const questionRange = toRange(body.questionFrom, body.questionTo);
     const pdfPageRange = toRange(body.pdfPageFrom, body.pdfPageTo);
     if (excelType !== "quantitative" && excelType !== "verbal") {
@@ -180,6 +184,7 @@ importerRouter.post("/analyze", adminImportRateLimit, acceptAnalyzeUpload, async
       createdBy: request.user?.email ?? "unknown",
       excel: toUploadedFile(excel),
       excelType,
+      quantitativeTopicId,
       questionRange,
       pdf: pdf ? toUploadedFile(pdf) : undefined,
       pdfPageRange,
@@ -194,6 +199,10 @@ importerRouter.post("/analyze", adminImportRateLimit, acceptAnalyzeUpload, async
   } finally {
     cleanupUploadedFiles(request);
   }
+});
+
+importerRouter.get("/taxonomy", (_request, response) => {
+  response.status(200).json(getQuestionImportTaxonomy());
 });
 
 importerRouter.get("/questions", async (request, response) => {

@@ -2,6 +2,7 @@ import readXlsxFile from "read-excel-file/node";
 import { parseCorrectAnswer, parseQuestionNumber } from "../question-format.mapper.js";
 import type {
   ImportValidationIssue,
+  ImportTopicSelection,
   PageRange,
   ParsedWorkbookQuestion,
   QuestionBankType,
@@ -62,11 +63,13 @@ const verbalSheetDefinitions: Record<string, SheetDefinition | null> = {
   "استيعاب المقروء عام": null
 };
 
-const quantitativeSheetDefinition: SheetDefinition = {
+const createQuantitativeSheetDefinition = (
+  topic: ImportTopicSelection
+): SheetDefinition => ({
   acceptedNames: ["الورقة1"], headers: quantitativeHeaders,
   optionIndexes: [2, 3, 4, 5], answerIndex: 7,
-  topic: "الكمي", topicId: "quantitative"
-};
+  ...topic
+});
 
 const text = (value: unknown) => String(value ?? "").trim();
 const isEmptyRow = (row: unknown[]) => row.every((cell) => text(cell) === "");
@@ -132,12 +135,20 @@ const validateWorkbookStructure = (sheets: RawWorkbookSheet[], excelType: Questi
   return issues;
 };
 
-const getSheetPlans = (sheets: RawWorkbookSheet[], excelType: QuestionBankType) => {
+const getSheetPlans = (
+  sheets: RawWorkbookSheet[],
+  excelType: QuestionBankType,
+  quantitativeTopic?: ImportTopicSelection
+) => {
   if (excelType === "quantitative") {
+    if (!quantitativeTopic) {
+      return [];
+    }
+    const definition = createQuantitativeSheetDefinition(quantitativeTopic);
     return [{
       canonicalName: requiredQuantitativeWorkbookSheets[0],
-      definition: quantitativeSheetDefinition,
-      sheet: sheets.find((candidate) => quantitativeSheetDefinition.acceptedNames.includes(candidate.sheet))
+      definition,
+      sheet: sheets.find((candidate) => definition.acceptedNames.includes(candidate.sheet))
     }];
   }
   return requiredVerbalWorkbookSheets.map((canonicalName) => {
@@ -156,12 +167,19 @@ const getSheetPlans = (sheets: RawWorkbookSheet[], excelType: QuestionBankType) 
 export const analyzeWorkbookSheets = (
   sheets: RawWorkbookSheet[],
   excelType: QuestionBankType = "verbal",
-  questionRange?: PageRange
+  questionRange?: PageRange,
+  quantitativeTopic?: ImportTopicSelection
 ): WorkbookAnalysis => {
   const issues = validateWorkbookStructure(sheets, excelType);
   const questions: ParsedWorkbookQuestion[] = [];
   const seenQuestions = new Map<number, ParsedWorkbookQuestion>();
-  const sheetPlans = getSheetPlans(sheets, excelType);
+  if (excelType === "quantitative" && !quantitativeTopic) {
+    issues.push(issue(
+      "missing_quantitative_topic",
+      "يجب اختيار موضوع كمي معتمد قبل تحليل ملف Excel."
+    ));
+  }
+  const sheetPlans = getSheetPlans(sheets, excelType, quantitativeTopic);
   const sheetSummary = sheetPlans.map(({ canonicalName }) => ({ sheetName: canonicalName, questionCount: 0 }));
 
   for (const [sheetIndex, plan] of sheetPlans.entries()) {
@@ -275,10 +293,16 @@ export const analyzeWorkbookSheets = (
 export const readAdminWorkbook = async (
   excelBuffer: Buffer,
   excelType: QuestionBankType = "verbal",
-  questionRange?: PageRange
+  questionRange?: PageRange,
+  quantitativeTopic?: ImportTopicSelection
 ) => {
   const sheets = (await readXlsxFile(excelBuffer)) as RawWorkbookSheet[];
-  return analyzeWorkbookSheets(sheets, excelType, questionRange);
+  return analyzeWorkbookSheets(
+    sheets,
+    excelType,
+    questionRange,
+    quantitativeTopic
+  );
 };
 
 export const readArabicExcelRows = async (excelBuffer: Buffer): Promise<RawMetadataAdapterResult> => {

@@ -105,6 +105,13 @@ export type ImportJobDetail = {
   items: ImportJobItem[];
 };
 
+export type QuestionImportTaxonomy = {
+  quantitativeTopics: Array<{
+    id: string;
+    label: string;
+  }>;
+};
+
 export type AdminQuestion = {
   id: string;
   questionNumber: number;

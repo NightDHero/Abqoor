@@ -28,6 +28,7 @@ import {
 import { saveQuestion } from "../../questions/question.service.js";
 import type { QuestionRecord } from "../../questions/question.types.js";
 import {
+  findTopicDefinition,
   legacySubjectToSubject,
   topicTaxonomy,
   type LearningSubject
@@ -164,6 +165,13 @@ const assertAnalysisInput = (request: AnalyzeImportRequest) => {
   if (!isValidRange(request.questionRange)) {
     throw new AdminImportError("نطاق أسئلة Excel غير صالح.");
   }
+
+  const quantitativeTopic = request.excelType === "quantitative"
+    ? findTopicDefinition("math", request.quantitativeTopicId)
+    : null;
+  if (request.excelType === "quantitative" && !quantitativeTopic) {
+    throw new AdminImportError("اختر موضوعاً كمياً معتمداً من التصنيف الحالي.");
+  }
   const hasPdf = Boolean(request.pdf);
   const hasImages = Boolean(request.images?.length);
 
@@ -177,6 +185,8 @@ const assertAnalysisInput = (request: AnalyzeImportRequest) => {
       throw new AdminImportError("نطاق صفحات PDF غير صالح.");
     }
   }
+
+  return quantitativeTopic;
 };
 
 const withProgress = (detail: ImportJobDetail): ImportJobDetail => {
@@ -349,7 +359,7 @@ const analyzeImageMedia = async (
 export const analyzeQuestionImport = async (
   request: AnalyzeImportRequest
 ): Promise<ImportJobDetail> => {
-  assertAnalysisInput(request);
+  const quantitativeTopic = assertAnalysisInput(request);
 
   const sourceType = request.pdf ? "pdf" : "images";
   const mediaFilename = request.pdf?.originalname ?? `${request.images?.length ?? 0} صور PNG`;
@@ -366,7 +376,13 @@ export const analyzeQuestionImport = async (
     const workbook = await readAdminWorkbook(
       request.excel.buffer,
       request.excelType,
-      request.questionRange
+      request.questionRange,
+      quantitativeTopic
+        ? {
+            topic: quantitativeTopic.displayNameAr,
+            topicId: quantitativeTopic.slug
+          }
+        : undefined
     );
     const issues = [...workbook.issues];
     const media = request.pdf
@@ -841,6 +857,12 @@ export const rollbackQuestionImport = async (jobId: string) => {
 
 export const getImportHistory = async () => ({ jobs: await listImportJobs() });
 
+export const getQuestionImportTaxonomy = () => ({
+  quantitativeTopics: topicTaxonomy
+    .filter((topic) => topic.subject === "math")
+    .map((topic) => ({ id: topic.slug, label: topic.displayNameAr }))
+});
+
 const normalizeTopicCountKey = (
   subjectId: LearningSubject,
   topicId: string | null,
@@ -893,6 +915,12 @@ const toQuestionCountOverview = async () => {
     const topicDefinition = topicTaxonomy.find(
       (topic) => topic.subject === subjectId && topic.slug === row.topic_id
     );
+    const isQuantitativeSectionAlias =
+      subjectId === "math" &&
+      (row.topic_id === "quantitative" || row.topic.trim() === "الكمي");
+    if (!topicDefinition && isQuantitativeSectionAlias) {
+      continue;
+    }
     const topicId = topicDefinition?.slug ?? row.topic_id;
     const topicLabel = topicDefinition?.displayNameAr ?? row.topic;
     const topicKey = normalizeTopicCountKey(subjectId, topicId, topicLabel);

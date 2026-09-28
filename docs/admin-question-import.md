@@ -36,7 +36,7 @@ Excel question text and options are retained in import audit items for preview a
 
 ## Workbook Type And Contract
 
-The administrator explicitly selects `كمي` or `لفظي` before analysis. The API does not guess the bank type from arbitrary cell content.
+The administrator explicitly selects `كمي` or `لفظي` before analysis. The API does not guess the bank type from arbitrary cell content. `كمي` selects the parent section only; a quantitative import also requires one existing topic from the canonical math taxonomy. The API validates that topic slug before creating an import job and never stores `الكمي` as a topic.
 
 ### Verbal Workbook
 
@@ -93,7 +93,10 @@ The quantitative contract follows the repository's existing workbook:
 
 - one sheet named `الورقة1`;
 - columns `رقم السؤال`, `السؤال`, `أ`, `ب`, `ج`, `د`, `الصورة`, `الإجابة`;
+- one topic selected in the importer from `الحساب`, `الجبر`, `الهندسة`, `الإحصاء والاحتمالات`, `الأنماط الشكلية`, `المقارنة الكمية`, or `المسائل اللفظية`;
 - the external PDF or uploaded images remain the authoritative visual question content.
+
+The selected topic applies to the quantitative rows in the analyzed range. Workbooks that span several topics must be imported as separate ranges so every question is assigned to its correct existing topic.
 
 ## Excel Validation
 

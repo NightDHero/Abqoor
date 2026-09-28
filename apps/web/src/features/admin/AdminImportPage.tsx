@@ -19,6 +19,8 @@ export function AdminImportPage() {
   const [pdf, setPdf] = useState<File | null>(null);
   const [images, setImages] = useState<File[]>([]);
   const [excelType, setExcelType] = useState<"quantitative" | "verbal">("quantitative");
+  const [quantitativeTopicId, setQuantitativeTopicId] = useState("");
+  const [quantitativeTopics, setQuantitativeTopics] = useState<Array<{ id: string; label: string }>>([]);
   const [mediaType, setMediaType] = useState<"pdf" | "images">("pdf");
   const [questionFrom, setQuestionFrom] = useState("1");
   const [questionTo, setQuestionTo] = useState("1");
@@ -34,6 +36,13 @@ export function AdminImportPage() {
   const [error, setError] = useState("");
   const [previewPage, setPreviewPage] = useState(1);
   const previewPageSize = 25;
+
+  useEffect(() => {
+    void adminService
+      .getImportTaxonomy()
+      .then((taxonomy) => setQuantitativeTopics(taxonomy.quantitativeTopics))
+      .catch(() => setError("تعذر تحميل تصنيف الموضوعات الكمية."));
+  }, []);
 
   useEffect(() => {
     if (detail?.job.status !== "importing") {
@@ -81,6 +90,10 @@ export function AdminImportPage() {
       setError("اختر ملف Excel أولاً.");
       return;
     }
+    if (excelType === "quantitative" && !quantitativeTopicId) {
+      setError("اختر موضوع السؤال الكمي من التصنيف المعتمد.");
+      return;
+    }
     if (mediaType === "pdf" && !pdf) {
       setError("اختر ملف PDF.");
       return;
@@ -112,6 +125,7 @@ export function AdminImportPage() {
       const response = await adminService.analyzeImport({
         excel,
         excelType,
+        quantitativeTopicId: excelType === "quantitative" ? quantitativeTopicId : undefined,
         questionFrom,
         questionTo,
         pdf: mediaType === "pdf" ? pdf ?? undefined : undefined,
@@ -206,6 +220,22 @@ export function AdminImportPage() {
             <label><input checked={excelType === "quantitative"} name="excelType" type="radio" onChange={() => setExcelType("quantitative")} /> كمي</label>
             <label><input checked={excelType === "verbal"} name="excelType" type="radio" onChange={() => setExcelType("verbal")} /> لفظي</label>
           </fieldset>
+          {excelType === "quantitative" ? (
+            <label>
+              الموضوع الكمي
+              <select
+                required
+                value={quantitativeTopicId}
+                onChange={(event) => setQuantitativeTopicId(event.target.value)}
+              >
+                <option value="">اختر الموضوع</option>
+                {quantitativeTopics.map((topic) => (
+                  <option key={topic.id} value={topic.id}>{topic.label}</option>
+                ))}
+              </select>
+              <small>كمي هو القسم الرئيسي؛ اختر موضوع الأسئلة داخل هذا القسم.</small>
+            </label>
+          ) : null}
           <label>
             ملف Excel
             <input
