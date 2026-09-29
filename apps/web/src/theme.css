@@ -634,11 +634,6 @@ body:has(.onboarding-shell) {
   box-shadow: var(--theme-shadow);
 }
 
-.profile-identity-avatar {
-  background: #ffffff;
-  box-shadow: var(--theme-shadow-soft);
-}
-
 .product-app-shell .profile-form > .action-row,
 .auth-mode-switch,
 .onboarding-progress-bar,

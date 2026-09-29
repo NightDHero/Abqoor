@@ -120,24 +120,23 @@
 }
 
 .app-navigation-track {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 2px;
+}
+
+.app-navigation-row {
   display: flex;
   flex-wrap: nowrap;
   gap: 4px;
   align-items: center;
   justify-content: flex-start;
   min-width: 0;
-  overflow-x: auto;
-  padding: 2px;
-  overscroll-behavior-inline: contain;
-  scroll-padding-inline: 12px;
-  scroll-snap-type: inline proximity;
-  scrollbar-width: none;
-  touch-action: pan-x;
-  -webkit-overflow-scrolling: touch;
 }
 
-.app-navigation-track::-webkit-scrollbar {
-  display: none;
+.app-navigation-track-two-rows .app-navigation-row {
+  justify-content: center;
 }
 
 .app-navigation-item {
@@ -154,7 +153,6 @@
   color: color-mix(in srgb, var(--theme-text, #f7fbfc) 70%, transparent);
   font-weight: 850;
   white-space: nowrap;
-  scroll-snap-align: nearest;
 }
 
 .app-navigation-item::after {
@@ -251,7 +249,6 @@
 
   .app-navigation-track {
     grid-column: 1 / -1;
-    justify-content: flex-start;
     order: 3;
   }
 
@@ -262,6 +259,11 @@
 
   .app-navigation-label {
     font-size: 0.8rem;
+  }
+
+  .app-navigation-track-two-rows .app-navigation-item {
+    gap: 6px;
+    padding-inline: 10px;
   }
 
   .career-app-shell .hub-home-stage {
@@ -292,6 +294,43 @@
 
   .app-navigation-brand {
     justify-self: end;
+  }
+
+  .app-navigation-track-two-rows .app-navigation-item {
+    gap: 5px;
+    padding-inline: 6px;
+  }
+
+  .app-navigation-track-two-rows .app-navigation-icon {
+    width: 21px;
+    height: 21px;
+    padding: 3px;
+  }
+
+  .app-navigation-track-two-rows .app-navigation-label {
+    font-size: 0.76rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .app-navigation-track-two-rows .app-navigation-row {
+    gap: 3px;
+  }
+
+  .app-navigation-track-two-rows .app-navigation-item {
+    gap: 4px;
+    padding-inline: 3px;
+  }
+
+  .app-navigation-track-two-rows .app-navigation-icon {
+    width: 18px;
+    height: 18px;
+    border-radius: 6px;
+    padding: 2px;
+  }
+
+  .app-navigation-track-two-rows .app-navigation-label {
+    font-size: 0.69rem;
   }
 }
 

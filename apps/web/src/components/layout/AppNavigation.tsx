@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { SystemIcon } from "../ui/SystemIcon";
 import { homeContent } from "../../features/home/homeContent";
 import { navigateTo } from "../../utils/router";
@@ -36,24 +36,25 @@ const navigationItems = [
   },
   {
     activePath: "/profile",
-    icon: "/assets/hub/avatar.png",
     label: "ملفي",
     route: "/profile"
-  },
-  {
-    activePath: "/profile/settings",
-    icon: "/assets/navigation/settings.png",
-    label: "الإعدادات",
-    route: "/profile#settings"
   }
 ] as const;
 
 const adminNavigationItem = {
   activePath: "/admin",
-  icon: "",
+  showSystemIcon: true,
   label: "لوحة الإدارة",
   route: "/admin"
 } as const;
+
+type NavigationItem = {
+  activePath: string;
+  icon?: string;
+  label: string;
+  route: string;
+  showSystemIcon?: boolean;
+};
 
 const isItemActive = (currentPath: string, activePath: string) =>
   activePath === "/"
@@ -89,22 +90,76 @@ export function AppNavigation({
   isAdmin?: boolean;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const items = isAdmin
+  const [usesTwoRows, setUsesTwoRows] = useState(false);
+  const items: NavigationItem[] = isAdmin
     ? [...navigationItems, adminNavigationItem]
-    : navigationItems;
+    : [...navigationItems];
 
-  useEffect(() => {
-    const activeItem = trackRef.current?.querySelector<HTMLElement>(
-      '[aria-current="page"]'
+  useLayoutEffect(() => {
+    const track = trackRef.current;
+    if (!track) {
+      return;
+    }
+
+    const updateLayout = () => {
+      const itemElements = Array.from(
+        track.querySelectorAll<HTMLElement>(".app-navigation-item")
+      );
+      const itemWidth = itemElements.reduce(
+        (total, item) => total + item.getBoundingClientRect().width,
+        0
+      );
+      const gap = Number.parseFloat(window.getComputedStyle(track).columnGap) || 0;
+      const requiredWidth = itemWidth + gap * Math.max(0, itemElements.length - 1);
+
+      setUsesTwoRows(requiredWidth > track.clientWidth + 1);
+    };
+
+    updateLayout();
+    const resizeObserver = new ResizeObserver(updateLayout);
+    resizeObserver.observe(track);
+    track
+      .querySelectorAll<HTMLElement>(".app-navigation-item")
+      .forEach((item) => resizeObserver.observe(item));
+
+    return () => resizeObserver.disconnect();
+  }, [isAdmin]);
+
+  const splitIndex = Math.floor(items.length / 2);
+  const rows = usesTwoRows
+    ? [items.slice(0, splitIndex), items.slice(splitIndex)]
+    : [items];
+
+  const renderItem = (item: NavigationItem) => {
+    const isActive = isItemActive(currentPath, item.activePath);
+
+    return (
+      <a
+        aria-current={isActive ? "page" : undefined}
+        aria-label={item.label}
+        className={
+          isActive ? "app-navigation-item active" : "app-navigation-item"
+        }
+        href={item.route}
+        key={item.route}
+        onClick={(event) => {
+          event.preventDefault();
+          navigateTo(item.route);
+        }}
+      >
+        {item.icon || item.showSystemIcon ? (
+          <span className="app-navigation-icon">
+            {item.icon ? (
+              <img alt="" src={item.icon} />
+            ) : (
+              <SystemIcon name="status" />
+            )}
+          </span>
+        ) : null}
+        <span className="app-navigation-label">{item.label}</span>
+      </a>
     );
-    activeItem?.scrollIntoView({
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "auto"
-        : "smooth",
-      block: "nearest",
-      inline: "nearest"
-    });
-  }, [currentPath, isAdmin]);
+  };
 
   return (
     <nav className="app-navigation" aria-label="التنقل الرئيسي">
@@ -130,35 +185,19 @@ export function AppNavigation({
           <span>عبقور</span>
         </a>
 
-        <div className="app-navigation-track" ref={trackRef}>
-          {items.map((item) => {
-            const isActive = isItemActive(currentPath, item.activePath);
-
-            return (
-              <a
-                aria-current={isActive ? "page" : undefined}
-                aria-label={item.label}
-                className={
-                  isActive ? "app-navigation-item active" : "app-navigation-item"
-                }
-                href={item.route}
-                key={item.route}
-                onClick={(event) => {
-                  event.preventDefault();
-                  navigateTo(item.route);
-                }}
-              >
-                <span className="app-navigation-icon">
-                  {item.icon ? (
-                    <img alt="" src={item.icon} />
-                  ) : (
-                    <SystemIcon name="status" />
-                  )}
-                </span>
-                <span className="app-navigation-label">{item.label}</span>
-              </a>
-            );
-          })}
+        <div
+          className={
+            usesTwoRows
+              ? "app-navigation-track app-navigation-track-two-rows"
+              : "app-navigation-track"
+          }
+          ref={trackRef}
+        >
+          {rows.map((row, index) => (
+            <div className="app-navigation-row" key={usesTwoRows ? index : "single"}>
+              {row.map(renderItem)}
+            </div>
+          ))}
         </div>
       </div>
     </nav>

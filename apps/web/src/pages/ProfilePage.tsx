@@ -61,11 +61,13 @@ function InlineOptions<T extends string>({
 
 export function ProfilePage({
   activeTheme,
+  onLogout,
   onThemeChange,
   onProfileSaved,
   user
 }: {
   activeTheme: ThemePreference;
+  onLogout: () => Promise<void>;
   onThemeChange: (theme: ThemePreference) => void;
   onProfileSaved: (user: User) => void;
   user: User;
@@ -175,9 +177,6 @@ export function ProfilePage({
 
       <section className="profile-dashboard-head" aria-label="هوية وملخص الملف الدراسي">
         <div className="profile-identity">
-          <span className="profile-identity-avatar">
-            <img alt="" src="/assets/hub/avatar.png" />
-          </span>
           <div>
             <strong>{form.username || "مستخدم عبقور"}</strong>
             <span dir="ltr">{user.email}</span>
@@ -412,6 +411,16 @@ export function ProfilePage({
           </button>
         </div>
       </form>
+
+      <section className="profile-section profile-account-actions" aria-labelledby="account-actions-section">
+        <div>
+          <h2 id="account-actions-section">إجراءات الحساب</h2>
+          <p>يمكنك إنهاء الجلسة الحالية بأمان من هذا الجهاز.</p>
+        </div>
+        <button className="profile-sign-out" type="button" onClick={() => void onLogout()}>
+          تسجيل الخروج
+        </button>
+      </section>
     </PageContainer>
   );
 }

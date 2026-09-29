@@ -1,7 +1,5 @@
 import type { CSSProperties } from "react";
-import type { User } from "../../types/auth";
 import { navigateTo } from "../../utils/router";
-import { HubAvatar } from "./HubAvatar";
 import { StudyProgressTracker } from "./StudyProgressTracker";
 
 const worldEntrances = [
@@ -37,7 +35,6 @@ const particles = [
   [93, 77, 4, 2],
   [47, 48, 3, 7],
   [72, 42, 2, 1],
-  [21, 54, 2, 5],
   [33, 13, 3, 7],
   [44, 66, 2, 3],
   [58, 35, 4, 6],
@@ -56,13 +53,7 @@ const energyStreaks = [
   [82, 67, 10, 1]
 ] as const;
 
-export function CareerDashboard({
-  onLogout,
-  user
-}: {
-  onLogout: () => void;
-  user: User | null;
-}) {
+export function CareerDashboard() {
   return (
     <section className="hub-world-map" aria-labelledby="hub-world-title">
       <h1 className="career-visually-hidden" id="hub-world-title">
@@ -102,13 +93,6 @@ export function CareerDashboard({
           />
         ))}
       </div>
-
-      <HubAvatar
-        email={user?.email}
-        isAdmin={user?.isAdmin}
-        onLogout={onLogout}
-        username={user?.username}
-      />
 
       <div className="hub-home-stage">
         <StudyProgressTracker />

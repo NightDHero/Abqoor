@@ -40,7 +40,12 @@ export function AdminImportPage() {
   useEffect(() => {
     void adminService
       .getImportTaxonomy()
-      .then((taxonomy) => setQuantitativeTopics(taxonomy.quantitativeTopics))
+      .then((taxonomy) => {
+        setQuantitativeTopics(taxonomy.quantitativeTopics);
+        setQuantitativeTopicId((currentTopicId) =>
+          currentTopicId || taxonomy.quantitativeTopics[0]?.id || ""
+        );
+      })
       .catch(() => setError("تعذر تحميل تصنيف الموضوعات الكمية."));
   }, []);
 
@@ -222,18 +227,17 @@ export function AdminImportPage() {
           </fieldset>
           {excelType === "quantitative" ? (
             <label>
-              الموضوع الكمي
+              الموضوع
               <select
                 required
                 value={quantitativeTopicId}
                 onChange={(event) => setQuantitativeTopicId(event.target.value)}
               >
-                <option value="">اختر الموضوع</option>
                 {quantitativeTopics.map((topic) => (
                   <option key={topic.id} value={topic.id}>{topic.label}</option>
                 ))}
               </select>
-              <small>كمي هو القسم الرئيسي؛ اختر موضوع الأسئلة داخل هذا القسم.</small>
+              <small>القسم محدد مسبقاً: كمي. اختر موضوع الأسئلة داخله؛ الموضوع الفرعي اختياري وغير معيّن تلقائياً.</small>
             </label>
           ) : null}
           <label>

@@ -119,9 +119,7 @@ export default function App() {
     renderProtectedPage(auth.user?.isAdmin ? children : <NotFoundPage />);
 
   if (path === "/career") {
-    return renderProtectedPage(
-      <CareerPage onLogout={auth.logout} user={auth.user} />
-    );
+    return renderProtectedPage(<CareerPage />);
   }
 
   if (topicRouteValue) {
@@ -186,6 +184,7 @@ export default function App() {
         <ProfilePage
           activeTheme={theme.theme}
           user={auth.user}
+          onLogout={auth.logout}
           onThemeChange={theme.setTheme}
           onProfileSaved={(user) => auth.setUser(user)}
         />
