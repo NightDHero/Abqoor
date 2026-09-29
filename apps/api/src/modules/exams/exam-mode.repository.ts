@@ -10,6 +10,7 @@ import type {
   OfficialExamSectionStatus,
   OfficialExamStatus
 } from "./exam-mode.types.js";
+import { officialExamStructure } from "./exam-structure.js";
 
 const examQuestionSelect = `
   SELECT
@@ -294,7 +295,11 @@ export const createOfficialExam = async (input: {
       userId: input.userId
     });
 
-    for (let sectionNumber = 1; sectionNumber <= 5; sectionNumber += 1) {
+    for (
+      let sectionNumber = 1;
+      sectionNumber <= officialExamStructure.totalSections;
+      sectionNumber += 1
+    ) {
       await insertSectionStatement.run({
         examId: input.examId,
         sectionNumber,

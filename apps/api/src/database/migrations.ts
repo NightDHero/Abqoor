@@ -244,6 +244,8 @@ const createAdminImportTables = (db: Database.Database) => {
       subject TEXT NOT NULL,
       topic TEXT NOT NULL,
       topic_id TEXT NOT NULL,
+      subtopic TEXT,
+      subtopic_id TEXT,
       difficulty INTEGER NOT NULL,
       page_number INTEGER,
       source_image_name TEXT,
@@ -331,6 +333,8 @@ const migrateAdminImportSystem = (db: Database.Database) => {
   }
 
   addColumnIfMissing(db, "import_jobs", "source_pdf_id", "TEXT");
+  addColumnIfMissing(db, "import_job_items", "subtopic", "TEXT");
+  addColumnIfMissing(db, "import_job_items", "subtopic_id", "TEXT");
 
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_questions_import_job_id ON questions(import_job_id);

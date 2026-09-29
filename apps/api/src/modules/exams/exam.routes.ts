@@ -6,6 +6,7 @@ import {
   completeOfficialExamSectionFlow,
   flagOfficialExamQuestion,
   getOfficialExam,
+  getOfficialExamStructure,
   startOfficialExam
 } from "./exam-mode.service.js";
 
@@ -19,6 +20,10 @@ const handleExamError = (error: unknown, response: Response) => {
 
   response.status(500).json({ message: "Exam request failed." });
 };
+
+examRouter.get("/structure", requireAuth, (_request, response) => {
+  response.status(200).json({ structure: getOfficialExamStructure() });
+});
 
 examRouter.get("/history", requireAuth, async (request, response) => {
   try {

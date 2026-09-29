@@ -4,6 +4,17 @@ export type ExamCategory = "math" | "arabic";
 export type ExamStatus = "active" | "completed";
 export type ExamSectionStatus = "pending" | "active" | "completed";
 
+export type ExamStructure = {
+  totalSections: number;
+  mathPerSection: number;
+  arabicPerSection: number;
+  questionsPerSection: number;
+  totalMath: number;
+  totalArabic: number;
+  totalQuestions: number;
+  sectionDurationSeconds: number;
+};
+
 export type ExamQuestion = {
   questionId: string;
   questionImageUrl: string;
@@ -59,6 +70,7 @@ export type ExamAttempt = {
   status: ExamStatus;
   currentSection: number;
   sectionDurationSeconds: number;
+  structure: ExamStructure;
   startedAt: string;
   completedAt?: string;
   sections: ExamSection[];
@@ -67,6 +79,10 @@ export type ExamAttempt = {
 
 export type ExamAttemptResponse = {
   exam: ExamAttempt;
+};
+
+export type ExamStructureResponse = {
+  structure: ExamStructure;
 };
 
 export type CompleteExamSectionResponse = {

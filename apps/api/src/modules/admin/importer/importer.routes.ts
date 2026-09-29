@@ -169,8 +169,13 @@ importerRouter.post("/analyze", adminImportRateLimit, acceptAnalyzeUpload, async
 
     const body = request.body as Record<string, unknown>;
     const excelType = body.excelType;
-    const quantitativeTopicId = typeof body.quantitativeTopicId === "string"
-      ? body.quantitativeTopicId
+    const topicId = typeof body.topicId === "string"
+      ? body.topicId
+      : typeof body.quantitativeTopicId === "string"
+        ? body.quantitativeTopicId
+        : undefined;
+    const subtopicId = typeof body.subtopicId === "string" && body.subtopicId.trim()
+      ? body.subtopicId
       : undefined;
     const questionRange = toRange(body.questionFrom, body.questionTo);
     const pdfPageRange = toRange(body.pdfPageFrom, body.pdfPageTo);
@@ -184,7 +189,8 @@ importerRouter.post("/analyze", adminImportRateLimit, acceptAnalyzeUpload, async
       createdBy: request.user?.email ?? "unknown",
       excel: toUploadedFile(excel),
       excelType,
-      quantitativeTopicId,
+      topicId,
+      subtopicId,
       questionRange,
       pdf: pdf ? toUploadedFile(pdf) : undefined,
       pdfPageRange,

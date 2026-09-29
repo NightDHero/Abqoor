@@ -25,7 +25,6 @@ import {
   officialExamQuestionsPerSection,
   officialExamSectionCount,
   officialExamSectionDurationSeconds,
-  officialExamTestModeMessage,
   toOfficialExamQuestion,
   toOfficialExamResult,
   type OfficialExam,
@@ -36,6 +35,7 @@ import {
   type OfficialExamResultRecord,
   type OfficialExamTopicScore
 } from "./exam-mode.types.js";
+import { officialExamStructure } from "./exam-structure.js";
 
 export class OfficialExamError extends Error {
   constructor(
@@ -101,26 +101,6 @@ const sortByQuestionId = (questions: Question[]) => {
   return [...questions].sort((left, right) => left.id.localeCompare(right.id));
 };
 
-const repeatQuestionsToLength = (
-  preferredQuestions: Question[],
-  fallbackQuestions: Question[],
-  requiredLength: number
-) => {
-  const sourceQuestions =
-    preferredQuestions.length > 0 ? preferredQuestions : fallbackQuestions;
-
-  if (sourceQuestions.length === 0) {
-    throw new OfficialExamError(
-      "Exam Test Mode requires at least one question record in the database.",
-      409
-    );
-  }
-
-  return Array.from({ length: requiredLength }, (_value, index) => {
-    return sourceQuestions[index % sourceQuestions.length];
-  });
-};
-
 const getOfficialQuestionPools = async () => {
   const allQuestions = sortByQuestionId(await getQuestions({}));
   const mathQuestions = sortByQuestionId(
@@ -134,29 +114,35 @@ const getOfficialQuestionPools = async () => {
       (question) => question.subjectId === "arabic" || question.subject === "verbal"
     )
   );
-  const isTestMode =
+  if (
     mathQuestions.length < requiredMathQuestions ||
-    arabicQuestions.length < requiredArabicQuestions;
+    arabicQuestions.length < requiredArabicQuestions
+  ) {
+    throw new OfficialExamError(
+      `لا يمكن بدء الاختبار: يلزم ${requiredMathQuestions} سؤالاً كمياً و${requiredArabicQuestions} سؤالاً لفظياً على الأقل.`,
+      409
+    );
+  }
 
   return {
-    arabicQuestions: isTestMode
-      ? repeatQuestionsToLength(
-          arabicQuestions,
-          allQuestions,
-          requiredArabicQuestions
-        )
-      : arabicQuestions.slice(0, requiredArabicQuestions),
-    isTestMode,
-    mathQuestions: isTestMode
-      ? repeatQuestionsToLength(mathQuestions, allQuestions, requiredMathQuestions)
-      : mathQuestions.slice(0, requiredMathQuestions)
+    arabicQuestions: arabicQuestions.slice(0, requiredArabicQuestions),
+    mathQuestions: mathQuestions.slice(0, requiredMathQuestions)
   };
 };
 
-const buildOfficialExamQuestionPlan = (
+export const buildOfficialExamQuestionPlan = (
   mathQuestions: Question[],
   arabicQuestions: Question[]
 ) => {
+  if (
+    mathQuestions.length !== requiredMathQuestions ||
+    arabicQuestions.length !== requiredArabicQuestions
+  ) {
+    throw new OfficialExamError(
+      "تعذر إنشاء توزيع الاختبار الرسمي بالحجم المطلوب.",
+      409
+    );
+  }
   const plannedQuestions: Array<{
     sectionNumber: number;
     positionInSection: number;
@@ -198,15 +184,48 @@ const buildOfficialExamQuestionPlan = (
   return plannedQuestions;
 };
 
+const assertCurrentOfficialExamStructure = (
+  sections: Awaited<ReturnType<typeof findOfficialExamSections>>,
+  questions: ReturnType<typeof toOfficialExamQuestion>[]
+) => {
+  const hasExpectedSections =
+    sections.length === officialExamSectionCount &&
+    sections.every((section, index) => section.section_number === index + 1);
+  const hasExpectedQuestions =
+    questions.length === officialExamStructure.totalQuestions &&
+    new Set(questions.map((question) => question.questionId)).size ===
+      officialExamStructure.totalQuestions &&
+    questions.every((question, index) => question.globalPosition === index + 1);
+  const sectionsAreValid = sections.every((section) => {
+    const sectionQuestions = questions.filter(
+      (question) => question.sectionNumber === section.section_number
+    );
+    return (
+      sectionQuestions.length === officialExamQuestionsPerSection &&
+      sectionQuestions.filter((question) => question.category === "math").length ===
+        officialExamMathPerSection &&
+      sectionQuestions.filter((question) => question.category === "arabic").length ===
+        officialExamArabicPerSection &&
+      sectionQuestions.every(
+        (question, index) => question.positionInSection === index + 1
+      )
+    );
+  });
+
+  if (!hasExpectedSections || !hasExpectedQuestions || !sectionsAreValid) {
+    throw new OfficialExamError(
+      "هذا الاختبار محفوظ ببنية قديمة ولا يمكن استئنافه. ابدأ اختباراً جديداً.",
+      409
+    );
+  }
+};
+
 const toOfficialExam = async (exam: OfficialExamRecord): Promise<OfficialExam> => {
   const sections = await findOfficialExamSections(exam.id);
   const questions = (await findOfficialExamQuestions(exam.id)).map(
     toOfficialExamQuestion
   );
   const result = await findOfficialExamResultByExamId(exam.id);
-  const uniqueQuestionIds = new Set(
-    questions.map((question) => question.questionId)
-  );
   const hasCategoryMismatch = questions.some((question) => {
     if (question.category === "math") {
       return (
@@ -217,17 +236,21 @@ const toOfficialExam = async (exam: OfficialExamRecord): Promise<OfficialExam> =
 
     return question.subjectId !== "arabic" && question.subject !== "verbal";
   });
-  const isTestMode =
-    uniqueQuestionIds.size < officialExamSectionCount * officialExamQuestionsPerSection ||
-    hasCategoryMismatch;
+  assertCurrentOfficialExamStructure(sections, questions);
+  if (hasCategoryMismatch) {
+    throw new OfficialExamError(
+      "يحتوي الاختبار على تصنيف أسئلة غير متوافق مع بنيته.",
+      409
+    );
+  }
 
   return {
     id: exam.id,
-    isTestMode,
-    testModeMessage: isTestMode ? officialExamTestModeMessage : undefined,
+    isTestMode: false,
     status: exam.status,
     currentSection: exam.current_section,
     sectionDurationSeconds: officialExamSectionDurationSeconds,
+    structure: officialExamStructure,
     startedAt: exam.started_at,
     completedAt: exam.completed_at ?? undefined,
     sections: sections.map((section) => ({
@@ -272,7 +295,9 @@ const assertWritableCurrentSection = (
       positionInSection < 1 ||
       positionInSection > officialExamQuestionsPerSection)
   ) {
-    throw new OfficialExamError("positionInSection must be from 1 to 25.");
+    throw new OfficialExamError(
+      `positionInSection must be from 1 to ${officialExamQuestionsPerSection}.`
+    );
   }
 };
 
@@ -348,7 +373,7 @@ const calculateOfficialExamResult = async (
   const arabicScore = calculatePercentage(
     questions.filter((question) => question.category === "arabic")
   );
-  const finalScore = Math.round((mathScore + arabicScore) / 2);
+  const finalScore = calculatePercentage(questions);
   const sectionScores = Array.from(
     { length: officialExamSectionCount },
     (_value, index) =>
@@ -387,6 +412,8 @@ export const startOfficialExam = async (userId: string) => {
 
   return toOfficialExam(exam);
 };
+
+export const getOfficialExamStructure = () => officialExamStructure;
 
 export const getOfficialExam = async (userId: string, examId: string) => {
   if (!examId.trim()) {

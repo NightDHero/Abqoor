@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { HttpError } from "../../services/http";
 import { examService } from "../../services/examService";
-import type { ExamAttempt, ExamQuestion, ExamResult } from "../../types/exam";
+import type {
+  ExamAttempt,
+  ExamQuestion,
+  ExamResult,
+  ExamStructure
+} from "../../types/exam";
 import type { CorrectAnswer } from "../../types/session";
 import {
   clearSavedActiveExamId,
@@ -36,7 +41,8 @@ export function useExamMode() {
   const [exam, setExam] = useState<ExamAttempt | null>(null);
   const [result, setResult] = useState<ExamResult | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [remainingSeconds, setRemainingSeconds] = useState(30 * 60);
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
+  const [structure, setStructure] = useState<ExamStructure | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [isLoadingSavedExam, setIsLoadingSavedExam] = useState(true);
   const [isCompletingSection, setIsCompletingSection] = useState(false);
@@ -65,6 +71,12 @@ export function useExamMode() {
       clearSavedActiveExamId();
     }
   };
+
+  useEffect(() => {
+    void examService.getStructure().then((response) => {
+      setStructure(response.structure);
+    }).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     const savedExamId = getSavedActiveExamId();
@@ -124,6 +136,7 @@ export function useExamMode() {
     try {
       const response = await examService.startExam();
       setExam(response.exam);
+      setStructure(response.exam.structure);
       saveActiveExamId(response.exam.id);
     } catch (caughtError) {
       setError(readErrorMessage(caughtError, "تعذر بدء الاختبار."));
@@ -238,7 +251,7 @@ export function useExamMode() {
     setExam(null);
     setResult(null);
     setCurrentIndex(0);
-    setRemainingSeconds(30 * 60);
+    setRemainingSeconds(0);
     setError("");
   };
 
@@ -260,6 +273,7 @@ export function useExamMode() {
     remainingSeconds,
     result,
     startExam,
+    structure,
     toggleFlag
   };
 }

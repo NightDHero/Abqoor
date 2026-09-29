@@ -81,8 +81,9 @@ export function ExamMode({
             محاكاة اختبار القدرات
           </h1>
           <p>
-            يتكون الاختبار من 5 أقسام. كل قسم يحتوي على 12 سؤالًا كميًا و13
-            سؤالًا لفظيًا، ولكل قسم مؤقت مستقل مدته 30 دقيقة.
+            {exam.structure
+              ? `يتكون الاختبار من ${exam.structure.totalSections} أقسام. كل قسم يحتوي على ${exam.structure.mathPerSection} سؤالًا كميًا و${exam.structure.arabicPerSection} سؤالًا لفظيًا، بمجموع ${exam.structure.totalQuestions} سؤالًا.`
+              : "جاري تحميل بنية الاختبار..."}
           </p>
 
           {exam.error ? <p className="error-message">{exam.error}</p> : null}
@@ -135,6 +136,7 @@ export function ExamMode({
           onJump={exam.jumpToQuestion}
           remainingSeconds={exam.remainingSeconds}
           section={exam.currentSection}
+          structure={exam.exam.structure}
           userEmail={userEmail}
         />
 

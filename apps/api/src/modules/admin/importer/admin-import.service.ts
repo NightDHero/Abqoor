@@ -29,6 +29,7 @@ import { saveQuestion } from "../../questions/question.service.js";
 import type { QuestionRecord } from "../../questions/question.types.js";
 import {
   findTopicDefinition,
+  findSubtopicDefinition,
   legacySubjectToSubject,
   topicTaxonomy,
   type LearningSubject
@@ -166,11 +167,19 @@ const assertAnalysisInput = (request: AnalyzeImportRequest) => {
     throw new AdminImportError("نطاق أسئلة Excel غير صالح.");
   }
 
-  const quantitativeTopic = request.excelType === "quantitative"
-    ? findTopicDefinition("math", request.quantitativeTopicId)
+  const subjectId = legacySubjectToSubject[request.excelType];
+  const topic = findTopicDefinition(
+    subjectId,
+    request.topicId ?? request.quantitativeTopicId
+  );
+  if (!topic) {
+    throw new AdminImportError("اختر موضوعاً معتمداً ضمن القسم المحدد.");
+  }
+  const subtopic = request.subtopicId
+    ? findSubtopicDefinition(topic, request.subtopicId)
     : null;
-  if (request.excelType === "quantitative" && !quantitativeTopic) {
-    throw new AdminImportError("اختر موضوعاً كمياً معتمداً من التصنيف الحالي.");
+  if (request.subtopicId && !subtopic) {
+    throw new AdminImportError("اختر موضوعاً فرعياً معتمداً ضمن الموضوع المحدد.");
   }
   const hasPdf = Boolean(request.pdf);
   const hasImages = Boolean(request.images?.length);
@@ -186,7 +195,7 @@ const assertAnalysisInput = (request: AnalyzeImportRequest) => {
     }
   }
 
-  return quantitativeTopic;
+  return { subtopic, topic };
 };
 
 const withProgress = (detail: ImportJobDetail): ImportJobDetail => {
@@ -359,7 +368,7 @@ const analyzeImageMedia = async (
 export const analyzeQuestionImport = async (
   request: AnalyzeImportRequest
 ): Promise<ImportJobDetail> => {
-  const quantitativeTopic = assertAnalysisInput(request);
+  const classification = assertAnalysisInput(request);
 
   const sourceType = request.pdf ? "pdf" : "images";
   const mediaFilename = request.pdf?.originalname ?? `${request.images?.length ?? 0} صور PNG`;
@@ -377,12 +386,12 @@ export const analyzeQuestionImport = async (
       request.excel.buffer,
       request.excelType,
       request.questionRange,
-      quantitativeTopic
-        ? {
-            topic: quantitativeTopic.displayNameAr,
-            topicId: quantitativeTopic.slug
-          }
-        : undefined
+      {
+        topic: classification.topic.displayNameAr,
+        topicId: classification.topic.slug,
+        subtopic: classification.subtopic?.displayNameAr ?? null,
+        subtopicId: classification.subtopic?.slug ?? null
+      }
     );
     const issues = [...workbook.issues];
     const media = request.pdf
@@ -431,6 +440,8 @@ export const analyzeQuestionImport = async (
         subject: request.excelType,
         topic: question.topic,
         topicId: question.topicId,
+        subtopic: question.subtopic,
+        subtopicId: question.subtopicId,
         difficulty: 1,
         pageNumber: mediaMatch?.pageNumber ?? null,
         sourceImageName: mediaMatch?.sourceImageName ?? null,
@@ -677,6 +688,8 @@ const commitImport = async (
           subjectId: legacySubjectToSubject[update.item.subject],
           topic: update.item.topic,
           topicId: update.item.topicId,
+          subtopic: update.item.subtopic ?? undefined,
+          subtopicId: update.item.subtopicId ?? undefined,
           difficulty: update.item.difficulty,
           difficultyScore: update.item.difficulty,
           source: job.sourceType === "pdf" ? "pdf" : "manual",
@@ -858,9 +871,20 @@ export const rollbackQuestionImport = async (jobId: string) => {
 export const getImportHistory = async () => ({ jobs: await listImportJobs() });
 
 export const getQuestionImportTaxonomy = () => ({
-  quantitativeTopics: topicTaxonomy
-    .filter((topic) => topic.subject === "math")
-    .map((topic) => ({ id: topic.slug, label: topic.displayNameAr }))
+  sections: (["math", "arabic"] as const).map((subject) => ({
+    id: subject === "math" ? "quantitative" : "verbal",
+    label: questionCountSubjectLabels[subject],
+    topics: topicTaxonomy
+      .filter((topic) => topic.subject === subject)
+      .map((topic) => ({
+        id: topic.slug,
+        label: topic.displayNameAr,
+        subtopics: topic.subtopics.map((subtopic) => ({
+          id: subtopic.slug,
+          label: subtopic.displayNameAr
+        }))
+      }))
+  }))
 });
 
 const normalizeTopicCountKey = (

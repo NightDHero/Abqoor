@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { examService } from "../../services/examService";
-import type { ExamResult } from "../../types/exam";
+import type { ExamResult, ExamStructure } from "../../types/exam";
 
 const instructionItems = [
   "الغش أو الشروع فيه أو محاولة ذلك، أو الإخلال بسير الاختبارات، يعرضك لاتخاذ الإجراء النظامي.",
@@ -40,6 +40,7 @@ export function ExamEntryDialog({
 }) {
   const [isLaunching, setIsLaunching] = useState(false);
   const [examHistory, setExamHistory] = useState<ExamResult[]>([]);
+  const [structure, setStructure] = useState<ExamStructure | null>(null);
 
   useEffect(() => {
     if (!isLaunching) {
@@ -52,6 +53,13 @@ export function ExamEntryDialog({
 
   useEffect(() => {
     let isMounted = true;
+
+    void examService
+      .getStructure()
+      .then((response) => {
+        if (isMounted) setStructure(response.structure);
+      })
+      .catch(() => undefined);
 
     void examService
       .getHistory()
@@ -120,6 +128,12 @@ export function ExamEntryDialog({
           aria-labelledby="exam-entry-title"
         >
           <h1 id="exam-entry-title">تعليمات الاختبار</h1>
+          {structure ? (
+            <p>
+              {structure.totalQuestions} سؤالًا في {structure.totalSections} أقسام،
+              بواقع {structure.mathPerSection} كمي و{structure.arabicPerSection} لفظي في كل قسم.
+            </p>
+          ) : null}
           <ol className="exam-entry-instruction-list">
             {instructionItems.map((item) => (
               <li key={item}>{item}</li>

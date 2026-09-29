@@ -5,6 +5,7 @@ import Database from "better-sqlite3";
 import pg from "pg";
 import { env } from "../config/env.js";
 import * as initialPostgresSchema from "./postgres-migrations/001_initial_schema.js";
+import * as importItemSubtopics from "./postgres-migrations/002_import_item_subtopics.js";
 import { initializeSqliteSchema } from "./sqlite-schema.js";
 
 const { Pool, types } = pg;
@@ -39,7 +40,10 @@ type PostgresMigration = {
   sql: string;
 };
 
-const postgresMigrations: PostgresMigration[] = [initialPostgresSchema];
+const postgresMigrations: PostgresMigration[] = [
+  initialPostgresSchema,
+  importItemSubtopics
+];
 const transactionClientStorage = new AsyncLocalStorage<pg.PoolClient>();
 
 let sqliteDatabase: Database.Database | null = null;

@@ -3,7 +3,8 @@ import { adminService } from "../../services/adminService";
 import { HttpError } from "../../services/http";
 import type {
   DuplicateAction,
-  ImportJobDetail
+  ImportJobDetail,
+  QuestionImportTaxonomy
 } from "../../types/admin";
 import { answerLabel, importStatusLabels } from "./adminUtils";
 import { AdminShell } from "./AdminShell";
@@ -19,8 +20,9 @@ export function AdminImportPage() {
   const [pdf, setPdf] = useState<File | null>(null);
   const [images, setImages] = useState<File[]>([]);
   const [excelType, setExcelType] = useState<"quantitative" | "verbal">("quantitative");
-  const [quantitativeTopicId, setQuantitativeTopicId] = useState("");
-  const [quantitativeTopics, setQuantitativeTopics] = useState<Array<{ id: string; label: string }>>([]);
+  const [taxonomySections, setTaxonomySections] = useState<QuestionImportTaxonomy["sections"]>([]);
+  const [topicId, setTopicId] = useState("");
+  const [subtopicId, setSubtopicId] = useState("");
   const [mediaType, setMediaType] = useState<"pdf" | "images">("pdf");
   const [questionFrom, setQuestionFrom] = useState("1");
   const [questionTo, setQuestionTo] = useState("1");
@@ -41,13 +43,28 @@ export function AdminImportPage() {
     void adminService
       .getImportTaxonomy()
       .then((taxonomy) => {
-        setQuantitativeTopics(taxonomy.quantitativeTopics);
-        setQuantitativeTopicId((currentTopicId) =>
-          currentTopicId || taxonomy.quantitativeTopics[0]?.id || ""
-        );
+        setTaxonomySections(taxonomy.sections);
+        const section = taxonomy.sections.find((item) => item.id === "quantitative");
+        setTopicId((currentTopicId) => currentTopicId || section?.topics[0]?.id || "");
       })
-      .catch(() => setError("تعذر تحميل تصنيف الموضوعات الكمية."));
+      .catch(() => setError("تعذر تحميل تصنيف الموضوعات."));
   }, []);
+
+  const selectedSection = useMemo(
+    () => taxonomySections.find((section) => section.id === excelType),
+    [excelType, taxonomySections]
+  );
+  const selectedTopic = useMemo(
+    () => selectedSection?.topics.find((topic) => topic.id === topicId),
+    [selectedSection, topicId]
+  );
+
+  const selectExcelType = (nextType: "quantitative" | "verbal") => {
+    const section = taxonomySections.find((item) => item.id === nextType);
+    setExcelType(nextType);
+    setTopicId(section?.topics[0]?.id ?? "");
+    setSubtopicId("");
+  };
 
   useEffect(() => {
     if (detail?.job.status !== "importing") {
@@ -95,8 +112,8 @@ export function AdminImportPage() {
       setError("اختر ملف Excel أولاً.");
       return;
     }
-    if (excelType === "quantitative" && !quantitativeTopicId) {
-      setError("اختر موضوع السؤال الكمي من التصنيف المعتمد.");
+    if (!topicId) {
+      setError("اختر موضوع السؤال من التصنيف المعتمد.");
       return;
     }
     if (mediaType === "pdf" && !pdf) {
@@ -130,7 +147,8 @@ export function AdminImportPage() {
       const response = await adminService.analyzeImport({
         excel,
         excelType,
-        quantitativeTopicId: excelType === "quantitative" ? quantitativeTopicId : undefined,
+        topicId,
+        subtopicId: subtopicId || undefined,
         questionFrom,
         questionTo,
         pdf: mediaType === "pdf" ? pdf ?? undefined : undefined,
@@ -222,24 +240,36 @@ export function AdminImportPage() {
         <div className="admin-form-grid">
           <fieldset className="admin-segmented-field">
             <legend>نوع بنك الأسئلة</legend>
-            <label><input checked={excelType === "quantitative"} name="excelType" type="radio" onChange={() => setExcelType("quantitative")} /> كمي</label>
-            <label><input checked={excelType === "verbal"} name="excelType" type="radio" onChange={() => setExcelType("verbal")} /> لفظي</label>
+            <label><input checked={excelType === "quantitative"} name="excelType" type="radio" onChange={() => selectExcelType("quantitative")} /> كمي</label>
+            <label><input checked={excelType === "verbal"} name="excelType" type="radio" onChange={() => selectExcelType("verbal")} /> لفظي</label>
           </fieldset>
-          {excelType === "quantitative" ? (
-            <label>
-              الموضوع
-              <select
-                required
-                value={quantitativeTopicId}
-                onChange={(event) => setQuantitativeTopicId(event.target.value)}
-              >
-                {quantitativeTopics.map((topic) => (
-                  <option key={topic.id} value={topic.id}>{topic.label}</option>
-                ))}
-              </select>
-              <small>القسم محدد مسبقاً: كمي. اختر موضوع الأسئلة داخله؛ الموضوع الفرعي اختياري وغير معيّن تلقائياً.</small>
-            </label>
-          ) : null}
+          <label>
+            الموضوع
+            <select
+              required
+              value={topicId}
+              onChange={(event) => {
+                setTopicId(event.target.value);
+                setSubtopicId("");
+              }}
+            >
+              {selectedSection?.topics.map((topic) => (
+                <option key={topic.id} value={topic.id}>{topic.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            الموضوع الفرعي
+            <select
+              value={subtopicId}
+              onChange={(event) => setSubtopicId(event.target.value)}
+            >
+              <option value="">بدون موضوع فرعي</option>
+              {selectedTopic?.subtopics.map((subtopic) => (
+                <option key={subtopic.id} value={subtopic.id}>{subtopic.label}</option>
+              ))}
+            </select>
+          </label>
           <label>
             ملف Excel
             <input
@@ -312,7 +342,10 @@ export function AdminImportPage() {
             </div>
             <div className="admin-sheet-summary">
               {job.sheetSummary.map((sheet) => (
-                <span key={sheet.sheetName}><b>{sheet.sheetName}</b>{sheet.questionCount.toLocaleString("ar-SA")} سؤال</span>
+                <span key={sheet.sheetName}>
+                  <b>{sheet.topic}{sheet.subtopic ? ` ← ${sheet.subtopic}` : ""}</b>
+                  {sheet.questionCount.toLocaleString("ar-SA")} سؤال
+                </span>
               ))}
             </div>
             <div className="admin-media-summary">
@@ -365,13 +398,15 @@ export function AdminImportPage() {
               <header className="admin-panel-heading"><div><h2>٤. المعاينة</h2><p>النطاق المحدد فقط، بواقع {previewPageSize.toLocaleString("ar-SA")} سؤالاً في الصفحة.</p></div></header>
               <div className="admin-table-wrap">
                 <table className="admin-table admin-import-preview-table">
-                  <thead><tr><th>السؤال</th><th>{job.sourceType === "pdf" ? "صفحة PDF" : "الصورة"}</th><th>القسم</th><th>الإجابة</th><th>الحالة</th></tr></thead>
+                  <thead><tr><th>السؤال</th><th>{job.sourceType === "pdf" ? "صفحة PDF" : "الصورة"}</th><th>القسم</th><th>الموضوع</th><th>الموضوع الفرعي</th><th>الإجابة</th><th>الحالة</th></tr></thead>
                   <tbody>
                     {previewItems.map((item) => (
                       <tr key={item.questionId}>
                         <td>{item.questionNumber.toLocaleString("ar-SA")}</td>
                         <td>{item.pageNumber?.toLocaleString("ar-SA") ?? item.sourceImageName ?? "—"}</td>
-                        <td>{item.sheetName}</td>
+                        <td>{item.subject === "quantitative" ? "كمي" : "لفظي"}</td>
+                        <td>{item.topic}</td>
+                        <td>{item.subtopic ?? "بدون موضوع فرعي"}</td>
                         <td>{answerLabel(item.correctAnswer)}</td>
                         <td><b data-valid={item.validationStatus === "valid"}>{item.validationStatus === "valid" ? "جاهز" : item.errors[0]?.message ?? "خطأ"}</b></td>
                       </tr>

@@ -1,4 +1,4 @@
-import type { ExamSection } from "../../types/exam";
+import type { ExamSection, ExamStructure } from "../../types/exam";
 import { ExamNavigator } from "./ExamNavigator";
 import {
   formatExamTimer,
@@ -13,6 +13,7 @@ export function ExamSidebar({
   onJump,
   remainingSeconds,
   section,
+  structure,
   userEmail
 }: {
   currentPosition: number;
@@ -21,6 +22,7 @@ export function ExamSidebar({
   onJump: (positionInSection: number) => void;
   remainingSeconds: number;
   section: ExamSection;
+  structure: ExamStructure;
   userEmail?: string;
 }) {
   const counts = getSectionCounts(section);
@@ -44,8 +46,8 @@ export function ExamSidebar({
       </section>
 
       <section className="exam-side-stats">
-        <p>القسم الحالي: {section.sectionNumber} / 5</p>
-        <p>مجموع الأسئلة: 125</p>
+        <p>القسم الحالي: {section.sectionNumber} / {structure.totalSections}</p>
+        <p>مجموع الأسئلة: {structure.totalQuestions}</p>
         <div className="exam-stat-grid">
           <div>
             <strong className="answered">{counts.answered}</strong>

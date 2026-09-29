@@ -30,6 +30,8 @@ export type PageRange = { from: number; to: number };
 export type ImportTopicSelection = {
   topic: string;
   topicId: string;
+  subtopic: string | null;
+  subtopicId: string | null;
 };
 
 export type ImportValidationIssue = {
@@ -103,7 +105,12 @@ export type ImportManifestItem = {
   error?: string;
 };
 
-export type SheetSummary = { sheetName: string; questionCount: number };
+export type SheetSummary = {
+  sheetName: string;
+  topic: string;
+  subtopic: string | null;
+  questionCount: number;
+};
 export type MediaSummary = {
   expected: number;
   found: number;
@@ -155,6 +162,8 @@ export type ImportJobItem = {
   subject: Subject;
   topic: string;
   topicId: string;
+  subtopic: string | null;
+  subtopicId: string | null;
   difficulty: number;
   pageNumber: number | null;
   sourceImageName: string | null;
@@ -182,6 +191,8 @@ export type ParsedWorkbookQuestion = {
   correctAnswer: CorrectAnswer | null;
   topic: string;
   topicId: string;
+  subtopic: string | null;
+  subtopicId: string | null;
   issues: ImportValidationIssue[];
 };
 
@@ -202,6 +213,8 @@ export type AnalyzeImportRequest = {
   createdBy: string;
   excel: UploadedImportFile;
   excelType: QuestionBankType;
+  topicId?: string;
+  subtopicId?: string;
   quantitativeTopicId?: string;
   questionRange: PageRange;
   pdf?: UploadedImportFile;

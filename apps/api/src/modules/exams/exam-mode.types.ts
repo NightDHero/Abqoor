@@ -1,13 +1,14 @@
 import type { CorrectAnswer } from "../questions/question.types.js";
+import {
+  officialExamStructure,
+  type OfficialExamStructure
+} from "./exam-structure.js";
 
-export const officialExamSectionCount = 5;
-export const officialExamMathPerSection = 12;
-export const officialExamArabicPerSection = 13;
-export const officialExamQuestionsPerSection =
-  officialExamMathPerSection + officialExamArabicPerSection;
-export const officialExamSectionDurationSeconds = 30 * 60;
-export const officialExamTestModeMessage =
-  "وضع الاختبار التجريبي - سيتم استخدام أسئلة مؤقتة حتى اكتمال بنك الأسئلة";
+export const officialExamSectionCount = officialExamStructure.totalSections;
+export const officialExamMathPerSection = officialExamStructure.mathPerSection;
+export const officialExamArabicPerSection = officialExamStructure.arabicPerSection;
+export const officialExamQuestionsPerSection = officialExamStructure.questionsPerSection;
+export const officialExamSectionDurationSeconds = officialExamStructure.sectionDurationSeconds;
 
 export type OfficialExamStatus = "active" | "completed";
 export type OfficialExamSectionStatus = "pending" | "active" | "completed";
@@ -104,6 +105,7 @@ export type OfficialExam = {
   status: OfficialExamStatus;
   currentSection: number;
   sectionDurationSeconds: number;
+  structure: OfficialExamStructure;
   startedAt: string;
   completedAt?: string;
   sections: OfficialExamSection[];

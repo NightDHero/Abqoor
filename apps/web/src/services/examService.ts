@@ -2,11 +2,14 @@ import type { CorrectAnswer } from "../types/session";
 import type {
   CompleteExamSectionResponse,
   ExamAttemptResponse,
-  ExamHistoryResponse
+  ExamHistoryResponse,
+  ExamStructureResponse
 } from "../types/exam";
 import { apiRequest } from "./http";
 
 export const examService = {
+  getStructure: () => apiRequest<ExamStructureResponse>("/exams/structure"),
+
   startExam: () =>
     apiRequest<ExamAttemptResponse>("/exams/start", {
       method: "POST"

@@ -60,6 +60,8 @@ type ImportJobItemRecord = {
   subject: ImportJobItem["subject"];
   topic: string;
   topic_id: string;
+  subtopic: string | null;
+  subtopic_id: string | null;
   difficulty: number;
   page_number: number | null;
   source_image_name: string | null;
@@ -148,6 +150,8 @@ const toImportJobItem = (record: ImportJobItemRecord): ImportJobItem => ({
   subject: record.subject,
   topic: record.topic,
   topicId: record.topic_id,
+  subtopic: record.subtopic,
+  subtopicId: record.subtopic_id,
   difficulty: record.difficulty,
   pageNumber: record.page_number,
   sourceImageName: record.source_image_name,
@@ -194,14 +198,14 @@ const listImportJobsStatement = db.prepare<[], ImportJobRecord>(`
 const insertImportItemStatement = db.prepare(`
   INSERT INTO import_job_items (
     import_job_id, question_number, question_id, sheet_name, excel_row_number,
-    question_text, options_json, correct_answer, subject, topic, topic_id,
+    question_text, options_json, correct_answer, subject, topic, topic_id, subtopic, subtopic_id,
     difficulty, page_number, source_image_name, image_status, validation_status,
     errors_json, is_duplicate, duplicate_action, outcome, previous_question_json,
     applied_question_json, previous_image_existed, created_at, updated_at
   )
   VALUES (
     @importJobId, @questionNumber, @questionId, @sheetName, @excelRowNumber,
-    @questionText, @optionsJson, @correctAnswer, @subject, @topic, @topicId,
+    @questionText, @optionsJson, @correctAnswer, @subject, @topic, @topicId, @subtopic, @subtopicId,
     @difficulty, @pageNumber, @sourceImageName, @imageStatus, @validationStatus,
     @errorsJson, @isDuplicate, @duplicateAction, @outcome, @previousQuestionJson,
     @appliedQuestionJson, @previousImageExisted, @createdAt, @updatedAt
@@ -358,6 +362,8 @@ export const insertImportItems = async (items: ImportJobItem[]) => {
     for (const item of items) {
       await insertImportItemStatement.run({
         ...item,
+        subtopic: item.subtopic ?? null,
+        subtopicId: item.subtopicId ?? null,
         optionsJson: JSON.stringify(item.options),
         errorsJson: JSON.stringify(item.errors),
         isDuplicate: item.isDuplicate ? 1 : 0,

@@ -59,7 +59,12 @@ export type ImportJob = {
   skippedCount: number;
   processedCount: number;
   errorCount: number;
-  sheetSummary: Array<{ sheetName: string; questionCount: number }>;
+  sheetSummary: Array<{
+    sheetName: string;
+    topic: string;
+    subtopic: string | null;
+    questionCount: number;
+  }>;
   mediaSummary: {
     expected: number;
     found: number;
@@ -86,6 +91,8 @@ export type ImportJobItem = {
   subject: "quantitative" | "verbal";
   topic: string;
   topicId: string;
+  subtopic: string | null;
+  subtopicId: string | null;
   difficulty: number;
   pageNumber: number | null;
   sourceImageName: string | null;
@@ -106,9 +113,17 @@ export type ImportJobDetail = {
 };
 
 export type QuestionImportTaxonomy = {
-  quantitativeTopics: Array<{
+  sections: Array<{
     id: string;
     label: string;
+    topics: Array<{
+      id: string;
+      label: string;
+      subtopics: Array<{
+        id: string;
+        label: string;
+      }>;
+    }>;
   }>;
 };
 
