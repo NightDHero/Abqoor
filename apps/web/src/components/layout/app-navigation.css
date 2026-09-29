@@ -1,21 +1,31 @@
 .navigation-app-shell {
   position: relative;
   min-height: 100svh;
+  overflow: clip;
   padding: 0;
 }
 
 .app-navigation {
   position: sticky;
   z-index: 80;
-  top: max(10px, env(safe-area-inset-top));
-  width: min(100% - clamp(24px, 5vw, 92px), 1480px);
-  margin: 0 auto;
-  padding-top: 10px;
+  top: 0;
+  width: 100%;
+  margin: 0;
+  border-bottom: 1px solid var(--theme-line, rgb(255 255 255 / 11%));
+  background: var(--theme-nav-bg, rgb(5 24 37 / 92%));
+  padding-top: env(safe-area-inset-top);
+  backdrop-filter: blur(20px) saturate(118%);
 }
 
 .auth-app-navigation {
+  top: max(10px, env(safe-area-inset-top));
+  width: min(100% - clamp(24px, 5vw, 92px), 1480px);
+  margin: 0 auto;
   margin-bottom: clamp(24px, 4vw, 44px);
+  border-bottom: 0;
+  background: transparent;
   padding-top: 0;
+  backdrop-filter: none;
 }
 
 .app-navigation-shell {
@@ -24,7 +34,18 @@
   grid-template-columns: auto auto minmax(0, 1fr);
   gap: clamp(10px, 1.8vw, 22px);
   align-items: center;
+  width: min(100%, 1480px);
+  margin-inline: auto;
   overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 8px clamp(14px, 3vw, 36px);
+  box-shadow: none;
+}
+
+.auth-app-navigation .app-navigation-shell {
+  width: 100%;
   border: 1px solid var(--theme-line, rgb(255 255 255 / 11%));
   border-radius: 999px;
   background: var(--theme-nav-bg, rgb(5 24 37 / 82%));
@@ -100,13 +121,19 @@
 
 .app-navigation-track {
   display: flex;
+  flex-wrap: nowrap;
   gap: 4px;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   min-width: 0;
   overflow-x: auto;
   padding: 2px;
+  overscroll-behavior-inline: contain;
+  scroll-padding-inline: 12px;
+  scroll-snap-type: inline proximity;
   scrollbar-width: none;
+  touch-action: pan-x;
+  -webkit-overflow-scrolling: touch;
 }
 
 .app-navigation-track::-webkit-scrollbar {
@@ -127,6 +154,7 @@
   color: color-mix(in srgb, var(--theme-text, #f7fbfc) 70%, transparent);
   font-weight: 850;
   white-space: nowrap;
+  scroll-snap-align: nearest;
 }
 
 .app-navigation-item::after {
@@ -184,18 +212,12 @@
   line-height: 1.2;
 }
 
-.career-app-shell .app-navigation {
-  position: absolute;
-  right: 0;
-  left: 0;
-}
-
 .career-app-shell .career-app-main {
   padding-top: 0;
 }
 
 .career-app-shell .hub-home-stage {
-  padding-top: clamp(138px, 15vh, 174px);
+  padding-top: clamp(68px, 8vh, 96px);
 }
 
 .exam-entry-app-shell .exam-entry-page {
@@ -203,13 +225,16 @@
 }
 
 @media (max-width: 900px) {
-  .app-navigation {
+  .auth-app-navigation {
     width: min(100% - 20px, 760px);
   }
 
   .app-navigation-shell {
     grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 8px;
+  }
+
+  .auth-app-navigation .app-navigation-shell {
     border-radius: 24px;
   }
 
@@ -240,7 +265,7 @@
   }
 
   .career-app-shell .hub-home-stage {
-    padding-top: clamp(132px, 18vh, 156px);
+    padding-top: clamp(56px, 8vh, 80px);
   }
 }
 

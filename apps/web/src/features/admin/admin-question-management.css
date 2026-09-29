@@ -723,6 +723,36 @@
   gap: 3px;
 }
 
+.admin-question-classification {
+  display: grid;
+  gap: 6px;
+  min-width: 180px;
+  margin: 0;
+}
+
+.admin-question-classification div {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+}
+
+.admin-question-classification dt,
+.admin-question-classification dd {
+  margin: 0;
+}
+
+.admin-question-classification dt {
+  color: var(--abqoor-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.admin-question-classification dd {
+  color: var(--abqoor-text);
+  font-weight: 850;
+}
+
 .admin-table img {
   width: 92px;
   height: 58px;

@@ -22,6 +22,9 @@ const topicCountKey = (
   topic: AdminQuestionTopicCount
 ) => `${subject.subjectId}:${topic.topicId ?? topic.topicLabel}`;
 
+const sectionLabel = (subject: string) =>
+  subject === "quantitative" ? "الكمي" : "اللفظي";
+
 export function AdminQuestionBankPage() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -191,13 +194,19 @@ export function AdminQuestionBankPage() {
         {result.questions.length > 0 ? (
           <div className="admin-table-wrap">
             <table className="admin-table">
-              <thead><tr><th>رقم السؤال</th><th>الصورة</th><th>القسم</th><th>الإجابة</th><th>الرفع</th></tr></thead>
+              <thead><tr><th>رقم السؤال</th><th>الصورة</th><th>التصنيف</th><th>الإجابة</th><th>الرفع</th></tr></thead>
               <tbody>
                 {result.questions.map((question) => (
                   <tr key={question.id}>
                     <td><strong dir="ltr">{question.id}</strong></td>
                     <td>{question.imageExists ? <img alt={`السؤال ${question.questionNumber}`} loading="lazy" src={`${env.apiUrl}${question.questionImageUrl}`} /> : <span className="admin-missing">مفقودة</span>}</td>
-                    <td><strong>{question.topic}</strong><small>{question.topicId ?? "غير مصنف"}</small></td>
+                    <td>
+                      <dl className="admin-question-classification">
+                        <div><dt>القسم</dt><dd>{sectionLabel(question.subject)}</dd></div>
+                        <div><dt>الموضوع</dt><dd>{question.topic}</dd></div>
+                        <div><dt>الموضوع الفرعي</dt><dd>{question.subtopic ?? "غير محدد"}</dd></div>
+                      </dl>
+                    </td>
                     <td>{answerLabel(question.correctAnswer)}</td>
                     <td>{question.importJobId ? <span><b>#{question.importJobId.slice(0, 8)}</b><small>{question.importedAt ? formatAdminDate(question.importedAt) : ""}</small></span> : "قديم / يدوي"}</td>
                   </tr>

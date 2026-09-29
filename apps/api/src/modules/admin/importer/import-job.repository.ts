@@ -505,6 +505,8 @@ export const listAdminQuestions = async (input: {
       questions.subject,
       questions.topic,
       questions.topic_id AS topicId,
+      questions.subtopic,
+      questions.subtopic_id AS subtopicId,
       questions.difficulty,
       questions.import_job_id AS importJobId,
       import_jobs.created_at AS importedAt,

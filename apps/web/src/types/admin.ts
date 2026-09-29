@@ -120,6 +120,8 @@ export type AdminQuestion = {
   subject: string;
   topic: string;
   topicId: string | null;
+  subtopic: string | null;
+  subtopicId: string | null;
   difficulty: number;
   importJobId: string | null;
   importedAt: string | null;

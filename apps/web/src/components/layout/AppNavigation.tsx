@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { SystemIcon } from "../ui/SystemIcon";
 import { homeContent } from "../../features/home/homeContent";
 import { navigateTo } from "../../utils/router";
@@ -35,6 +36,12 @@ const navigationItems = [
   },
   {
     activePath: "/profile",
+    icon: "/assets/hub/avatar.png",
+    label: "ملفي",
+    route: "/profile"
+  },
+  {
+    activePath: "/profile/settings",
     icon: "/assets/navigation/settings.png",
     label: "الإعدادات",
     route: "/profile#settings"
@@ -81,9 +88,23 @@ export function AppNavigation({
   currentPath: string;
   isAdmin?: boolean;
 }) {
+  const trackRef = useRef<HTMLDivElement>(null);
   const items = isAdmin
     ? [...navigationItems, adminNavigationItem]
     : navigationItems;
+
+  useEffect(() => {
+    const activeItem = trackRef.current?.querySelector<HTMLElement>(
+      '[aria-current="page"]'
+    );
+    activeItem?.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+      block: "nearest",
+      inline: "nearest"
+    });
+  }, [currentPath, isAdmin]);
 
   return (
     <nav className="app-navigation" aria-label="التنقل الرئيسي">
@@ -109,7 +130,7 @@ export function AppNavigation({
           <span>عبقور</span>
         </a>
 
-        <div className="app-navigation-track">
+        <div className="app-navigation-track" ref={trackRef}>
           {items.map((item) => {
             const isActive = isItemActive(currentPath, item.activePath);
 

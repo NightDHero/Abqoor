@@ -373,7 +373,7 @@ test("classifies a quantitative import under the selected existing topic", async
   const detail = await importService.analyzeQuestionImport({
     createdBy: "admin@example.com",
     excelType: "quantitative",
-    quantitativeTopicId: "geometry",
+    quantitativeTopicId: "arithmetic",
     questionRange: { from: 1, to: 1 },
     excel: {
       buffer: createWorkbookBuffer(validQuantitativeSheets()),
@@ -384,8 +384,8 @@ test("classifies a quantitative import under the selected existing topic", async
   });
 
   assert.equal(detail.items[0]?.subject, "quantitative");
-  assert.equal(detail.items[0]?.topic, "الهندسة");
-  assert.equal(detail.items[0]?.topicId, "geometry");
+  assert.equal(detail.items[0]?.topic, "الحساب");
+  assert.equal(detail.items[0]?.topicId, "arithmetic");
   assert.ok(!detail.job.sheetSummary.some((item) => item.sheetName === "الكمي"));
   await importService.cancelQuestionImport(detail.job.id);
 });
@@ -455,6 +455,17 @@ test("question counts stay within the existing quantitative taxonomy", async () 
       .find((subject) => subject.subjectId === "arabic")
       ?.topics.some((topic) => topic.topicId === "legacy")
   );
+
+  const classifiedQuestion = await importService.getAdminQuestionBank({
+    page: 1,
+    pageSize: 10,
+    query: validQuestionId,
+    sort: "asc"
+  });
+  assert.equal(classifiedQuestion.questions[0]?.topic, "الهندسة");
+  assert.equal(classifiedQuestion.questions[0]?.topicId, "geometry");
+  assert.equal(classifiedQuestion.questions[0]?.subtopic, null);
+  assert.equal(classifiedQuestion.questions[0]?.subtopicId, null);
 
   await questionRepository.deleteQuestion(validQuestionId);
   await questionRepository.deleteQuestion(legacyInvalidQuestionId);
