@@ -10,6 +10,7 @@ import { recoverInterruptedImportJobs } from "./modules/admin/importer/import-jo
 import { validationRouter } from "./modules/admin/validation/validation.routes.js";
 import { requireAuth } from "./modules/auth/auth.middleware.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
+import { bankRouter } from "./modules/banks/bank.routes.js";
 import { coreRouter } from "./modules/core/core.routes.js";
 import { examRouter } from "./modules/exams/exam.routes.js";
 import { ensureQuestionMediaDirectory } from "./modules/media/media.service.js";
@@ -93,6 +94,7 @@ export const createApp = async () => {
   app.use(mediaRouter);
   app.use(coreRouter);
   app.use("/auth", authRouter);
+  app.use("/banks", bankRouter);
   app.use("/profile", profileRouter);
   app.use("/questions", requireAuth, requireCompletedProfile, questionRouter);
   app.use("/review", requireAuth, requireCompletedProfile, reviewRouter);

@@ -1,14 +1,11 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { getWeeklyStudyHourTarget } from "../profile/profileOptions";
 import { HttpError } from "../../services/http";
-import { profileService } from "../../services/profileService";
 import { sessionService } from "../../services/sessionService";
 import type {
   StudyProgressDay,
   StudyProgressPeriod,
   StudyProgressResponse
 } from "../../types/session";
-import type { StudentProfile } from "../../types/profile";
 
 type ProgressView = "today" | "week" | "month";
 type CalendarCellVariant = "month" | "today" | "week";
@@ -38,22 +35,6 @@ const toStudyMinutes = (seconds: number) => {
 
   const minutes = Math.max(1, Math.round(seconds / 60));
   return `${toArabicNumber(minutes)} دقيقة`;
-};
-
-const toStudyDuration = (seconds: number) => {
-  const totalMinutes = Math.max(0, Math.round(seconds / 60));
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  if (hours <= 0) {
-    return `${toArabicNumber(totalMinutes)} دقيقة`;
-  }
-
-  if (minutes <= 0) {
-    return `${toArabicNumber(hours)} ساعة`;
-  }
-
-  return `${toArabicNumber(hours)} ساعة و${toArabicNumber(minutes)} دقيقة`;
 };
 
 const toQuestionCount = (answeredQuestions: number) =>
@@ -209,82 +190,6 @@ const getAvailableProgressDayMap = (progress: StudyProgressResponse) => {
   ];
 
   return new Map(entries.map((day) => [day.date, day]));
-};
-
-const getWeekForSelectedDay = (
-  progress: StudyProgressResponse,
-  selectedDay: StudyProgressDay
-) => {
-  const matchingMonthWeek = progress.monthWeeks.find((week) =>
-    week.days.some((day) => day.date === selectedDay.date)
-  );
-
-  if (matchingMonthWeek) {
-    return matchingMonthWeek;
-  }
-
-  const dayMap = getAvailableProgressDayMap(progress);
-
-  return summarizeProgressDays(
-    getWeekDatesForDay(selectedDay.date).map(
-      (date) => dayMap.get(date) ?? emptyProgressDay(date)
-    )
-  );
-};
-
-const getDayIndexInWeek = (dateKey: string) => toDate(dateKey).getUTCDay();
-
-const dailyPlanSegmentColors = ["cyan", "gold", "mint", "rose", "violet"] as const;
-
-const getDailyPlanSegments = (
-  studiedSeconds: number,
-  dailyExpectedSeconds: number
-) => {
-  if (dailyExpectedSeconds <= 0) {
-    return [];
-  }
-
-  const safeStudiedSeconds = Math.max(0, studiedSeconds);
-  const rawSegmentRatio = safeStudiedSeconds / dailyExpectedSeconds;
-  const nearestWholeSegment = Math.round(rawSegmentRatio);
-  const segmentRatio =
-    Math.abs(rawSegmentRatio - nearestWholeSegment) < 0.001
-      ? nearestWholeSegment
-      : rawSegmentRatio;
-  const fullSegments = Math.floor(segmentRatio);
-  const partialSegment = segmentRatio - fullSegments;
-  const segmentCount = Math.max(1, fullSegments + (partialSegment > 0 ? 1 : 0));
-
-  return Array.from({ length: segmentCount }, (_value, index) => ({
-    color: dailyPlanSegmentColors[index % dailyPlanSegmentColors.length],
-    fillPercent:
-      index < fullSegments
-        ? 100
-        : Math.min(Math.max(partialSegment * 100, 0), 100)
-  }));
-};
-
-const getPaceState = (actualSeconds: number, expectedSeconds: number) => {
-  const difference = actualSeconds - expectedSeconds;
-
-  if (Math.abs(difference) < 60) {
-    return {
-      label: "على وتيرة الأسبوع",
-      state: "even"
-    };
-  }
-
-  if (difference > 0) {
-    return {
-      label: "متقدم على وتيرة الأسبوع",
-      state: "ahead"
-    };
-  }
-
-  return {
-    label: "يحتاج دفعة للحاق بالوتيرة",
-    state: "behind"
-  };
 };
 
 const getActivityFill = (day: StudyProgressDay) => {
@@ -525,99 +430,11 @@ function MonthView({
   );
 }
 
-function DailyStudyTimePlan({
-  profile,
-  selectedDay,
-  selectedWeek
-}: {
-  profile: StudentProfile | null;
-  selectedDay: StudyProgressDay;
-  selectedWeek: StudyProgressPeriod;
-}) {
-  const targetHours = getWeeklyStudyHourTarget(profile?.weeklyStudyHours ?? null);
-
-  if (!targetHours || !profile?.weeklyStudyHours) {
-    return null;
-  }
-
-  const targetSeconds = targetHours * 60 * 60;
-  const dailyExpectedSeconds = targetSeconds / 7;
-  const studiedSeconds = Math.max(0, selectedDay.approximateStudySeconds);
-  const dailySegments = getDailyPlanSegments(studiedSeconds, dailyExpectedSeconds);
-  const expectedWeekSeconds =
-    dailyExpectedSeconds * (getDayIndexInWeek(selectedDay.date) + 1);
-  const pace = getPaceState(
-    selectedWeek.approximateStudySeconds,
-    expectedWeekSeconds
-  );
-  const visibleSegments = Math.min(Math.max(dailySegments.length, 1), 4);
-  const stripWidthPercent = Math.max(
-    100,
-    (dailySegments.length / visibleSegments) * 100
-  );
-  const selectedDateParts = formatDateParts(selectedDay.date);
-
-  return (
-    <div
-      className="study-progress-daily-plan"
-      aria-label={`تقدم وقت الدراسة في ${selectedDateParts.fullDate}: ${toStudyDuration(
-        studiedSeconds
-      )} من المتوقع ${toStudyDuration(dailyExpectedSeconds)}`}
-    >
-      <div className="study-progress-daily-plan-header">
-        <span>وقت الدراسة</span>
-        <strong>
-          {toStudyDuration(studiedSeconds)} في {selectedDateParts.monthDay}
-        </strong>
-      </div>
-
-      <div className="study-progress-daily-plan-track">
-        <div
-          className="study-progress-daily-plan-strip"
-          style={
-            {
-              "--study-daily-segment-count": dailySegments.length,
-              "--study-daily-strip-width": `${stripWidthPercent}%`
-            } as CSSProperties
-          }
-        >
-          {dailySegments.map((segment, index) => (
-            <span
-              aria-hidden="true"
-              className={`study-progress-daily-plan-segment study-progress-daily-plan-segment-${segment.color}`}
-              key={`${segment.color}-${index}`}
-              style={
-                {
-                  "--study-daily-segment-fill": `${segment.fillPercent}%`
-                } as CSSProperties
-              }
-            >
-              <span />
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div className="study-progress-daily-plan-details">
-        <span>المتوقع لهذا اليوم {toStudyDuration(dailyExpectedSeconds)}</span>
-        <div>
-          <span>
-            هذا الأسبوع: {toStudyDuration(selectedWeek.approximateStudySeconds)} /{" "}
-            {toStudyDuration(targetSeconds)}
-          </span>
-          <strong data-pace={pace.state}>{pace.label}</strong>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function StudyProgressTracker() {
   const [activeView, setActiveView] = useState<ProgressView>("week");
   const [displayedMonthKey, setDisplayedMonthKey] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<StudyProgressDay | null>(null);
   const [progress, setProgress] = useState<StudyProgressResponse | null>(null);
-  const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isMonthLoading, setIsMonthLoading] = useState(false);
@@ -630,18 +447,12 @@ export function StudyProgressTracker() {
     setTimeZone(resolvedTimeZone);
 
     const progressRequest = sessionService.getProgress(resolvedTimeZone);
-    const profileRequest = profileService
-      .getProfile()
-      .then((response) => response.profile)
-      .catch(() => null);
-
-    void Promise.all([progressRequest, profileRequest])
-      .then(([response, profileResponse]) => {
+    void progressRequest
+      .then((response) => {
         if (isMounted) {
           const defaultView =
             response.today.answeredQuestions > 0 ? "today" : "week";
 
-          setProfile(profileResponse);
           setProgress(response);
           setActiveView(defaultView);
           setSelectedDay(getDefaultDetailDay(response, defaultView));
@@ -676,9 +487,6 @@ export function StudyProgressTracker() {
       progress.today.approximateStudySeconds
     )}`;
   }, [progress]);
-  const selectedWeek =
-    progress && selectedDay ? getWeekForSelectedDay(progress, selectedDay) : null;
-
   const loadDisplayedMonth = async (monthKey: string) => {
     const requestTimeZone =
       timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -807,13 +615,6 @@ export function StudyProgressTracker() {
 
           <div className="study-progress-selected-summary">
             <SelectedDayDetail day={selectedDay} />
-            {selectedWeek ? (
-              <DailyStudyTimePlan
-                profile={profile}
-                selectedDay={selectedDay}
-                selectedWeek={selectedWeek}
-              />
-            ) : null}
           </div>
         </div>
       ) : null}

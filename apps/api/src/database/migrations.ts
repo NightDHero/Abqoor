@@ -130,6 +130,35 @@ const migrateStudentProfileIdentity = (db: Database.Database) => {
   `);
 };
 
+const migrateStudentStudyPlan = (db: Database.Database) => {
+  addColumnIfMissing(db, "student_profiles", "study_plan_start_date", "TEXT");
+  addColumnIfMissing(
+    db,
+    "student_profiles",
+    "weekly_rest_days_json",
+    "TEXT NOT NULL DEFAULT '[]'"
+  );
+  addColumnIfMissing(
+    db,
+    "student_profiles",
+    "study_plan_bank_count",
+    "INTEGER CHECK (study_plan_bank_count IS NULL OR study_plan_bank_count > 0)"
+  );
+  addColumnIfMissing(
+    db,
+    "student_profiles",
+    "study_plan_study_days",
+    "INTEGER CHECK (study_plan_study_days IS NULL OR study_plan_study_days > 0)"
+  );
+  addColumnIfMissing(
+    db,
+    "student_profiles",
+    "study_plan_calendar_days",
+    "INTEGER CHECK (study_plan_calendar_days IS NULL OR study_plan_calendar_days > 0)"
+  );
+  addColumnIfMissing(db, "student_profiles", "study_plan_completion_date", "TEXT");
+};
+
 const migrateAdminAccounts = (db: Database.Database) => {
   db.exec(`
     CREATE TABLE IF NOT EXISTS admin_accounts (
@@ -347,6 +376,7 @@ const migrateAdminImportSystem = (db: Database.Database) => {
 
 export const runDatabaseMigrations = (db: Database.Database) => {
   migrateStudentProfileIdentity(db);
+  migrateStudentStudyPlan(db);
   migrateAdminAccounts(db);
   migrateSessionAnswerTiming(db);
   migratePersistentMediaStorage(db);

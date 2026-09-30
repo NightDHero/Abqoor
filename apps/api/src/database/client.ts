@@ -6,6 +6,7 @@ import pg from "pg";
 import { env } from "../config/env.js";
 import * as initialPostgresSchema from "./postgres-migrations/001_initial_schema.js";
 import * as importItemSubtopics from "./postgres-migrations/002_import_item_subtopics.js";
+import * as studentStudyPlan from "./postgres-migrations/003_student_study_plan.js";
 import { initializeSqliteSchema } from "./sqlite-schema.js";
 
 const { Pool, types } = pg;
@@ -42,7 +43,8 @@ type PostgresMigration = {
 
 const postgresMigrations: PostgresMigration[] = [
   initialPostgresSchema,
-  importItemSubtopics
+  importItemSubtopics,
+  studentStudyPlan
 ];
 const transactionClientStorage = new AsyncLocalStorage<pg.PoolClient>();
 

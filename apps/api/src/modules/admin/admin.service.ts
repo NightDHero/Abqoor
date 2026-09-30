@@ -7,6 +7,7 @@ import {
   updateUserPasswordHash
 } from "../auth/auth.repository.js";
 import type { UserRecord } from "../auth/auth.types.js";
+import { bankConfig, calculateStudyPlan } from "../banks/bank-config.js";
 import {
   findStudentProfileByUserId,
   isUsernameAvailable,
@@ -98,20 +99,30 @@ const ensureSeedAdminProfile = async (user: UserRecord) => {
     return;
   }
 
+  const studyPlanStartDate = new Date().toISOString().slice(0, 10);
+  const studyPlan = calculateStudyPlan({
+    bankCount: bankConfig.availableBankCount,
+    restDays: [],
+    startDate: studyPlanStartDate
+  });
+
   await upsertStudentProfile({
     attemptCount: null,
     examDate: null,
     hasExamDate: false,
     hasTakenQudurat: false,
     latestScore: null,
-    studyStrategyPreference: "fastest_highest_score",
-    studyStylePreference: "no_preference",
+    studyPlanBankCount: studyPlan.bankCount,
+    studyPlanCalendarDays: studyPlan.calendarDays,
+    studyPlanCompletionDate: studyPlan.completionDate,
+    studyPlanStartDate,
+    studyPlanStudyDays: studyPlan.studyDays,
     targetScore: 90,
     userId: user.id,
     username:
       profile?.username ?? (await getAvailableSeedUsername(user.email, user.id)),
     weakerSection: "both",
-    weeklyStudyHours: "more_than_15"
+    weeklyRestDays: []
   });
 };
 

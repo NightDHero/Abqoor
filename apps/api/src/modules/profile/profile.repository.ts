@@ -1,67 +1,31 @@
 import { db } from "../../database/client.js";
-import type {
-  StudentProfileRecord,
-  StudyStrategyPreference,
-  StudyStylePreference,
-  WeakerSection,
-  WeeklyStudyHours
-} from "./profile.types.js";
+import type { StudyRestDay } from "../banks/bank-config.js";
+import type { StudentProfileRecord, WeakerSection } from "./profile.types.js";
 
 const findProfileByUserIdStatement = db.prepare<string, StudentProfileRecord>(`
-  SELECT
-    user_id,
-    username,
-    profile_completed,
-    target_score,
-    has_exam_date,
-    exam_date,
-    weekly_study_hours,
-    has_taken_qudurat,
-    attempt_count,
-    latest_score,
-    weaker_section,
-    study_style_preference,
-    study_strategy_preference,
-    created_at,
-    updated_at
+  SELECT user_id, username, profile_completed, target_score, has_exam_date,
+    exam_date, has_taken_qudurat, attempt_count, latest_score, weaker_section,
+    study_plan_start_date, weekly_rest_days_json, study_plan_bank_count,
+    study_plan_study_days, study_plan_calendar_days, study_plan_completion_date,
+    created_at, updated_at
   FROM student_profiles
   WHERE user_id = ?
 `);
 
 const upsertProfileStatement = db.prepare(`
   INSERT INTO student_profiles (
-    user_id,
-    username,
-    profile_completed,
-    target_score,
-    has_exam_date,
-    exam_date,
-    weekly_study_hours,
-    has_taken_qudurat,
-    attempt_count,
-    latest_score,
-    weaker_section,
-    study_style_preference,
-    study_strategy_preference,
-    created_at,
-    updated_at
+    user_id, username, profile_completed, target_score, has_exam_date, exam_date,
+    has_taken_qudurat, attempt_count, latest_score, weaker_section,
+    study_plan_start_date, weekly_rest_days_json, study_plan_bank_count,
+    study_plan_study_days, study_plan_calendar_days, study_plan_completion_date,
+    created_at, updated_at
   )
   VALUES (
-    @userId,
-    @username,
-    @profileCompleted,
-    @targetScore,
-    @hasExamDate,
-    @examDate,
-    @weeklyStudyHours,
-    @hasTakenQudurat,
-    @attemptCount,
-    @latestScore,
-    @weakerSection,
-    @studyStylePreference,
-    @studyStrategyPreference,
-    @createdAt,
-    @updatedAt
+    @userId, @username, @profileCompleted, @targetScore, @hasExamDate, @examDate,
+    @hasTakenQudurat, @attemptCount, @latestScore, @weakerSection,
+    @studyPlanStartDate, @weeklyRestDaysJson, @studyPlanBankCount,
+    @studyPlanStudyDays, @studyPlanCalendarDays, @studyPlanCompletionDate,
+    @createdAt, @updatedAt
   )
   ON CONFLICT(user_id) DO UPDATE SET
     username = excluded.username,
@@ -69,13 +33,16 @@ const upsertProfileStatement = db.prepare(`
     target_score = excluded.target_score,
     has_exam_date = excluded.has_exam_date,
     exam_date = excluded.exam_date,
-    weekly_study_hours = excluded.weekly_study_hours,
     has_taken_qudurat = excluded.has_taken_qudurat,
     attempt_count = excluded.attempt_count,
     latest_score = excluded.latest_score,
     weaker_section = excluded.weaker_section,
-    study_style_preference = excluded.study_style_preference,
-    study_strategy_preference = excluded.study_strategy_preference,
+    study_plan_start_date = excluded.study_plan_start_date,
+    weekly_rest_days_json = excluded.weekly_rest_days_json,
+    study_plan_bank_count = excluded.study_plan_bank_count,
+    study_plan_study_days = excluded.study_plan_study_days,
+    study_plan_calendar_days = excluded.study_plan_calendar_days,
+    study_plan_completion_date = excluded.study_plan_completion_date,
     updated_at = excluded.updated_at
 `);
 
@@ -83,15 +50,12 @@ const findProfileByUsernameStatement = db.prepare<
   { userId: string; username: string },
   { user_id: string }
 >(`
-  SELECT user_id
-  FROM student_profiles
-  WHERE username = @username COLLATE NOCASE
-    AND user_id <> @userId
+  SELECT user_id FROM student_profiles
+  WHERE username = @username COLLATE NOCASE AND user_id <> @userId
 `);
 
-export const findStudentProfileByUserId = async (userId: string) => {
-  return (await findProfileByUserIdStatement.get(userId)) ?? null;
-};
+export const findStudentProfileByUserId = async (userId: string) =>
+  (await findProfileByUserIdStatement.get(userId)) ?? null;
 
 export const isStudentProfileCompleted = async (userId: string) => {
   const profile = await findStudentProfileByUserId(userId);
@@ -100,7 +64,6 @@ export const isStudentProfileCompleted = async (userId: string) => {
 
 export const getStudentProfileIdentity = async (userId: string) => {
   const profile = await findStudentProfileByUserId(userId);
-
   return {
     profileCompleted:
       profile?.profile_completed === 1 && Boolean(profile.username),
@@ -108,9 +71,8 @@ export const getStudentProfileIdentity = async (userId: string) => {
   };
 };
 
-export const isUsernameAvailable = async (username: string, userId: string) => {
-  return !(await findProfileByUsernameStatement.get({ userId, username }));
-};
+export const isUsernameAvailable = async (username: string, userId: string) =>
+  !(await findProfileByUsernameStatement.get({ userId, username }));
 
 export const upsertStudentProfile = async (input: {
   attemptCount: number | null;
@@ -118,13 +80,16 @@ export const upsertStudentProfile = async (input: {
   hasExamDate: boolean;
   hasTakenQudurat: boolean;
   latestScore: number | null;
-  studyStrategyPreference: StudyStrategyPreference;
-  studyStylePreference: StudyStylePreference;
+  studyPlanBankCount: number;
+  studyPlanCalendarDays: number;
+  studyPlanCompletionDate: string;
+  studyPlanStartDate: string;
+  studyPlanStudyDays: number;
   targetScore: number;
   userId: string;
   username: string;
   weakerSection: WeakerSection;
-  weeklyStudyHours: WeeklyStudyHours;
+  weeklyRestDays: StudyRestDay[];
 }) => {
   const now = new Date().toISOString();
   const existing = await findStudentProfileByUserId(input.userId);
@@ -137,14 +102,17 @@ export const upsertStudentProfile = async (input: {
     hasTakenQudurat: input.hasTakenQudurat ? 1 : 0,
     latestScore: input.latestScore,
     profileCompleted: 1,
-    studyStrategyPreference: input.studyStrategyPreference,
-    studyStylePreference: input.studyStylePreference,
+    studyPlanBankCount: input.studyPlanBankCount,
+    studyPlanCalendarDays: input.studyPlanCalendarDays,
+    studyPlanCompletionDate: input.studyPlanCompletionDate,
+    studyPlanStartDate: input.studyPlanStartDate,
+    studyPlanStudyDays: input.studyPlanStudyDays,
     targetScore: input.targetScore,
     updatedAt: now,
     userId: input.userId,
     username: input.username,
     weakerSection: input.weakerSection,
-    weeklyStudyHours: input.weeklyStudyHours
+    weeklyRestDaysJson: JSON.stringify(input.weeklyRestDays)
   });
 
   return findStudentProfileByUserId(input.userId);

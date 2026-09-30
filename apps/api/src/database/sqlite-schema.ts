@@ -50,6 +50,12 @@ export const initializeSqliteSchema = (db: Database.Database) => {
           'fastest_highest_score'
         )
       ),
+      study_plan_start_date TEXT,
+      weekly_rest_days_json TEXT NOT NULL DEFAULT '[]',
+      study_plan_bank_count INTEGER CHECK (study_plan_bank_count IS NULL OR study_plan_bank_count > 0),
+      study_plan_study_days INTEGER CHECK (study_plan_study_days IS NULL OR study_plan_study_days > 0),
+      study_plan_calendar_days INTEGER CHECK (study_plan_calendar_days IS NULL OR study_plan_calendar_days > 0),
+      study_plan_completion_date TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE

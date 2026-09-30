@@ -46,7 +46,7 @@ export function StudyQuestion({
           <p className="question-progress">
             السؤال {currentIndex + 1} / {totalQuestions}
           </p>
-          <h2 id="study-question-title">سَائِل</h2>
+          <h2 id="study-question-title">سحب</h2>
           <span dir="ltr">{question.id}</span>
         </div>
         <div className="solving-workspace-toolbar-actions">

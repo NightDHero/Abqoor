@@ -10,7 +10,7 @@ export function StudyMode() {
   const study = useStudySession();
   const [isImmersive, setIsImmersive] = useState(false);
   const renderModeSwitch = () => (
-    <div className="study-view-switch" aria-label="طريقة عرض سَائِل">
+    <div className="study-view-switch" aria-label="طريقة عرض سحب">
       <button
         aria-pressed={!isImmersive}
         className={!isImmersive ? "selected" : undefined}
@@ -26,7 +26,7 @@ export function StudyMode() {
         onClick={() => setIsImmersive(true)}
       >
         <img alt="" src="/assets/modes/immersive-scroll.png" />
-        سَائِل
+        سحب
       </button>
     </div>
   );

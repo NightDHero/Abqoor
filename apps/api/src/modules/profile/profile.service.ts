@@ -4,18 +4,18 @@ import {
   upsertStudentProfile
 } from "./profile.repository.js";
 import {
-  studyStrategyPreferenceOptions,
-  studyStylePreferenceOptions,
   toStudentProfile,
   weakerSectionOptions,
-  weeklyStudyHourOptions,
   type StudentProfile,
-  type StudyStrategyPreference,
-  type StudyStylePreference,
   type UpdateStudentProfileInput,
-  type WeakerSection,
-  type WeeklyStudyHours
+  type WeakerSection
 } from "./profile.types.js";
+import {
+  bankConfig,
+  calculateStudyPlan,
+  isDateOnly,
+  type StudyRestDay
+} from "../banks/bank-config.js";
 
 export class ProfileError extends Error {
   constructor(
@@ -50,11 +50,10 @@ const profileFieldLabels: Record<string, string> = {
   hasExamDate: "حالة موعد الاختبار",
   hasTakenQudurat: "حالة دخول اختبار القدرات",
   latestScore: "آخر درجة",
-  studyStrategyPreference: "استراتيجية الخطة الدراسية",
-  studyStylePreference: "أسلوب الدراسة",
+  studyPlanStartDate: "تاريخ بدء الخطة",
   targetScore: "الدرجة المستهدفة",
   weakerSection: "القسم الأضعف",
-  weeklyStudyHours: "ساعات الدراسة الأسبوعية"
+  weeklyRestDays: "أيام الراحة الأسبوعية"
 };
 
 const toFieldLabel = (fieldName: string) => {
@@ -125,6 +124,34 @@ const toDateOrNull = (hasExamDate: boolean, value: unknown) => {
   return normalizedDate;
 };
 
+const toStudyPlanStartDate = (value: unknown) => {
+  if (typeof value !== "string" || !isDateOnly(value.trim())) {
+    throw new ProfileError("اختر تاريخاً صالحاً لبدء المذاكرة.");
+  }
+
+  return value.trim();
+};
+
+const toWeeklyRestDays = (value: unknown): StudyRestDay[] => {
+  if (!Array.isArray(value)) {
+    throw new ProfileError("أيام الراحة الأسبوعية غير صالحة.");
+  }
+
+  const restDays = value.filter(
+    (day): day is StudyRestDay => Number.isInteger(day) && day >= 0 && day <= 6
+  );
+
+  if (restDays.length !== value.length || new Set(restDays).size !== restDays.length) {
+    throw new ProfileError("أيام الراحة الأسبوعية غير صالحة.");
+  }
+
+  if (restDays.length === 7) {
+    throw new ProfileError("اختر يوماً واحداً على الأقل للمذاكرة كل أسبوع.");
+  }
+
+  return restDays;
+};
+
 const normalizeProfileInput = (input: UpdateStudentProfileInput) => {
   const username = toUsername(input.username);
   const targetScore = toInteger(input.targetScore, "targetScore");
@@ -154,22 +181,25 @@ const normalizeProfileInput = (input: UpdateStudentProfileInput) => {
     }
   }
 
+  const studyPlanStartDate = toStudyPlanStartDate(input.studyPlanStartDate);
+  const weeklyRestDays = toWeeklyRestDays(input.weeklyRestDays);
+  const generatedPlan = calculateStudyPlan({
+    bankCount: bankConfig.availableBankCount,
+    restDays: weeklyRestDays,
+    startDate: studyPlanStartDate
+  });
+
   return {
     attemptCount,
     examDate: toDateOrNull(hasExamDate, input.examDate),
     hasExamDate,
     hasTakenQudurat,
     latestScore,
-    studyStrategyPreference: toRequiredOption(
-      input.studyStrategyPreference,
-      studyStrategyPreferenceOptions,
-      "studyStrategyPreference"
-    ) as StudyStrategyPreference,
-    studyStylePreference: toRequiredOption(
-      input.studyStylePreference,
-      studyStylePreferenceOptions,
-      "studyStylePreference"
-    ) as StudyStylePreference,
+    studyPlanBankCount: generatedPlan.bankCount,
+    studyPlanCalendarDays: generatedPlan.calendarDays,
+    studyPlanCompletionDate: generatedPlan.completionDate,
+    studyPlanStartDate,
+    studyPlanStudyDays: generatedPlan.studyDays,
     targetScore,
     username,
     weakerSection: toRequiredOption(
@@ -177,11 +207,7 @@ const normalizeProfileInput = (input: UpdateStudentProfileInput) => {
       weakerSectionOptions,
       "weakerSection"
     ) as WeakerSection,
-    weeklyStudyHours: toRequiredOption(
-      input.weeklyStudyHours,
-      weeklyStudyHourOptions,
-      "weeklyStudyHours"
-    ) as WeeklyStudyHours
+    weeklyRestDays
   };
 };
 

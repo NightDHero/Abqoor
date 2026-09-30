@@ -53,10 +53,7 @@ body.immersive-question-active {
   height: var(--immersive-slide-height, 100%);
   min-height: var(--immersive-slide-height, 100%);
   overflow: hidden;
-  padding:
-    clamp(10px, 2svh, 20px)
-    clamp(14px, 2.4vw, 42px)
-    clamp(12px, 2svh, 22px);
+  padding: clamp(8px, 1.4svh, 14px) clamp(10px, 1.5vw, 26px);
   isolation: isolate;
 }
 
@@ -75,12 +72,12 @@ body.immersive-question-active {
   position: relative;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
-  gap: clamp(14px, 2svh, 24px);
-  width: min(100%, 1880px);
+  gap: clamp(10px, 1.4svh, 16px);
+  width: 100%;
   height: 100%;
   min-width: 0;
   min-height: 0;
-  margin-inline: auto;
+  margin: 0;
 }
 
 .immersive-question-progress {
@@ -92,14 +89,13 @@ body.immersive-question-active {
   direction: ltr;
   gap: 5px;
   align-items: baseline;
-  border: 1px solid rgb(255 255 255 / 10%);
-  border-radius: 999px;
-  background: rgb(3 17 27 / 70%);
-  padding: 7px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: rgb(3 17 27 / 46%);
+  padding: 5px 9px;
   color: rgb(232 246 249 / 72%);
   font-variant-numeric: tabular-nums;
-  box-shadow: 0 12px 28px rgb(0 7 14 / 20%);
-  backdrop-filter: blur(14px);
+  box-shadow: none;
 }
 
 .immersive-question-progress strong {
@@ -159,6 +155,7 @@ body.immersive-question-active {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: clamp(9px, 1vw, 15px);
+  margin-bottom: 6px;
 }
 
 .product-app-shell button.immersive-answer-option {
@@ -168,15 +165,14 @@ body.immersive-question-active {
   min-height: clamp(62px, 7svh, 86px);
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 12%);
-  border-radius: clamp(15px, 1.3vw, 20px);
+  border-radius: 12px;
   background: rgb(255 255 255 / 5%);
   padding: 12px clamp(14px, 1.8vw, 28px);
   color: var(--abq-text);
   font-family: var(--font-arabic-display);
   font-size: clamp(1.15rem, 1.55vw, 1.5rem);
   font-weight: 850;
-  box-shadow: 0 14px 34px rgb(0 7 14 / 15%);
-  backdrop-filter: blur(14px);
+  box-shadow: none;
   place-items: center;
   transition:
     border-color 170ms ease,
@@ -188,7 +184,7 @@ body.immersive-question-active {
 .product-app-shell button.immersive-answer-option:hover:not(:disabled) {
   border-color: rgb(103 220 231 / 38%);
   background: rgb(103 220 231 / 10%);
-  box-shadow: 0 18px 42px rgb(0 7 14 / 22%);
+  box-shadow: none;
   transform: translateY(-2px);
 }
 
@@ -254,12 +250,11 @@ body.immersive-question-active {
   width: clamp(56px, 4.5vw, 68px);
   min-height: clamp(56px, 4.5vw, 68px);
   border: 1px solid rgb(255 255 255 / 11%);
-  border-radius: 20px;
-  background: rgb(3 18 28 / 78%);
+  border-radius: 12px;
+  background: rgb(3 18 28 / 54%);
   padding: 9px 7px 7px;
   color: var(--abq-text);
-  box-shadow: 0 18px 42px rgb(0 7 14 / 28%);
-  backdrop-filter: blur(16px);
+  box-shadow: none;
   place-items: center;
 }
 
@@ -385,7 +380,7 @@ body.immersive-question-active {
   }
 
   .question-browser:has(.immersive-question-feed) .browser-mode-switch {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .product-app-shell

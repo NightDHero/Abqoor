@@ -41,14 +41,6 @@ export function BrowserControls({
           سؤال
         </button>
         <button
-          aria-pressed={displayMode === "gallery"}
-          className={displayMode === "gallery" ? "selected" : undefined}
-          type="button"
-          onClick={() => setDisplayMode("gallery")}
-        >
-          معرض
-        </button>
-        <button
           aria-pressed={displayMode === "immersive"}
           className={displayMode === "immersive" ? "selected" : undefined}
           type="button"
@@ -59,7 +51,7 @@ export function BrowserControls({
             className="browser-mode-icon"
             src="/assets/modes/immersive-scroll.png"
           />
-          سَائِل
+          سحب
         </button>
       </div>
 

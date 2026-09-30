@@ -2,7 +2,6 @@ import type { CareerWorld, SubtopicPillar, TopicPillar } from "../career/career.
 import { ImmersiveQuestionFeed } from "../../components/ui/ImmersiveQuestionFeed";
 import { getAnswerImageUrl, toMediaSrc } from "./browserUtils";
 import { BrowserControls } from "./BrowserControls";
-import { GalleryMode } from "./GalleryMode";
 import { QuestionMode } from "./QuestionMode";
 import { QuestionNavigator } from "./QuestionNavigator";
 import { ReviewButton } from "./ReviewButton";
@@ -166,16 +165,6 @@ export function QuestionBrowser({
         />
       ) : null}
 
-      {browser.displayMode === "gallery" ? (
-        <GalleryMode
-          isInReview={reviewBank.hasQuestion}
-          onAddReview={(questionId) => {
-            void reviewBank.addQuestion(questionId);
-          }}
-          onOpenQuestion={browser.goToQuestion}
-          questions={browser.filteredQuestions}
-        />
-      ) : null}
     </section>
   );
 }

@@ -8,7 +8,7 @@ import {
   sortByImporterOrder
 } from "./browserUtils";
 
-export type BrowserDisplayMode = "question" | "gallery" | "immersive";
+export type BrowserDisplayMode = "question" | "immersive";
 
 const readErrorMessage = (caughtError: unknown, fallback: string) =>
   caughtError instanceof HttpError ? caughtError.message : fallback;

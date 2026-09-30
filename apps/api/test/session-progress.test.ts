@@ -147,13 +147,16 @@ const completeProfile = async (input: { userId: string; username: string }) => {
     hasExamDate: false,
     hasTakenQudurat: false,
     latestScore: null,
-    studyStrategyPreference: "balanced",
-    studyStylePreference: "no_preference",
+    studyPlanBankCount: 14,
+    studyPlanCalendarDays: 14,
+    studyPlanCompletionDate: "2026-01-14",
+    studyPlanStartDate: "2026-01-01",
+    studyPlanStudyDays: 14,
     targetScore: 90,
     userId: input.userId,
     username: input.username,
     weakerSection: "both",
-    weeklyStudyHours: "5_to_10"
+    weeklyRestDays: []
   });
 };
 

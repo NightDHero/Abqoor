@@ -19,9 +19,10 @@ const worldEntrances = [
 
 const hubDestinations = [
   { label: "بنك الأخطاء", route: "/review" },
-  { label: "سَائِل", route: "/study" },
+  { label: "سحب", route: "/study" },
   { label: "اختبار محاكي", route: "/exam" },
-  { label: "ملفي", route: "/profile" }
+  { label: "ملفي", route: "/profile" },
+  { label: "الأقسام", route: null }
 ] as const;
 
 const particles = [
@@ -116,19 +117,29 @@ export function CareerDashboard() {
           </div>
 
           <nav className="hub-world-destinations" aria-label="وجهات مركز عبقور">
-            {hubDestinations.map((destination) => (
-              <a
-                className="hub-world-destination"
-                href={destination.route}
-                key={destination.route}
-                onClick={(event) => {
-                  event.preventDefault();
-                  navigateTo(destination.route);
-                }}
-              >
-                <strong>{destination.label}</strong>
-              </a>
-            ))}
+            {hubDestinations.map((destination) =>
+              destination.route ? (
+                <a
+                  className="hub-world-destination"
+                  href={destination.route}
+                  key={destination.route}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    navigateTo(destination.route);
+                  }}
+                >
+                  <strong>{destination.label}</strong>
+                </a>
+              ) : (
+                <div
+                  aria-label={destination.label}
+                  className="hub-world-destination hub-world-destination-empty"
+                  key={destination.label}
+                >
+                  <strong>{destination.label}</strong>
+                </div>
+              )
+            )}
           </nav>
         </div>
       </div>

@@ -282,7 +282,7 @@ export function ImmersiveQuestionFeed({
   return (
     <div
       ref={feedRef}
-      aria-label="سَائِل الأسئلة"
+      aria-label="سحب الأسئلة"
       className={`immersive-question-feed immersive-question-feed-${variant}`}
       role="region"
       style={

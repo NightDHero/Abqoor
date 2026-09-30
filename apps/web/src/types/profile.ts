@@ -1,20 +1,12 @@
-export type WeeklyStudyHours =
-  | "less_than_3"
-  | "3_to_5"
-  | "5_to_10"
-  | "more_than_15";
-
 export type WeakerSection = "quantitative" | "verbal" | "both";
+export type StudyRestDay = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
-export type StudyStylePreference =
-  | "short_daily"
-  | "longer_few_times_weekly"
-  | "no_preference";
-
-export type StudyStrategyPreference =
-  | "weakness_first"
-  | "balanced"
-  | "fastest_highest_score";
+export type BankConfig = {
+  availableBankCount: number;
+  mathQuestionsPerBank: number;
+  verbalQuestionsPerBank: number;
+  studyPaceBanksPerDay: number;
+};
 
 export type StudentProfile = {
   userId: string;
@@ -23,13 +15,16 @@ export type StudentProfile = {
   targetScore: number | null;
   hasExamDate: boolean;
   examDate: string | null;
-  weeklyStudyHours: WeeklyStudyHours | null;
   hasTakenQudurat: boolean | null;
   attemptCount: number | null;
   latestScore: number | null;
   weakerSection: WeakerSection | null;
-  studyStylePreference: StudyStylePreference | null;
-  studyStrategyPreference: StudyStrategyPreference | null;
+  studyPlanStartDate: string | null;
+  weeklyRestDays: StudyRestDay[];
+  studyPlanBankCount: number | null;
+  studyPlanStudyDays: number | null;
+  studyPlanCalendarDays: number | null;
+  studyPlanCompletionDate: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -39,11 +34,10 @@ export type StudentProfileInput = {
   targetScore: number;
   hasExamDate: boolean;
   examDate: string | null;
-  weeklyStudyHours: WeeklyStudyHours;
   hasTakenQudurat: boolean;
   attemptCount: number | null;
   latestScore: number | null;
   weakerSection: WeakerSection;
-  studyStylePreference: StudyStylePreference;
-  studyStrategyPreference: StudyStrategyPreference;
+  studyPlanStartDate: string;
+  weeklyRestDays: StudyRestDay[];
 };

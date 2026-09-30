@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { SystemIcon, type SystemIconName } from "../../components/ui/SystemIcon";
 import { adminService } from "../../services/adminService";
+import { bankService } from "../../services/bankService";
 import { navigateTo } from "../../utils/router";
 import type { ImportJob, ImportJobStatus } from "../../types/admin";
 import { AdminShell } from "./AdminShell";
@@ -26,18 +27,21 @@ export function AdminOverviewPage() {
   const [jobs, setJobs] = useState<ImportJob[]>([]);
   const [questionCount, setQuestionCount] = useState(0);
   const [adminCount, setAdminCount] = useState(0);
+  const [bankCount, setBankCount] = useState(0);
   const [error, setError] = useState("");
 
   useEffect(() => {
     Promise.all([
       adminService.getImportJobs(),
       adminService.getQuestionBank({ page: 1, pageSize: 1 }),
-      adminService.getAdminAccounts()
+      adminService.getAdminAccounts(),
+      bankService.getConfig()
     ])
-      .then(([history, bank, accounts]) => {
+      .then(([history, bank, accounts, bankConfiguration]) => {
         setJobs(history.jobs);
         setQuestionCount(bank.total);
         setAdminCount(accounts.admins.length);
+        setBankCount(bankConfiguration.config.availableBankCount);
       })
       .catch(() => setError("تعذر تحميل ملخص لوحة الإدارة."));
   }, []);
@@ -120,6 +124,11 @@ export function AdminOverviewPage() {
       </section>
 
       <section className="admin-overview-signal-strip" aria-label="حالة النظام">
+        <span>
+          <SystemIcon name="bank" />
+          <strong>{toArabicNumber(bankCount)}</strong>
+          <small>قسم متاح · ٥٥ كمي أو ٦٥ لفظي</small>
+        </span>
         <span>
           <SystemIcon name="status" />
           <strong>{toArabicNumber(overview.activeUploads)}</strong>
