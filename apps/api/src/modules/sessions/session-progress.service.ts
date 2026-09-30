@@ -1,3 +1,4 @@
+import { bankConfig } from "../banks/bank-config.js";
 import { findUserProgressActivity } from "./session-progress.repository.js";
 import type { SessionProgressActivityRecord } from "./session-progress.repository.js";
 
@@ -27,6 +28,7 @@ export type StudyProgressStreak = {
 };
 
 export type StudyProgressResponse = {
+  career: CareerProgress;
   generatedAt: string;
   timeZone: string;
   activeStudyDay: number;
@@ -36,6 +38,18 @@ export type StudyProgressResponse = {
   month: StudyProgressPeriod;
   monthWeeks: StudyProgressPeriod[];
   year: StudyProgressPeriod;
+};
+
+export type CareerSubjectProgress = {
+  answeredQuestions: number;
+  bankPercent: number;
+  errorBankPercent: number;
+  incorrectAnswers: number;
+};
+
+export type CareerProgress = {
+  arabic: CareerSubjectProgress;
+  math: CareerSubjectProgress;
 };
 
 export class SessionProgressError extends Error {
@@ -223,6 +237,52 @@ const emptyDay = (date: string): StudyProgressDay => ({
   intensity: 0
 });
 
+const toPercent = (value: number, maximum: number) =>
+  Math.min(100, Math.round((value / maximum) * 100));
+
+const createCareerProgress = (
+  activity: SessionProgressActivityRecord[]
+): CareerProgress => {
+  const answeredQuestionIds = {
+    arabic: new Set<string>(),
+    math: new Set<string>()
+  };
+  const incorrectAnswers = { arabic: 0, math: 0 };
+
+  for (const record of activity) {
+    const subject =
+      record.subject_id ??
+      (record.subject === "quantitative" ? "math" : "arabic");
+
+    if (subject !== "math" && subject !== "arabic") {
+      continue;
+    }
+
+    answeredQuestionIds[subject].add(record.question_id);
+    if (record.is_correct === 0) {
+      incorrectAnswers[subject] += 1;
+    }
+  }
+
+  const toSubjectProgress = (
+    subject: "math" | "arabic",
+    questionsPerBank: number
+  ): CareerSubjectProgress => ({
+    answeredQuestions: answeredQuestionIds[subject].size,
+    bankPercent: toPercent(answeredQuestionIds[subject].size, questionsPerBank),
+    errorBankPercent: toPercent(
+      incorrectAnswers[subject],
+      questionsPerBank * 2
+    ),
+    incorrectAnswers: incorrectAnswers[subject]
+  });
+
+  return {
+    arabic: toSubjectProgress("arabic", bankConfig.verbalQuestionsPerBank),
+    math: toSubjectProgress("math", bankConfig.mathQuestionsPerBank)
+  };
+};
+
 const summarizeDays = (days: StudyProgressDay[]): StudyProgressPeriod => {
   const answeredQuestions = days.reduce(
     (total, day) => total + day.answeredQuestions,
@@ -292,6 +352,7 @@ export const getStudyProgress = async (
   const displayedMonthKey = normalizeMonthKey(input.month, todayDate);
   const displayedMonthDates = getCalendarMonthRange(`${displayedMonthKey}-01`);
   const activityByDate = new Map<string, StudyProgressDay>();
+  const currentActivity: SessionProgressActivityRecord[] = [];
 
   for (const record of await findUserProgressActivity(userId)) {
     const date = getDateKey(new Date(record.answered_at), timeZone);
@@ -299,6 +360,8 @@ export const getStudyProgress = async (
     if (date > todayDate) {
       continue;
     }
+
+    currentActivity.push(record);
 
     const existing = activityByDate.get(date) ?? emptyDay(date);
 
@@ -321,6 +384,7 @@ export const getStudyProgress = async (
     activeStudyDay: [...activityByDate.values()].filter(
       (day) => day.answeredQuestions > 0
     ).length,
+    career: createCareerProgress(currentActivity),
     generatedAt: new Date().toISOString(),
     month: buildRange(displayedMonthDates),
     monthWeeks: getCalendarWeeksForMonth(displayedMonthDates).map(buildRange),

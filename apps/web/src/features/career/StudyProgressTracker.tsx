@@ -430,7 +430,11 @@ function MonthView({
   );
 }
 
-export function StudyProgressTracker() {
+export function StudyProgressTracker({
+  onCareerProgressLoaded
+}: {
+  onCareerProgressLoaded?: (progress: StudyProgressResponse["career"]) => void;
+}) {
   const [activeView, setActiveView] = useState<ProgressView>("week");
   const [displayedMonthKey, setDisplayedMonthKey] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<StudyProgressDay | null>(null);
@@ -454,6 +458,7 @@ export function StudyProgressTracker() {
             response.today.answeredQuestions > 0 ? "today" : "week";
 
           setProgress(response);
+          onCareerProgressLoaded?.(response.career);
           setActiveView(defaultView);
           setSelectedDay(getDefaultDetailDay(response, defaultView));
         }
@@ -476,7 +481,7 @@ export function StudyProgressTracker() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [onCareerProgressLoaded]);
 
   const currentSummary = useMemo(() => {
     if (!progress) {
@@ -498,6 +503,7 @@ export function StudyProgressTracker() {
       const response = await sessionService.getProgress(requestTimeZone, monthKey);
 
       setProgress(response);
+      onCareerProgressLoaded?.(response.career);
       setSelectedDay(getDefaultDetailDay(response, "month"));
     } catch (caughtError) {
       setError(

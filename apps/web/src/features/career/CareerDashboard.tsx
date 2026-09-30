@@ -1,29 +1,112 @@
-import type { CSSProperties } from "react";
+import { useCallback, useState, type CSSProperties } from "react";
+import type { StudyProgressResponse } from "../../types/session";
 import { navigateTo } from "../../utils/router";
 import { StudyProgressTracker } from "./StudyProgressTracker";
 
-const worldEntrances = [
+const careerElements = [
   {
-    className: "verbal",
-    label: "اللفظي",
-    masteryPercent: 0,
-    route: "/topic/arabic"
+    accent: "math",
+    column: "left",
+    label: "كمي",
+    progress: "math",
+    route: "/topic/math",
+    row: 1
   },
   {
-    className: "math",
-    label: "الكمي",
-    masteryPercent: 0,
-    route: "/topic/math"
+    accent: "verbal",
+    column: "right",
+    label: "لفظي",
+    progress: "arabic",
+    route: "/topic/arabic",
+    row: 1
+  },
+  {
+    accent: "errors",
+    column: "left",
+    label: "بنك الأخطاء",
+    progress: "errors",
+    route: "/review",
+    row: 2
+  },
+  {
+    accent: "banks",
+    column: "right",
+    label: "الأقسام",
+    progress: "banks",
+    route: null,
+    row: 2
+  },
+  {
+    accent: "sail",
+    column: "left",
+    label: "سائل",
+    progress: null,
+    route: "/study",
+    row: 3
+  },
+  {
+    accent: "exam",
+    column: "right",
+    label: "الاختبار التجريبي",
+    progress: null,
+    route: "/exam",
+    row: 3
   }
 ] as const;
 
-const hubDestinations = [
-  { label: "بنك الأخطاء", route: "/review" },
-  { label: "سحب", route: "/study" },
-  { label: "اختبار محاكي", route: "/exam" },
-  { label: "ملفي", route: "/profile" },
-  { label: "الأقسام", route: null }
-] as const;
+const emptyCareerProgress: StudyProgressResponse["career"] = {
+  arabic: {
+    answeredQuestions: 0,
+    bankPercent: 0,
+    errorBankPercent: 0,
+    incorrectAnswers: 0
+  },
+  math: {
+    answeredQuestions: 0,
+    bankPercent: 0,
+    errorBankPercent: 0,
+    incorrectAnswers: 0
+  }
+};
+
+type CareerProgress = StudyProgressResponse["career"];
+
+const ArabicPercent = ({ value }: { value: number }) => (
+  <>{value.toLocaleString("ar-SA")}%</>
+);
+
+const CareerElementProgress = ({
+  progress,
+  type
+}: {
+  progress: CareerProgress;
+  type: (typeof careerElements)[number]["progress"];
+}) => {
+  if (type === "math" || type === "arabic") {
+    return (
+      <b className="hub-world-force-progress">
+        <ArabicPercent value={progress[type].bankPercent} />
+      </b>
+    );
+  }
+
+  if (type === "banks" || type === "errors") {
+    const percentageKey = type === "banks" ? "bankPercent" : "errorBankPercent";
+
+    return (
+      <b className="hub-world-force-progress hub-world-force-progress-pair">
+        <span>
+          كمي <ArabicPercent value={progress.math[percentageKey]} />
+        </span>
+        <span>
+          لفظي <ArabicPercent value={progress.arabic[percentageKey]} />
+        </span>
+      </b>
+    );
+  }
+
+  return null;
+};
 
 const particles = [
   [7, 17, 4, 0],
@@ -55,6 +138,11 @@ const energyStreaks = [
 ] as const;
 
 export function CareerDashboard() {
+  const [careerProgress, setCareerProgress] = useState(emptyCareerProgress);
+  const handleCareerProgressLoaded = useCallback((progress: CareerProgress) => {
+    setCareerProgress(progress);
+  }, []);
+
   return (
     <section className="hub-world-map" aria-labelledby="hub-world-title">
       <h1 className="career-visually-hidden" id="hub-world-title">
@@ -96,50 +184,50 @@ export function CareerDashboard() {
       </div>
 
       <div className="hub-home-stage">
-        <StudyProgressTracker />
+        <StudyProgressTracker onCareerProgressLoaded={handleCareerProgressLoaded} />
 
         <div className="hub-world-composition">
-          <div className="hub-world-collision" aria-label="عوالم التعلم">
-            {worldEntrances.map((entrance) => (
-              <button
-                aria-label={`دخول عالم ${entrance.label}`}
-                className={`hub-world-force hub-world-force-${entrance.className}`}
-                key={entrance.route}
-                type="button"
-                onClick={() => navigateTo(entrance.route)}
-              >
+          <nav className="hub-world-collision" aria-label="عوالم ووجهات التعلم">
+            {careerElements.map((element) => {
+              const content = (
                 <span className="hub-world-force-title">
-                  <strong>{entrance.label}</strong>
-                  <b>{entrance.masteryPercent.toLocaleString("ar-SA")}%</b>
+                  <strong>{element.label}</strong>
+                  <CareerElementProgress
+                    progress={careerProgress}
+                    type={element.progress}
+                  />
                 </span>
-              </button>
-            ))}
-          </div>
+              );
+              const className = [
+                "hub-world-force",
+                `hub-world-force-${element.accent}`,
+                `hub-world-force-column-${element.column}`,
+                `hub-world-force-row-${element.row}`
+              ].join(" ");
 
-          <nav className="hub-world-destinations" aria-label="وجهات مركز عبقور">
-            {hubDestinations.map((destination) =>
-              destination.route ? (
+              return element.route ? (
                 <a
-                  className="hub-world-destination"
-                  href={destination.route}
-                  key={destination.route}
+                  aria-label={`الانتقال إلى ${element.label}`}
+                  className={className}
+                  href={element.route}
+                  key={element.label}
                   onClick={(event) => {
                     event.preventDefault();
-                    navigateTo(destination.route);
+                    navigateTo(element.route);
                   }}
                 >
-                  <strong>{destination.label}</strong>
+                  {content}
                 </a>
               ) : (
                 <div
-                  aria-label={destination.label}
-                  className="hub-world-destination hub-world-destination-empty"
-                  key={destination.label}
+                  aria-label={element.label}
+                  className={className}
+                  key={element.label}
                 >
-                  <strong>{destination.label}</strong>
+                  {content}
                 </div>
-              )
-            )}
+              );
+            })}
           </nav>
         </div>
       </div>

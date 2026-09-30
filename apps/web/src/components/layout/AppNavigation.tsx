@@ -13,7 +13,7 @@ const navigationItems = [
   {
     activePath: "/study",
     icon: "/assets/navigation/study.png",
-    label: "سحب",
+    label: "سائل",
     route: "/study"
   },
   {

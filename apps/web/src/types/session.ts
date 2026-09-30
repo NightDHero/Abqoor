@@ -64,6 +64,10 @@ export type StudyProgressStreak = {
 };
 
 export type StudyProgressResponse = {
+  career: {
+    arabic: CareerSubjectProgress;
+    math: CareerSubjectProgress;
+  };
   generatedAt: string;
   timeZone: string;
   activeStudyDay: number;
@@ -73,4 +77,11 @@ export type StudyProgressResponse = {
   month: StudyProgressPeriod;
   monthWeeks: StudyProgressPeriod[];
   year: StudyProgressPeriod;
+};
+
+export type CareerSubjectProgress = {
+  answeredQuestions: number;
+  bankPercent: number;
+  errorBankPercent: number;
+  incorrectAnswers: number;
 };

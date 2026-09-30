@@ -41,8 +41,10 @@ const login = async (email: string) => {
 const insertQuestion = (input: {
   id: string;
   estimatedTimeSeconds: number | null;
+  subjectId?: "math" | "arabic";
 }) => {
   const now = new Date().toISOString();
+  const isMath = input.subjectId !== "arabic";
   db.prepare(
     `
       INSERT INTO questions (
@@ -67,10 +69,10 @@ const insertQuestion = (input: {
         @id,
         @questionImageUrl,
         'A',
-        'quantitative',
-        'math',
-        'النسب',
-        'ratios',
+        @subject,
+        @subjectId,
+        @topic,
+        @topicId,
         NULL,
         NULL,
         4,
@@ -86,7 +88,11 @@ const insertQuestion = (input: {
     estimatedTimeSeconds: input.estimatedTimeSeconds,
     id: input.id,
     now,
-    questionImageUrl: `/media/questions/${input.id}.png`
+    questionImageUrl: `/media/questions/${input.id}.png`,
+    subject: isMath ? "quantitative" : "verbal",
+    subjectId: isMath ? "math" : "arabic",
+    topic: isMath ? "النسب" : "التناظر اللفظي",
+    topicId: isMath ? "ratios" : "verbal-analogy"
   });
 };
 
@@ -432,6 +438,82 @@ test("anchors current streak to today and ignores future-dated activity", async 
   assert.equal(payload.activeStudyDay, 1);
   assert.equal(payload.streak.current, 0);
   assert.equal(payload.streak.highest, 1);
+});
+
+test("calculates Career bank and error progress with subject-specific denominators", async () => {
+  const user = await registerUser("career-progress@example.com", password);
+  await completeProfile({ userId: user.id, username: "career_progress_user" });
+  const answeredAt = new Date().toISOString();
+
+  for (let index = 1; index <= 55; index += 1) {
+    const questionId = `Q-CAREER-MATH-${String(index).padStart(3, "0")}`;
+    insertQuestion({ estimatedTimeSeconds: 60, id: questionId });
+    insertAnsweredQuestion({
+      activeDurationSeconds: 30,
+      answeredAt,
+      isCorrect: 0,
+      questionId,
+      sessionId: `career-math-session-${index}`,
+      userId: user.id
+    });
+  }
+
+  for (let index = 1; index <= 65; index += 1) {
+    const questionId = `Q-CAREER-ARABIC-${String(index).padStart(3, "0")}`;
+    insertQuestion({
+      estimatedTimeSeconds: 60,
+      id: questionId,
+      subjectId: "arabic"
+    });
+    insertAnsweredQuestion({
+      activeDurationSeconds: 30,
+      answeredAt,
+      isCorrect: 0,
+      questionId,
+      sessionId: `career-arabic-session-${index}`,
+      userId: user.id
+    });
+  }
+
+  const { cookie, response: loginResponse } = await login(
+    "career-progress@example.com"
+  );
+  assert.equal(loginResponse.status, 200);
+
+  const response = await fetch(`${baseUrl}/sessions/progress?timeZone=UTC`, {
+    headers: { cookie }
+  });
+  assert.equal(response.status, 200);
+
+  const payload = (await response.json()) as {
+    career: {
+      arabic: {
+        answeredQuestions: number;
+        bankPercent: number;
+        errorBankPercent: number;
+        incorrectAnswers: number;
+      };
+      math: {
+        answeredQuestions: number;
+        bankPercent: number;
+        errorBankPercent: number;
+        incorrectAnswers: number;
+      };
+    };
+  };
+
+  assert.deepEqual(payload.career.math, {
+    answeredQuestions: 55,
+    bankPercent: 100,
+    errorBankPercent: 50,
+    incorrectAnswers: 55
+  });
+  assert.deepEqual(payload.career.arabic, {
+    answeredQuestions: 65,
+    bankPercent: 100,
+    errorBankPercent: 50,
+    incorrectAnswers: 65
+  });
 });
 
 test("prevents duplicate study answer mutation and cross-user session access", async () => {
