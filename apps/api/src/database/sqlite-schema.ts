@@ -113,9 +113,6 @@ export const initializeSqliteSchema = (db: Database.Database) => {
     CREATE INDEX IF NOT EXISTS idx_questions_subject ON questions(subject);
     CREATE INDEX IF NOT EXISTS idx_questions_topic ON questions(topic);
     CREATE INDEX IF NOT EXISTS idx_questions_difficulty ON questions(difficulty);
-    CREATE INDEX IF NOT EXISTS idx_questions_image_storage_key ON questions(image_storage_key);
-    CREATE INDEX IF NOT EXISTS idx_questions_source_pdf_id ON questions(source_pdf_id);
-    CREATE INDEX IF NOT EXISTS idx_source_pdfs_uploaded_at ON source_pdfs(uploaded_at);
 
     CREATE TABLE IF NOT EXISTS import_jobs (
       id TEXT PRIMARY KEY,
@@ -182,11 +179,6 @@ export const initializeSqliteSchema = (db: Database.Database) => {
       PRIMARY KEY (import_job_id, question_number),
       FOREIGN KEY (import_job_id) REFERENCES import_jobs(id) ON DELETE CASCADE
     );
-
-    CREATE INDEX IF NOT EXISTS idx_import_jobs_created_at ON import_jobs(created_at);
-    CREATE INDEX IF NOT EXISTS idx_import_jobs_source_pdf_id ON import_jobs(source_pdf_id);
-    CREATE INDEX IF NOT EXISTS idx_import_job_items_question_id ON import_job_items(question_id);
-    CREATE INDEX IF NOT EXISTS idx_import_job_items_outcome ON import_job_items(outcome);
 
     CREATE TABLE IF NOT EXISTS sessions (
       session_id TEXT PRIMARY KEY,
@@ -305,7 +297,6 @@ export const initializeSqliteSchema = (db: Database.Database) => {
     CREATE INDEX IF NOT EXISTS idx_review_items_user_id ON review_items(user_id);
     CREATE INDEX IF NOT EXISTS idx_review_items_question_id ON review_items(question_id);
     CREATE INDEX IF NOT EXISTS idx_review_items_source ON review_items(source);
-    CREATE INDEX IF NOT EXISTS idx_admin_accounts_created_at ON admin_accounts(created_at);
   `);
 
   runDatabaseMigrations(db);

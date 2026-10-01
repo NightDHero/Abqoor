@@ -208,32 +208,12 @@ const getActivityFill = (day: StudyProgressDay) => {
   return 100;
 };
 
-const getDefaultDetailDay = (
-  progress: StudyProgressResponse,
-  view: ProgressView
-) => {
-  if (view === "today") {
-    return progress.today;
-  }
-
-  const days = progress[view].days;
-  return (
-    [...days].reverse().find((day) => day.answeredQuestions > 0) ??
-    days.at(-1) ??
-    progress.today
-  );
-};
-
 function CalendarDayCell({
   day,
-  isSelected,
-  onSelect,
   showCount,
   variant
 }: {
   day: StudyProgressDay;
-  isSelected: boolean;
-  onSelect: (day: StudyProgressDay) => void;
   showCount: boolean;
   variant: CalendarCellVariant;
 }) {
@@ -243,21 +223,17 @@ function CalendarDayCell({
   const ariaLabel = `${dateParts.fullDate}: ${tooltipQuestions}، ${tooltipTime}`;
 
   return (
-    <button
+    <div
       aria-label={ariaLabel}
-      aria-pressed={isSelected}
-      className={`study-progress-day study-progress-day-${variant}${
-        isSelected ? " selected" : ""
-      }`}
+      className={`study-progress-day study-progress-day-${variant}`}
       data-intensity={day.intensity}
+      role="group"
       style={
         {
           "--study-progress-fill": `${getActivityFill(day)}%`
         } as CSSProperties
       }
       title={`${dateParts.monthDay}\n${tooltipQuestions}\n${tooltipTime}`}
-      type="button"
-      onClick={() => onSelect(day)}
     >
       <span className="study-progress-day-name">{dateParts.weekday}</span>
       <strong>{dateParts.dayNumber}</strong>
@@ -272,32 +248,16 @@ function CalendarDayCell({
         <span>{tooltipQuestions}</span>
         <span>{tooltipTime}</span>
       </span>
-    </button>
-  );
-}
-
-function SelectedDayDetail({ day }: { day: StudyProgressDay }) {
-  const dateParts = formatDateParts(day.date);
-
-  return (
-    <p className="study-progress-selected-day" aria-live="polite">
-      <strong>{dateParts.monthDay}</strong>
-      <span>{toQuestionCount(day.answeredQuestions)}</span>
-      <span>{toStudyMinutes(day.approximateStudySeconds)}</span>
-    </p>
+    </div>
   );
 }
 
 function TodayView({
   day,
-  onSelect,
-  progress,
-  selectedDay
+  progress
 }: {
   day: StudyProgressDay;
-  onSelect: (day: StudyProgressDay) => void;
   progress: StudyProgressResponse;
-  selectedDay: StudyProgressDay;
 }) {
   const dateParts = formatDateParts(day.date);
 
@@ -306,8 +266,6 @@ function TodayView({
       <div className="study-progress-today-stack">
         <CalendarDayCell
           day={day}
-          isSelected={selectedDay.date === day.date}
-          onSelect={onSelect}
           showCount={false}
           variant="today"
         />
@@ -324,15 +282,11 @@ function TodayView({
 }
 
 function WeekView({
-  onSelect,
   period,
-  progress,
-  selectedDay
+  progress
 }: {
-  onSelect: (day: StudyProgressDay) => void;
   period: StudyProgressPeriod;
   progress: StudyProgressResponse;
-  selectedDay: StudyProgressDay;
 }) {
   return (
     <>
@@ -344,9 +298,7 @@ function WeekView({
         {period.days.map((day) => (
           <CalendarDayCell
             day={day}
-            isSelected={selectedDay.date === day.date}
             key={day.date}
-            onSelect={onSelect}
             showCount
             variant="week"
           />
@@ -360,18 +312,14 @@ function MonthView({
   isLoading,
   onNextMonth,
   onPreviousMonth,
-  onSelect,
   period,
-  progress,
-  selectedDay
+  progress
 }: {
   isLoading: boolean;
   onNextMonth: () => void;
   onPreviousMonth: () => void;
-  onSelect: (day: StudyProgressDay) => void;
   period: StudyProgressPeriod;
   progress: StudyProgressResponse;
-  selectedDay: StudyProgressDay;
 }) {
   const leadingBlankDays = period.days[0] ? toDate(period.days[0].date).getUTCDay() : 0;
   const trailingBlankDays =
@@ -415,9 +363,7 @@ function MonthView({
         {period.days.map((day) => (
           <CalendarDayCell
             day={day}
-            isSelected={selectedDay.date === day.date}
             key={day.date}
-            onSelect={onSelect}
             showCount={false}
             variant="month"
           />
@@ -437,7 +383,6 @@ export function StudyProgressTracker({
 }) {
   const [activeView, setActiveView] = useState<ProgressView>("week");
   const [displayedMonthKey, setDisplayedMonthKey] = useState<string | null>(null);
-  const [selectedDay, setSelectedDay] = useState<StudyProgressDay | null>(null);
   const [progress, setProgress] = useState<StudyProgressResponse | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -460,7 +405,6 @@ export function StudyProgressTracker({
           setProgress(response);
           onCareerProgressLoaded?.(response.career);
           setActiveView(defaultView);
-          setSelectedDay(getDefaultDetailDay(response, defaultView));
         }
       })
       .catch((caughtError) => {
@@ -504,7 +448,6 @@ export function StudyProgressTracker({
 
       setProgress(response);
       onCareerProgressLoaded?.(response.career);
-      setSelectedDay(getDefaultDetailDay(response, "month"));
     } catch (caughtError) {
       setError(
         caughtError instanceof HttpError
@@ -542,17 +485,13 @@ export function StudyProgressTracker({
       setDisplayedMonthKey(currentMonthKey);
 
       if (getMonthKey(progress.month.startDate) !== currentMonthKey) {
-        setSelectedDay(progress.today);
         void loadDisplayedMonth(currentMonthKey);
         return;
       }
-
-      setSelectedDay(getDefaultDetailDay(progress, "month"));
       return;
     }
 
     setDisplayedMonthKey(null);
-    setSelectedDay(getDefaultDetailDay(progress, view));
   };
 
   return (
@@ -583,7 +522,7 @@ export function StudyProgressTracker({
       {isLoading ? <p className="study-progress-empty">جاري تحميل التقدم...</p> : null}
       {error ? <p className="study-progress-empty">{error}</p> : null}
 
-      {progress && selectedDay ? (
+      {progress ? (
         <div
           className={`study-progress-body study-progress-body-${activeView}`}
           id={`study-progress-${activeView}`}
@@ -592,18 +531,14 @@ export function StudyProgressTracker({
           {activeView === "today" ? (
             <TodayView
               day={progress.today}
-              onSelect={setSelectedDay}
               progress={progress}
-              selectedDay={selectedDay}
             />
           ) : null}
 
           {activeView === "week" ? (
             <WeekView
-              onSelect={setSelectedDay}
               period={progress.week}
               progress={progress}
-              selectedDay={selectedDay}
             />
           ) : null}
 
@@ -612,16 +547,10 @@ export function StudyProgressTracker({
               isLoading={isMonthLoading}
               onNextMonth={() => handleMonthNavigation(1)}
               onPreviousMonth={() => handleMonthNavigation(-1)}
-              onSelect={setSelectedDay}
               period={progress.month}
               progress={progress}
-              selectedDay={selectedDay}
             />
           ) : null}
-
-          <div className="study-progress-selected-summary">
-            <SelectedDayDetail day={selectedDay} />
-          </div>
         </div>
       ) : null}
     </section>

@@ -6,27 +6,19 @@ import { StudyProgressTracker } from "./StudyProgressTracker";
 const careerElements = [
   {
     accent: "math",
-    column: "left",
-    label: "كمي",
+    column: "right",
+    label: "الكمي",
     progress: "math",
     route: "/topic/math",
     row: 1
   },
   {
     accent: "verbal",
-    column: "right",
-    label: "لفظي",
+    column: "left",
+    label: "اللفظي",
     progress: "arabic",
     route: "/topic/arabic",
     row: 1
-  },
-  {
-    accent: "errors",
-    column: "left",
-    label: "بنك الأخطاء",
-    progress: "errors",
-    route: "/review",
-    row: 2
   },
   {
     accent: "banks",
@@ -42,7 +34,7 @@ const careerElements = [
     label: "سائل",
     progress: null,
     route: "/study",
-    row: 3
+    row: 2
   },
   {
     accent: "exam",
@@ -50,6 +42,14 @@ const careerElements = [
     label: "الاختبار التجريبي",
     progress: null,
     route: "/exam",
+    row: 3
+  },
+  {
+    accent: "errors",
+    column: "left",
+    label: "بنك الأخطاء",
+    progress: "errors",
+    route: "/review",
     row: 3
   }
 ] as const;
@@ -96,10 +96,10 @@ const CareerElementProgress = ({
     return (
       <b className="hub-world-force-progress hub-world-force-progress-pair">
         <span>
-          كمي <ArabicPercent value={progress.math[percentageKey]} />
+          الكمي <ArabicPercent value={progress.math[percentageKey]} />
         </span>
         <span>
-          لفظي <ArabicPercent value={progress.arabic[percentageKey]} />
+          اللفظي <ArabicPercent value={progress.arabic[percentageKey]} />
         </span>
       </b>
     );
