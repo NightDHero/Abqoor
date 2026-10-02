@@ -39,6 +39,7 @@ export type SessionResult = {
 };
 
 export type StudyProgressIntensity = 0 | 1 | 2 | 3;
+export type StudyPlanDayKind = "study" | "review" | "rest";
 
 export type StudyProgressDay = {
   date: string;
@@ -46,6 +47,7 @@ export type StudyProgressDay = {
   correctAnswers: number;
   approximateStudySeconds: number;
   intensity: StudyProgressIntensity;
+  planKind: StudyPlanDayKind;
 };
 
 export type StudyProgressPeriod = {
@@ -71,6 +73,7 @@ export type StudyProgressResponse = {
   generatedAt: string;
   timeZone: string;
   activeStudyDay: number;
+  dailyQuestionTarget: number;
   streak: StudyProgressStreak;
   today: StudyProgressDay;
   week: StudyProgressPeriod;

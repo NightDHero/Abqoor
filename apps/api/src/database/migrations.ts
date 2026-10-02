@@ -159,6 +159,88 @@ const migrateStudentStudyPlan = (db: Database.Database) => {
   addColumnIfMissing(db, "student_profiles", "study_plan_completion_date", "TEXT");
 };
 
+const migrateStudentSchedule = (db: Database.Database) => {
+  const hadRestDay = hasColumn(db, "student_profiles", "weekly_rest_day");
+  addColumnIfMissing(
+    db,
+    "student_profiles",
+    "weekly_rest_day",
+    "INTEGER NOT NULL DEFAULT 5 CHECK (weekly_rest_day BETWEEN 0 AND 6)"
+  );
+  addColumnIfMissing(
+    db,
+    "student_profiles",
+    "weekly_review_day",
+    "INTEGER NOT NULL DEFAULT 6 CHECK (weekly_review_day BETWEEN 0 AND 6)"
+  );
+
+  if (!hadRestDay) {
+    const profiles = db
+      .prepare("SELECT user_id, weekly_rest_days_json FROM student_profiles")
+      .all() as Array<{ user_id: string; weekly_rest_days_json: string }>;
+    const update = db.prepare(`
+      UPDATE student_profiles
+      SET weekly_rest_day = @restDay, weekly_review_day = @reviewDay
+      WHERE user_id = @userId
+    `);
+
+    const backfill = db.transaction(() => {
+      for (const profile of profiles) {
+        let restDay = 5;
+        try {
+          const parsed = JSON.parse(profile.weekly_rest_days_json) as unknown;
+          if (Array.isArray(parsed)) {
+            const firstValid = parsed.find(
+              (day) => Number.isInteger(day) && Number(day) >= 0 && Number(day) <= 6
+            );
+            if (firstValid !== undefined) restDay = Number(firstValid);
+          }
+        } catch {
+          restDay = 5;
+        }
+
+        update.run({
+          restDay,
+          reviewDay: restDay === 6 ? 5 : 6,
+          userId: profile.user_id
+        });
+      }
+    });
+    backfill();
+  }
+};
+
+const migrateAccountRecovery = (db: Database.Database) => {
+  addColumnIfMissing(db, "users", "phone_number", "TEXT");
+  addColumnIfMissing(
+    db,
+    "users",
+    "session_version",
+    "INTEGER NOT NULL DEFAULT 0"
+  );
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone_number
+    ON users(phone_number)
+    WHERE phone_number IS NOT NULL;
+
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      expires_at TEXT NOT NULL,
+      used_at TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id
+    ON password_reset_tokens(user_id);
+
+    CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at
+    ON password_reset_tokens(expires_at);
+  `);
+};
+
 const migrateAdminAccounts = (db: Database.Database) => {
   db.exec(`
     CREATE TABLE IF NOT EXISTS admin_accounts (
@@ -377,6 +459,8 @@ const migrateAdminImportSystem = (db: Database.Database) => {
 export const runDatabaseMigrations = (db: Database.Database) => {
   migrateStudentProfileIdentity(db);
   migrateStudentStudyPlan(db);
+  migrateStudentSchedule(db);
+  migrateAccountRecovery(db);
   migrateAdminAccounts(db);
   migrateSessionAnswerTiming(db);
   migratePersistentMediaStorage(db);

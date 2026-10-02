@@ -1,8 +1,10 @@
 import { bankConfig } from "../banks/bank-config.js";
+import { findStudentProfileByUserId } from "../profile/profile.repository.js";
 import { findUserProgressActivity } from "./session-progress.repository.js";
 import type { SessionProgressActivityRecord } from "./session-progress.repository.js";
 
 export type StudyProgressIntensity = 0 | 1 | 2 | 3;
+export type StudyPlanDayKind = "study" | "review" | "rest";
 
 export type StudyProgressDay = {
   date: string;
@@ -10,6 +12,7 @@ export type StudyProgressDay = {
   correctAnswers: number;
   approximateStudySeconds: number;
   intensity: StudyProgressIntensity;
+  planKind: StudyPlanDayKind;
 };
 
 export type StudyProgressPeriod = {
@@ -32,6 +35,7 @@ export type StudyProgressResponse = {
   generatedAt: string;
   timeZone: string;
   activeStudyDay: number;
+  dailyQuestionTarget: number;
   streak: StudyProgressStreak;
   today: StudyProgressDay;
   week: StudyProgressPeriod;
@@ -229,12 +233,13 @@ const getIntensity = (answeredQuestions: number): StudyProgressIntensity => {
   return 3;
 };
 
-const emptyDay = (date: string): StudyProgressDay => ({
+const emptyDay = (date: string, planKind: StudyPlanDayKind): StudyProgressDay => ({
   approximateStudySeconds: 0,
   answeredQuestions: 0,
   correctAnswers: 0,
   date,
-  intensity: 0
+  intensity: 0,
+  planKind
 });
 
 const toPercent = (value: number, maximum: number) =>
@@ -353,6 +358,15 @@ export const getStudyProgress = async (
   const displayedMonthDates = getCalendarMonthRange(`${displayedMonthKey}-01`);
   const activityByDate = new Map<string, StudyProgressDay>();
   const currentActivity: SessionProgressActivityRecord[] = [];
+  const profile = await findStudentProfileByUserId(userId);
+  const restDay = profile?.weekly_rest_day ?? 5;
+  const reviewDay = profile?.weekly_review_day ?? (restDay === 6 ? 5 : 6);
+  const getPlanKind = (date: string): StudyPlanDayKind => {
+    const weekday = toUTCDate(date).getUTCDay();
+    if (weekday === restDay) return "rest";
+    if (weekday === reviewDay) return "review";
+    return "study";
+  };
 
   for (const record of await findUserProgressActivity(userId)) {
     const date = getDateKey(new Date(record.answered_at), timeZone);
@@ -363,7 +377,7 @@ export const getStudyProgress = async (
 
     currentActivity.push(record);
 
-    const existing = activityByDate.get(date) ?? emptyDay(date);
+    const existing = activityByDate.get(date) ?? emptyDay(date, getPlanKind(date));
 
     existing.answeredQuestions += 1;
     existing.correctAnswers += record.is_correct === 1 ? 1 : 0;
@@ -375,22 +389,26 @@ export const getStudyProgress = async (
 
   const buildDays = (dayCount: number) =>
     getDateRange(todayDate, dayCount).map(
-      (date) => activityByDate.get(date) ?? emptyDay(date)
+      (date) => activityByDate.get(date) ?? emptyDay(date, getPlanKind(date))
     );
   const buildRange = (dates: string[]) =>
-    summarizeDays(dates.map((date) => activityByDate.get(date) ?? emptyDay(date)));
+    summarizeDays(
+      dates.map((date) => activityByDate.get(date) ?? emptyDay(date, getPlanKind(date)))
+    );
 
   return {
     activeStudyDay: [...activityByDate.values()].filter(
       (day) => day.answeredQuestions > 0
     ).length,
     career: createCareerProgress(currentActivity),
+    dailyQuestionTarget:
+      bankConfig.mathQuestionsPerBank + bankConfig.verbalQuestionsPerBank,
     generatedAt: new Date().toISOString(),
     month: buildRange(displayedMonthDates),
     monthWeeks: getCalendarWeeksForMonth(displayedMonthDates).map(buildRange),
     streak: calculateStreaks(activityByDate, todayDate),
     timeZone,
-    today: activityByDate.get(todayDate) ?? emptyDay(todayDate),
+    today: activityByDate.get(todayDate) ?? emptyDay(todayDate, getPlanKind(todayDate)),
     week: summarizeDays(buildDays(7)),
     year: buildRange(getCalendarYearRange(`${displayedMonthKey.slice(0, 4)}-01-01`))
   };

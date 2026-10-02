@@ -26,7 +26,8 @@ export const isDateOnly = (value: string) => {
 
 export const calculateStudyPlan = (input: {
   bankCount: number;
-  restDays: readonly StudyRestDay[];
+  restDay: StudyRestDay;
+  reviewDay: StudyRestDay;
   startDate: string;
 }) => {
   if (!isDateOnly(input.startDate)) {
@@ -37,9 +38,8 @@ export const calculateStudyPlan = (input: {
     throw new Error("The study plan needs at least one bank.");
   }
 
-  const uniqueRestDays = new Set(input.restDays);
-  if (uniqueRestDays.size >= 7) {
-    throw new Error("At least one study day is required each week.");
+  if (input.restDay === input.reviewDay) {
+    throw new Error("The rest day and review day must be different.");
   }
 
   const [year, month, day] = input.startDate.split("-").map(Number);
@@ -50,7 +50,8 @@ export const calculateStudyPlan = (input: {
   while (completedBanks < input.bankCount) {
     calendarDays += 1;
 
-    if (!uniqueRestDays.has(cursor.getUTCDay() as StudyRestDay)) {
+    const weekday = cursor.getUTCDay() as StudyRestDay;
+    if (weekday !== input.restDay && weekday !== input.reviewDay) {
       completedBanks += bankConfig.studyPaceBanksPerDay;
     }
 

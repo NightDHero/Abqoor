@@ -17,6 +17,8 @@ export type StudentProfileRecord = {
   weaker_section: WeakerSection | null;
   study_plan_start_date: string | null;
   weekly_rest_days_json: string;
+  weekly_rest_day: StudyRestDay;
+  weekly_review_day: StudyRestDay;
   study_plan_bank_count: number | null;
   study_plan_study_days: number | null;
   study_plan_calendar_days: number | null;
@@ -37,7 +39,8 @@ export type StudentProfile = {
   latestScore: number | null;
   weakerSection: WeakerSection | null;
   studyPlanStartDate: string | null;
-  weeklyRestDays: StudyRestDay[];
+  weeklyRestDay: StudyRestDay;
+  weeklyReviewDay: StudyRestDay;
   studyPlanBankCount: number | null;
   studyPlanStudyDays: number | null;
   studyPlanCalendarDays: number | null;
@@ -56,20 +59,8 @@ export type UpdateStudentProfileInput = {
   latestScore?: unknown;
   weakerSection: unknown;
   studyPlanStartDate: unknown;
-  weeklyRestDays: unknown;
-};
-
-const parseRestDays = (value: string): StudyRestDay[] => {
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed.filter(
-      (day): day is StudyRestDay => Number.isInteger(day) && day >= 0 && day <= 6
-    );
-  } catch {
-    return [];
-  }
+  weeklyRestDay: unknown;
+  weeklyReviewDay: unknown;
 };
 
 export const toStudentProfile = (
@@ -95,7 +86,8 @@ export const toStudentProfile = (
       userId,
       username: null,
       weakerSection: null,
-      weeklyRestDays: []
+      weeklyRestDay: 5,
+      weeklyReviewDay: 6
     };
   }
 
@@ -118,6 +110,7 @@ export const toStudentProfile = (
     userId: record.user_id,
     username: record.username,
     weakerSection: record.weaker_section,
-    weeklyRestDays: parseRestDays(record.weekly_rest_days_json)
+    weeklyRestDay: record.weekly_rest_day,
+    weeklyReviewDay: record.weekly_review_day
   };
 };

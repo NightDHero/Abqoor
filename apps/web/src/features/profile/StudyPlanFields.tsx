@@ -8,16 +8,21 @@ import {
 
 export function StudyPlanDateField({
   bankConfig,
+  restDay,
+  reviewDay,
   startDate,
   onChange
 }: {
   bankConfig: BankConfig;
+  restDay: StudyRestDay;
+  reviewDay: StudyRestDay;
   startDate: string;
   onChange: (value: string) => void;
 }) {
   const plan = calculateStudyPlan({
     bankCount: bankConfig.availableBankCount,
-    restDays: [],
+    restDay,
+    reviewDay,
     startDate
   });
 
@@ -47,44 +52,79 @@ export function StudyPlanDateField({
   );
 }
 
-export function StudyPlanRestDaysField({
+export function StudyPlanScheduleField({
   bankConfig,
-  restDays,
+  restDay,
+  reviewDay,
   startDate,
-  onChange
+  onConflict,
+  onRestDayChange,
+  onReviewDayChange
 }: {
   bankConfig: BankConfig;
-  restDays: StudyRestDay[];
+  restDay: StudyRestDay;
+  reviewDay: StudyRestDay;
   startDate: string;
-  onChange: (value: StudyRestDay[]) => void;
+  onConflict: (message: string) => void;
+  onRestDayChange: (value: StudyRestDay) => void;
+  onReviewDayChange: (value: StudyRestDay) => void;
 }) {
   const plan = calculateStudyPlan({
     bankCount: bankConfig.availableBankCount,
-    restDays,
+    restDay,
+    reviewDay,
     startDate
   });
-  const toggleDay = (day: StudyRestDay) => {
-    onChange(
-      restDays.includes(day)
-        ? restDays.filter((value) => value !== day)
-        : [...restDays, day].sort()
-    );
+  const selectRestDay = (day: StudyRestDay) => {
+    if (day === reviewDay) {
+      onConflict("اليوم المختار للمراجعة لا يمكن اختياره كيوم راحة.");
+      return;
+    }
+    onConflict("");
+    onRestDayChange(day);
+  };
+  const selectReviewDay = (day: StudyRestDay) => {
+    if (day === restDay) {
+      onConflict("اليوم المختار للراحة لا يمكن اختياره كيوم مراجعة.");
+      return;
+    }
+    onConflict("");
+    onReviewDayChange(day);
   };
 
   return (
     <div className="study-plan-rest-field">
-      <div className="study-plan-weekdays" role="group" aria-label="أيام الراحة الأسبوعية">
-        {weekdayOptions.map((day) => (
-          <button
-            aria-pressed={restDays.includes(day.value)}
-            className={restDays.includes(day.value) ? "selected" : undefined}
-            key={day.value}
-            type="button"
-            onClick={() => toggleDay(day.value)}
-          >
-            {day.label}
-          </button>
-        ))}
+      <div className="study-plan-schedule-choice">
+        <strong>يوم الراحة</strong>
+        <div className="study-plan-weekdays" role="group" aria-label="يوم الراحة الأسبوعي">
+          {weekdayOptions.map((day) => (
+            <button
+              aria-pressed={restDay === day.value}
+              className={restDay === day.value ? "selected rest-day" : undefined}
+              key={day.value}
+              type="button"
+              onClick={() => selectRestDay(day.value)}
+            >
+              {day.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="study-plan-schedule-choice">
+        <strong>يوم المراجعة</strong>
+        <div className="study-plan-weekdays" role="group" aria-label="يوم المراجعة الأسبوعي">
+          {weekdayOptions.map((day) => (
+            <button
+              aria-pressed={reviewDay === day.value}
+              className={reviewDay === day.value ? "selected review-day" : undefined}
+              key={day.value}
+              type="button"
+              onClick={() => selectReviewDay(day.value)}
+            >
+              {day.label}
+            </button>
+          ))}
+        </div>
       </div>
       {plan ? (
         <div className="study-plan-result" aria-live="polite">
@@ -93,9 +133,7 @@ export function StudyPlanRestDaysField({
           </strong>
           <span>تاريخ الانتهاء: {formatPlanDate(plan.completionDate)}</span>
         </div>
-      ) : (
-        <p className="error-message">يجب إبقاء يوم واحد على الأقل للمذاكرة.</p>
-      )}
+      ) : null}
     </div>
   );
 }

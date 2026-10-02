@@ -172,6 +172,9 @@ const sessionCookieSameSite = toCookieSameSite(
   process.env.SESSION_COOKIE_SAMESITE,
   nodeEnv === "production" ? "none" : "lax"
 );
+const passwordResetUrlBase =
+  toOptionalString(process.env.PASSWORD_RESET_URL_BASE)?.replace(/\/$/, "") ??
+  frontendOrigins[0];
 
 if (nodeEnv === "production" && jwtSecret === "development-only-change-me") {
   throw new Error("JWT_SECRET must be set in production.");
@@ -231,6 +234,16 @@ export const env = {
   adminEmails,
   initialAdminEmail,
   initialAdminPassword,
+  passwordResetEmailFrom: toOptionalString(process.env.PASSWORD_RESET_EMAIL_FROM),
+  passwordResetTokenTtlMinutes: toIntegerInRange(
+    process.env.PASSWORD_RESET_TOKEN_TTL_MINUTES,
+    30,
+    5,
+    120,
+    "PASSWORD_RESET_TOKEN_TTL_MINUTES"
+  ),
+  passwordResetUrlBase,
+  resendApiKey: toOptionalString(process.env.RESEND_API_KEY),
   pdftoppmPath: process.env.PDFTOPPM_PATH,
   storageDriver,
   r2: {

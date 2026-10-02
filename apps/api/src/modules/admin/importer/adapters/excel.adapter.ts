@@ -1,11 +1,14 @@
 import readXlsxFile from "read-excel-file/node";
+import {
+  topicTaxonomy,
+  type LegacyQuestionSubject,
+  type TopicDefinition
+} from "../../../learning-taxonomy/taxonomy.js";
 import { parseCorrectAnswer, parseQuestionNumber } from "../question-format.mapper.js";
 import type {
   ImportValidationIssue,
-  ImportTopicSelection,
   PageRange,
   ParsedWorkbookQuestion,
-  QuestionBankType,
   RawMetadataAdapterResult,
   WorkbookAnalysis
 } from "../importer.types.js";
@@ -31,6 +34,7 @@ type SheetDefinition = {
   topicId: string;
   subtopic: string | null;
   subtopicId: string | null;
+  subject: LegacyQuestionSubject;
 };
 
 const standardHeaders = ["رقم السؤال", "السؤال", "أ", "ب", "ج", "د", "الاجابة"] as const;
@@ -45,32 +49,40 @@ const verbalSheetDefinitions: Record<string, SheetDefinition | null> = {
   "بنك التناظر عام": {
     acceptedNames: ["بنك التناظر عام"], headers: standardHeaders,
     optionIndexes: [2, 3, 4, 5], answerIndex: 6,
-    topic: "التناظر اللفظي", topicId: "verbal-analogy", subtopic: null, subtopicId: null
+    topic: "التناظر اللفظي", topicId: "verbal-analogy", subtopic: null, subtopicId: null,
+    subject: "verbal"
   },
   "اكمال الجمل عام": {
     acceptedNames: ["اكمال الجمل عام"], headers: sentenceCompletionHeaders,
     optionIndexes: [3, 4, 5, 6], answerIndex: 7,
-    topic: "إكمال الجمل", topicId: "sentence-completion", subtopic: null, subtopicId: null
+    topic: "إكمال الجمل", topicId: "sentence-completion", subtopic: null, subtopicId: null,
+    subject: "verbal"
   },
   "الخطأ السياقي عام": {
     acceptedNames: ["الخطأ السياقي عام"], headers: standardHeaders,
     optionIndexes: [2, 3, 4, 5], answerIndex: 6,
-    topic: "الخطأ السياقي", topicId: "contextual-error", subtopic: null, subtopicId: null
+    topic: "الخطأ السياقي", topicId: "contextual-error", subtopic: null, subtopicId: null,
+    subject: "verbal"
   },
   "المفردة الشاذة عام": {
     acceptedNames: ["المفردة الشاذة عام"], headers: standardHeaders,
     optionIndexes: [2, 3, 4, 5], answerIndex: 6,
-    topic: "المفردة الشاذة", topicId: "odd-word", subtopic: null, subtopicId: null
+    topic: "المفردة الشاذة", topicId: "odd-word", subtopic: null, subtopicId: null,
+    subject: "verbal"
   },
   "استيعاب المقروء عام": null
 };
 
 const createQuantitativeSheetDefinition = (
-  topic: ImportTopicSelection
+  topic: TopicDefinition
 ): SheetDefinition => ({
   acceptedNames: ["الورقة1"], headers: quantitativeHeaders,
   optionIndexes: [2, 3, 4, 5], answerIndex: 7,
-  ...topic
+  subject: "quantitative",
+  subtopic: null,
+  subtopicId: null,
+  topic: topic.displayNameAr,
+  topicId: topic.slug
 });
 
 const text = (value: unknown) => String(value ?? "").trim();
@@ -127,84 +139,84 @@ const hasSelectedQuestion = (sheet: RawWorkbookSheet, range?: PageRange) =>
     return number !== null && (!range || inRange(number, range));
   });
 
-const getSheetPlans = (
-  sheets: RawWorkbookSheet[],
-  excelType: QuestionBankType,
-  topicSelection?: ImportTopicSelection,
-  questionRange?: PageRange
-) => {
-  if (!topicSelection) {
+const findVerbalDefinition = (sheetName: string) => {
+  const normalized = normalizedSheetName(sheetName);
+  for (const [topicId, names] of Object.entries(verbalTopicSheetNames)) {
+    if (!names.some((name) => normalizedSheetName(name) === normalized)) continue;
+    const canonicalName = names[0];
+    const base = verbalSheetDefinitions[canonicalName] ?? null;
+    if (!base) return { canonicalName, definition: null };
+    const topic = topicTaxonomy.find((candidate) => candidate.slug === topicId);
+    return {
+      canonicalName,
+      definition: topic
+        ? { ...base, topic: topic.displayNameAr, topicId: topic.slug }
+        : base
+    };
+  }
+  return null;
+};
+
+const findQuantitativeTopic = (sheetName: string) => {
+  const normalized = normalizedSheetName(sheetName);
+  if (normalized === normalizedSheetName(requiredQuantitativeWorkbookSheets[0])) {
+    return topicTaxonomy.find((topic) => topic.slug === "arithmetic") ?? null;
+  }
+
+  return (
+    topicTaxonomy.find(
+      (topic) =>
+        topic.subject === "math" &&
+        (normalized === normalizedSheetName(topic.slug) ||
+          normalized.includes(normalizedSheetName(topic.displayNameAr)))
+    ) ?? null
+  );
+};
+
+const getSheetPlans = (sheets: RawWorkbookSheet[], questionRange?: PageRange) => {
+  const recognized = sheets.flatMap((sheet) => {
+    const verbal = findVerbalDefinition(sheet.sheet);
+    if (verbal) return [{ ...verbal, sheet }];
+
+    const quantitativeTopic = findQuantitativeTopic(sheet.sheet);
+    if (quantitativeTopic) {
+      return [{
+        canonicalName: sheet.sheet,
+        definition: createQuantitativeSheetDefinition(quantitativeTopic),
+        sheet
+      }];
+    }
     return [];
-  }
-
-  if (excelType === "verbal") {
-    const acceptedNames = verbalTopicSheetNames[topicSelection.topicId] ?? [];
-    const accepted = new Set(acceptedNames.map(normalizedSheetName));
-    const sheet = sheets.find((candidate) =>
-      accepted.has(normalizedSheetName(candidate.sheet))
-    );
-    const canonicalName = acceptedNames[0] ?? topicSelection.topic;
-    const baseDefinition = verbalSheetDefinitions[canonicalName] ?? null;
-    const definition = baseDefinition
-      ? { ...baseDefinition, ...topicSelection }
-      : null;
-    return [{ canonicalName, definition, sheet }];
-  }
-
-  const definition = createQuantitativeSheetDefinition(topicSelection);
-  const quantitativeCandidates = sheets.filter((candidate) => {
-    const name = normalizedSheetName(candidate.sheet);
-    return (
-      name === normalizedSheetName(requiredQuantitativeWorkbookSheets[0]) ||
-      name.includes("كمي") ||
-      name.includes(normalizedSheetName(topicSelection.topic))
-    );
   });
-  const sheet =
-    quantitativeCandidates.find((candidate) =>
-      hasSelectedQuestion(candidate, questionRange)
-    ) ?? quantitativeCandidates[0];
-
-  return [{
-    canonicalName: sheet?.sheet ?? requiredQuantitativeWorkbookSheets[0],
-    definition,
-    sheet
-  }];
+  const selected = recognized.filter((plan) =>
+    hasSelectedQuestion(plan.sheet, questionRange)
+  );
+  return selected.length > 0 ? selected : recognized;
 };
 
 export const analyzeWorkbookSheets = (
   sheets: RawWorkbookSheet[],
-  excelType: QuestionBankType = "verbal",
-  questionRange?: PageRange,
-  topicSelection?: ImportTopicSelection
+  questionRange?: PageRange
 ): WorkbookAnalysis => {
   const issues: ImportValidationIssue[] = [];
   const questions: ParsedWorkbookQuestion[] = [];
   const seenQuestions = new Map<number, ParsedWorkbookQuestion>();
-  if (!topicSelection) {
+  const sheetPlans = getSheetPlans(sheets, questionRange);
+  if (sheetPlans.length === 0) {
     issues.push(issue(
-      "missing_topic",
-      "يجب اختيار موضوع معتمد قبل تحليل ملف Excel."
+      "unrecognized_workbook_classification",
+      "تعذر تحديد قسم وموضوع الأسئلة من أوراق ملف Excel."
     ));
   }
-  const sheetPlans = getSheetPlans(sheets, excelType, topicSelection, questionRange);
-  const sheetSummary = sheetPlans.map(({ canonicalName }) => ({
+  const sheetSummary = sheetPlans.map(({ canonicalName, definition }) => ({
     sheetName: canonicalName,
-    topic: topicSelection?.topic ?? "",
-    subtopic: topicSelection?.subtopic ?? null,
+    topic: definition?.topic ?? "",
+    subtopic: definition?.subtopic ?? null,
     questionCount: 0
   }));
 
   for (const [sheetIndex, plan] of sheetPlans.entries()) {
     const { canonicalName: sheetName, definition, sheet } = plan;
-    if (!sheet) {
-      issues.push(issue(
-        "missing_selected_sheet",
-        `لم يتم العثور على ورقة Excel المطابقة للموضوع "${topicSelection?.topic ?? sheetName}".`,
-        { sheetName }
-      ));
-      continue;
-    }
     const data = Array.isArray(sheet.data) ? sheet.data : [];
     if (!definition) {
       const unsupportedRows = data.slice(1).filter((row) => {
@@ -282,6 +294,7 @@ export const analyzeWorkbookSheets = (
 
       const parsed: ParsedWorkbookQuestion = {
         questionNumber, sheetName, rowNumber, questionText, options, correctAnswer,
+        subject: definition.subject,
         topic: definition.topic, topicId: definition.topicId,
         subtopic: definition.subtopic, subtopicId: definition.subtopicId,
         issues: rowIssues
@@ -314,16 +327,12 @@ export const analyzeWorkbookSheets = (
 
 export const readAdminWorkbook = async (
   excelBuffer: Buffer,
-  excelType: QuestionBankType = "verbal",
-  questionRange?: PageRange,
-  topicSelection?: ImportTopicSelection
+  questionRange?: PageRange
 ) => {
   const sheets = (await readXlsxFile(excelBuffer)) as RawWorkbookSheet[];
   return analyzeWorkbookSheets(
     sheets,
-    excelType,
-    questionRange,
-    topicSelection
+    questionRange
   );
 };
 

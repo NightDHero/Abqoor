@@ -19,7 +19,10 @@ const questionService = await import(
   "../src/modules/questions/question.service.js"
 );
 
-const user = await authService.registerUser("exam@example.com", "12345678");
+const user = await authService.registerUser(
+  "exam@example.com",
+  "correct horse battery"
+);
 
 const seedQuestions = async () => {
   for (let index = 1; index <= officialExamStructure.totalMath; index += 1) {

@@ -86,6 +86,22 @@ export const authRateLimit = createFixedWindowRateLimit({
   windowMs: 15 * 60 * 1000
 });
 
+export const passwordResetRequestRateLimit = createFixedWindowRateLimit({
+  keyGenerator: (request) =>
+    `${getClientIdentifier(request)}:${emailFromBody(request)}`,
+  keyPrefix: "password-reset-request",
+  maxRequests: 5,
+  message: "طلبات كثيرة لاستعادة كلمة المرور. حاول لاحقاً.",
+  windowMs: 60 * 60 * 1000
+});
+
+export const passwordResetConfirmRateLimit = createFixedWindowRateLimit({
+  keyPrefix: "password-reset-confirm",
+  maxRequests: 10,
+  message: "محاولات كثيرة لتعيين كلمة المرور. حاول لاحقاً.",
+  windowMs: 15 * 60 * 1000
+});
+
 export const adminImportRateLimit = createFixedWindowRateLimit({
   keyPrefix: "admin-import",
   maxRequests: 30,

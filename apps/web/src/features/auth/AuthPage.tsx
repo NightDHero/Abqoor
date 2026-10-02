@@ -42,6 +42,8 @@ export function AuthPage({
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const copy = labels[mode];
@@ -65,7 +67,12 @@ export function AuthPage({
     setIsSubmitting(true);
 
     try {
-      const response = await authService.authenticate(mode, { email, password });
+      const response = await authService.authenticate(mode, {
+        email,
+        password,
+        passwordConfirmation: mode === "register" ? passwordConfirmation : undefined,
+        phoneNumber: mode === "register" ? phoneNumber : undefined
+      });
       onAuthenticated(response.user);
     } catch (caughtError) {
       setError(
@@ -172,18 +179,55 @@ export function AuthPage({
               onChange={(event) => setEmail(event.target.value)}
             />
           </label>
+          {mode === "register" ? (
+            <label className="form-field">
+              رقم الجوال
+              <input
+                autoComplete="tel"
+                dir="ltr"
+                inputMode="tel"
+                placeholder="05xxxxxxxx"
+                required
+                type="tel"
+                value={phoneNumber}
+                onChange={(event) => setPhoneNumber(event.target.value)}
+              />
+            </label>
+          ) : null}
           <label className="form-field">
             كلمة المرور
             <input
               autoComplete={mode === "register" ? "new-password" : "current-password"}
               dir="ltr"
-              minLength={8}
+              minLength={mode === "register" ? 12 : undefined}
               required
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
           </label>
+          {mode === "register" ? (
+            <label className="form-field">
+              تأكيد كلمة المرور
+              <input
+                autoComplete="new-password"
+                dir="ltr"
+                minLength={12}
+                required
+                type="password"
+                value={passwordConfirmation}
+                onChange={(event) => setPasswordConfirmation(event.target.value)}
+              />
+            </label>
+          ) : (
+            <button
+              className="auth-forgot-password"
+              type="button"
+              onClick={() => navigateTo("/forgot-password")}
+            >
+              نسيت كلمة المرور؟
+            </button>
+          )}
           {error ? <p className="error-message">{error}</p> : null}
           <button type="submit" disabled={isSubmitting}>
             {isSubmitting ? "جاري الإرسال..." : copy.action}

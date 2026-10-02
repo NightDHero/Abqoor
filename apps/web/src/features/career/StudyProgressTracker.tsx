@@ -6,6 +6,7 @@ import type {
   StudyProgressPeriod,
   StudyProgressResponse
 } from "../../types/session";
+import { navigateTo } from "../../utils/router";
 
 type ProgressView = "today" | "week" | "month";
 type CalendarCellVariant = "month" | "today" | "week";
@@ -146,7 +147,8 @@ const emptyProgressDay = (date: string): StudyProgressDay => ({
   approximateStudySeconds: 0,
   correctAnswers: 0,
   date,
-  intensity: 0
+  intensity: 0,
+  planKind: "study"
 });
 
 const summarizeProgressDays = (days: StudyProgressDay[]): StudyProgressPeriod => {
@@ -220,20 +222,22 @@ function CalendarDayCell({
   const dateParts = formatDateParts(day.date);
   const tooltipQuestions = toQuestionCount(day.answeredQuestions);
   const tooltipTime = toStudyMinutes(day.approximateStudySeconds);
-  const ariaLabel = `${dateParts.fullDate}: ${tooltipQuestions}، ${tooltipTime}`;
+  const planLabel = day.planKind === "rest" ? "راحة" : day.planKind === "review" ? "مراجعة" : "مذاكرة";
+  const ariaLabel = `${dateParts.fullDate}: ${planLabel}، ${tooltipQuestions}، ${tooltipTime}`;
 
   return (
     <div
       aria-label={ariaLabel}
       className={`study-progress-day study-progress-day-${variant}`}
       data-intensity={day.intensity}
+      data-plan-kind={day.planKind}
       role="group"
       style={
         {
           "--study-progress-fill": `${getActivityFill(day)}%`
         } as CSSProperties
       }
-      title={`${dateParts.monthDay}\n${tooltipQuestions}\n${tooltipTime}`}
+      title={`${dateParts.monthDay}\n${planLabel}\n${tooltipQuestions}\n${tooltipTime}`}
     >
       <span className="study-progress-day-name">{dateParts.weekday}</span>
       <strong>{dateParts.dayNumber}</strong>
@@ -243,12 +247,62 @@ function CalendarDayCell({
       {showCount && day.answeredQuestions > 0 ? (
         <small>{toArabicNumber(day.answeredQuestions)}</small>
       ) : null}
+      {day.planKind !== "study" ? (
+        <span className="study-progress-day-kind">{planLabel}</span>
+      ) : null}
       <span className="study-progress-day-tooltip" role="tooltip">
         <strong>{dateParts.monthDay}</strong>
         <span>{tooltipQuestions}</span>
         <span>{tooltipTime}</span>
       </span>
     </div>
+  );
+}
+
+function TodayPlan({ progress }: { progress: StudyProgressResponse }) {
+  const day = progress.today;
+  const isRestDay = day.planKind === "rest";
+  const isReviewDay = day.planKind === "review";
+  const target = progress.dailyQuestionTarget;
+  const percent = isRestDay
+    ? 100
+    : Math.min(100, Math.round((day.answeredQuestions / target) * 100));
+  const title = isRestDay
+    ? "يوم الراحة"
+    : isReviewDay
+      ? "مراجعة عامة"
+      : "إكمال قسم اليوم";
+  const description = isRestDay
+    ? "خذ استراحة هادئة وعد غداً بطاقة جديدة."
+    : isReviewDay
+      ? "راجع الأسئلة المحفوظة وأخطاءك السابقة."
+      : `${toQuestionCount(day.answeredQuestions)} من ${toArabicNumber(target)} سؤال`;
+
+  return (
+    <section className="study-progress-daily-plan" aria-labelledby="today-plan-title" data-plan-kind={day.planKind}>
+      <div className="study-progress-daily-plan-header">
+        <span>خطة اليوم</span>
+        <strong id="today-plan-title">{title}</strong>
+      </div>
+      <div className="study-progress-daily-plan-details">
+        <div>
+          <span>{description}</span>
+          {!isRestDay ? <strong>{toArabicNumber(percent)}٪</strong> : <strong>راحة</strong>}
+        </div>
+        {!isRestDay ? (
+          <button
+            className="study-progress-plan-action"
+            type="button"
+            onClick={() => navigateTo(isReviewDay ? "/review" : "/study")}
+          >
+            {isReviewDay ? "ابدأ المراجعة" : "ابدأ خطة اليوم"}
+          </button>
+        ) : null}
+      </div>
+      <div className="study-progress-daily-plan-track" aria-hidden="true">
+        <span style={{ width: `${percent}%` }} />
+      </div>
+    </section>
   );
 }
 
@@ -523,11 +577,14 @@ export function StudyProgressTracker({
       {error ? <p className="study-progress-empty">{error}</p> : null}
 
       {progress ? (
-        <div
-          className={`study-progress-body study-progress-body-${activeView}`}
-          id={`study-progress-${activeView}`}
-          role="tabpanel"
-        >
+        <>
+          <p className="study-progress-streak-summary">{formatStreakLabel(progress)}</p>
+          <TodayPlan progress={progress} />
+          <div
+            className={`study-progress-body study-progress-body-${activeView}`}
+            id={`study-progress-${activeView}`}
+            role="tabpanel"
+          >
           {activeView === "today" ? (
             <TodayView
               day={progress.today}
@@ -551,7 +608,8 @@ export function StudyProgressTracker({
               progress={progress}
             />
           ) : null}
-        </div>
+          </div>
+        </>
       ) : null}
     </section>
   );

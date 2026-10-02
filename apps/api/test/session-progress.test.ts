@@ -24,7 +24,7 @@ const address = server.address();
 assert.ok(address && typeof address === "object");
 const baseUrl = `http://127.0.0.1:${address.port}`;
 
-const password = "12345678";
+const password = "correct horse battery";
 
 const cookieFrom = (response: Response) =>
   response.headers.get("set-cookie")?.split(";")[0] ?? "";
@@ -162,7 +162,8 @@ const completeProfile = async (input: { userId: string; username: string }) => {
     userId: input.userId,
     username: input.username,
     weakerSection: "both",
-    weeklyRestDays: []
+    weeklyRestDay: 5,
+    weeklyReviewDay: 6
   });
 };
 
@@ -334,7 +335,7 @@ test("summarizes real session activity into study progress windows", async () =>
       answeredQuestions: number;
       correctAnswers: number;
       approximateStudySeconds: number;
-      days: unknown[];
+      days: Array<{ planKind: "study" | "review" | "rest" }>;
     };
     month: { days: unknown[]; endDate: string; startDate: string };
     monthWeeks: Array<{ days: unknown[]; endDate: string; startDate: string }>;
@@ -352,6 +353,8 @@ test("summarizes real session activity into study progress windows", async () =>
   assert.equal(payload.week.correctAnswers, 6);
   assert.equal(payload.week.approximateStudySeconds, 245);
   assert.equal(payload.week.days.length, 7);
+  assert.equal(payload.week.days.filter((day) => day.planKind === "rest").length, 1);
+  assert.equal(payload.week.days.filter((day) => day.planKind === "review").length, 1);
   assert.equal(payload.month.days.length, getCurrentUtcMonthDayCount());
   assert.ok(payload.monthWeeks.length >= 4);
   assert.equal(payload.monthWeeks.every((week) => week.days.length === 7), true);

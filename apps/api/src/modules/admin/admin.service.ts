@@ -102,7 +102,8 @@ const ensureSeedAdminProfile = async (user: UserRecord) => {
   const studyPlanStartDate = new Date().toISOString().slice(0, 10);
   const studyPlan = calculateStudyPlan({
     bankCount: bankConfig.availableBankCount,
-    restDays: [],
+    restDay: 5,
+    reviewDay: 6,
     startDate: studyPlanStartDate
   });
 
@@ -122,7 +123,8 @@ const ensureSeedAdminProfile = async (user: UserRecord) => {
     username:
       profile?.username ?? (await getAvailableSeedUsername(user.email, user.id)),
     weakerSection: "both",
-    weeklyRestDays: []
+    weeklyRestDay: 5,
+    weeklyReviewDay: 6
   });
 };
 

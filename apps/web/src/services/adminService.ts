@@ -35,9 +35,6 @@ export const adminService = {
     }),
   analyzeImport: (input: {
     excel: File;
-    excelType: "quantitative" | "verbal";
-    topicId: string;
-    subtopicId?: string;
     questionFrom: string;
     questionTo: string;
     pdf?: File;
@@ -47,9 +44,6 @@ export const adminService = {
   }) => {
     const formData = new FormData();
     formData.append("excel", input.excel);
-    formData.append("excelType", input.excelType);
-    formData.append("topicId", input.topicId);
-    if (input.subtopicId) formData.append("subtopicId", input.subtopicId);
     formData.append("questionFrom", input.questionFrom);
     formData.append("questionTo", input.questionTo);
     if (input.pdf) {

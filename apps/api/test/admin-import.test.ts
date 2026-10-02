@@ -93,13 +93,6 @@ const validQuantitativeSheets = () => [{
   ]
 }];
 
-const verbalAnalogySelection = {
-  topic: "التناظر اللفظي",
-  topicId: "verbal-analogy",
-  subtopic: null,
-  subtopicId: null
-};
-
 const selectedVerbalSheets = (questionNumbers: number[]) => {
   const sheets = validSheets();
   sheets[0] = {
@@ -298,14 +291,7 @@ const waitForTerminalJob = async (jobId: string) => {
 test("selects a verbal sheet by canonical name regardless of workbook order", () => {
   const analysis = excelAdapter.analyzeWorkbookSheets(
     [...validSheets()].reverse(),
-    "verbal",
-    { from: 501, to: 501 },
-    {
-      topic: "إكمال الجمل",
-      topicId: "sentence-completion",
-      subtopic: null,
-      subtopicId: null
-    }
+    { from: 501, to: 501 }
   );
 
   assert.equal(analysis.issues.length, 0);
@@ -321,9 +307,7 @@ test("parses only the selected named sheet and ignores unrelated extras", async 
   ];
   const analysis = await excelAdapter.readAdminWorkbook(
     createWorkbookBuffer(sheets),
-    "verbal",
-    { from: 500, to: 500 },
-    verbalAnalogySelection
+    { from: 500, to: 500 }
   );
 
   assert.equal(analysis.issues.length, 0);
@@ -336,9 +320,7 @@ test("selects and validates only one requested Excel question", () => {
   sheets[0]?.data.push([900, "سؤال خارج النطاق", "", "", "", "", "X"]);
   const analysis = excelAdapter.analyzeWorkbookSheets(
     sheets,
-    "verbal",
-    { from: 500, to: 500 },
-    verbalAnalogySelection
+    { from: 500, to: 500 }
   );
 
   assert.deepEqual(analysis.questions.map((question) => question.questionNumber), [500]);
@@ -351,12 +333,10 @@ test("validates selected Excel ranges and ignores invalid rows outside them", ()
   sheets[0]?.data.push([900, "سؤال خارج النطاق", "", "", "", "", "X"]);
   const analysis = excelAdapter.analyzeWorkbookSheets(
     sheets,
-    "verbal",
-    { from: 500, to: 504 },
-    verbalAnalogySelection
+    { from: 500, to: 504 }
   );
 
-  assert.equal(analysis.questions.length, 2);
+  assert.equal(analysis.questions.length, 5);
   assert.ok(analysis.issues.some((item) => item.code === "missing_option" && item.questionNumber === 504));
   assert.ok(!analysis.issues.some((item) => item.questionNumber === 900));
 });
@@ -364,36 +344,32 @@ test("validates selected Excel ranges and ignores invalid rows outside them", ()
 test("uses the repository quantitative workbook contract", () => {
   const analysis = excelAdapter.analyzeWorkbookSheets(
     validQuantitativeSheets(),
-    "quantitative",
-    { from: 1, to: 1 },
-    { topic: "الهندسة", topicId: "geometry", subtopic: null, subtopicId: null }
+    { from: 1, to: 1 }
   );
 
   assert.equal(analysis.issues.length, 0);
-  assert.equal(analysis.questions[0]?.topic, "الهندسة");
-  assert.equal(analysis.questions[0]?.topicId, "geometry");
+  assert.equal(analysis.questions[0]?.topic, "الحساب");
+  assert.equal(analysis.questions[0]?.topicId, "arithmetic");
   assert.equal(analysis.questions[0]?.subtopic, null);
   assert.equal(analysis.questions[0]?.subtopicId, null);
   assert.equal(analysis.questions[0]?.correctAnswer, "B");
 });
 
-test("does not treat the quantitative section as a workbook topic", () => {
+test("derives the quantitative topic from the workbook without a manual type", () => {
   const analysis = excelAdapter.analyzeWorkbookSheets(
     validQuantitativeSheets(),
-    "quantitative",
     { from: 1, to: 1 }
   );
 
-  assert.equal(analysis.questions.length, 0);
-  assert.ok(
-    analysis.issues.some((item) => item.code === "missing_topic")
-  );
+  assert.equal(analysis.questions.length, 1);
+  assert.equal(analysis.questions[0]?.subject, "quantitative");
+  assert.equal(analysis.questions[0]?.topicId, "arithmetic");
+  assert.equal(analysis.questions[0]?.subtopicId, null);
 });
 
-test("requires an existing quantitative taxonomy topic before creating an import", async () => {
+test("creates a quantitative import without manual classification fields", async () => {
   const input = {
     createdBy: "admin@example.com",
-    excelType: "quantitative" as const,
     questionRange: { from: 1, to: 1 },
     excel: {
       buffer: createWorkbookBuffer(validQuantitativeSheets()),
@@ -403,25 +379,15 @@ test("requires an existing quantitative taxonomy topic before creating an import
     images: [{ buffer: png, mimetype: "image/png", originalname: "1.png" }]
   };
 
-  await assert.rejects(
-    importService.analyzeQuestionImport(input),
-    /موضوعاً معتمداً/
-  );
-  await assert.rejects(
-    importService.analyzeQuestionImport({
-      ...input,
-      quantitativeTopicId: "quantitative"
-    }),
-    /موضوعاً معتمداً/
-  );
+  const detail = await importService.analyzeQuestionImport(input);
+  assert.equal(detail.items[0]?.subject, "quantitative");
+  assert.equal(detail.items[0]?.topicId, "arithmetic");
+  await importService.cancelQuestionImport(detail.job.id);
 });
 
-test("classifies a quantitative import under the selected existing topic", async () => {
+test("classifies a quantitative import from workbook metadata", async () => {
   const detail = await importService.analyzeQuestionImport({
     createdBy: "admin@example.com",
-    excelType: "quantitative",
-    topicId: "arithmetic",
-    subtopicId: "ratios-proportions",
     questionRange: { from: 1, to: 1 },
     excel: {
       buffer: createWorkbookBuffer(validQuantitativeSheets()),
@@ -434,8 +400,8 @@ test("classifies a quantitative import under the selected existing topic", async
   assert.equal(detail.items[0]?.subject, "quantitative");
   assert.equal(detail.items[0]?.topic, "الحساب");
   assert.equal(detail.items[0]?.topicId, "arithmetic");
-  assert.equal(detail.items[0]?.subtopic, "النسب والتناسب");
-  assert.equal(detail.items[0]?.subtopicId, "ratios-proportions");
+  assert.equal(detail.items[0]?.subtopic, null);
+  assert.equal(detail.items[0]?.subtopicId, null);
   assert.ok(!detail.job.sheetSummary.some((item) => item.sheetName === "الكمي"));
   await importService.confirmQuestionImport(detail.job.id, {});
   const completed = await waitForTerminalJob(detail.job.id);
@@ -443,8 +409,8 @@ test("classifies a quantitative import under the selected existing topic", async
   const saved = await questionRepository.findQuestionById("Q-001");
   assert.equal(saved?.subject_id, "math");
   assert.equal(saved?.topic_id, "arithmetic");
-  assert.equal(saved?.subtopic, "النسب والتناسب");
-  assert.equal(saved?.subtopic_id, "ratios-proportions");
+  assert.equal(saved?.subtopic, null);
+  assert.equal(saved?.subtopic_id, null);
   await importService.rollbackQuestionImport(detail.job.id);
 });
 
@@ -537,9 +503,7 @@ test("validates selected rows while ignoring populated unrelated sheets", () => 
   sheets[4]?.data.push([], [504, "غير مدعوم"]);
   const analysis = excelAdapter.analyzeWorkbookSheets(
     sheets,
-    "verbal",
-    { from: 500, to: 500 },
-    verbalAnalogySelection
+    { from: 500, to: 500 }
   );
   const codes = new Set(analysis.issues.map((issue) => issue.code));
 
@@ -620,8 +584,6 @@ test("requires duplicate decisions and supports apply-all", () => {
 test("builds preview errors for missing and extra individual images", async () => {
   const detail = await importService.analyzeQuestionImport({
     createdBy: "admin@example.com",
-    excelType: "verbal",
-    topicId: "verbal-analogy",
     questionRange: { from: 500, to: 503 },
     excel: {
       buffer: createWorkbookBuffer(selectedVerbalSheets([500, 501, 502, 503])),
@@ -649,8 +611,6 @@ test("returns only the selected range in the persisted frontend preview", async 
   sheets[0]?.data.push([1500, "غير صالح خارج النطاق", "", "", "", "", "X"]);
   const detail = await importService.analyzeQuestionImport({
     createdBy: "admin@example.com",
-    excelType: "verbal",
-    topicId: "verbal-analogy",
     questionRange: { from: 500, to: 500 },
     excel: {
       buffer: createWorkbookBuffer(sheets),
@@ -671,8 +631,6 @@ test("rejects malformed Excel and PDF files before creating an import", async ()
   await assert.rejects(
     importService.analyzeQuestionImport({
       createdBy: "admin@example.com",
-      excelType: "verbal",
-      topicId: "verbal-analogy",
       questionRange: { from: 500, to: 503 },
       excel: {
         buffer: Buffer.from("not a workbook"),
@@ -686,8 +644,6 @@ test("rejects malformed Excel and PDF files before creating an import", async ()
   await assert.rejects(
     importService.analyzeQuestionImport({
       createdBy: "admin@example.com",
-      excelType: "verbal",
-      topicId: "verbal-analogy",
       questionRange: { from: 500, to: 503 },
       excel: {
         buffer: createWorkbookBuffer(selectedVerbalSheets([500, 501, 502, 503])),
@@ -907,10 +863,17 @@ test("allows configured admins and rejects ordinary authenticated users", async 
   const baseUrl = `http://127.0.0.1:${address.port}`;
 
   const register = async (email: string) => {
+    const password = "correct horse battery";
     const response = await fetch(`${baseUrl}/auth/register`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email, password: "12345678" })
+      body: JSON.stringify({
+        email,
+        password,
+        passwordConfirmation: password,
+        phoneNumber:
+          email === "admin@example.com" ? "+966500000021" : "+966500000022"
+      })
     });
     assert.equal(response.status, 201);
     return response.headers.get("set-cookie")?.split(";")[0] ?? "";
@@ -943,7 +906,7 @@ test("allows configured admins and rejects ordinary authenticated users", async 
     const form = new FormData();
     form.append(
       "excel",
-      new Blob([createWorkbookBuffer(selectedVerbalSheets([500, 501, 502, 503]))], {
+      new Blob([createWorkbookBuffer([selectedVerbalSheets([500, 501, 502, 503])[0]!])], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
       }),
       "questions.xlsx"
@@ -951,8 +914,6 @@ test("allows configured admins and rejects ordinary authenticated users", async 
     for (const number of [500, 501, 502, 503]) {
       form.append("images", new Blob([png], { type: "image/png" }), `${number}.png`);
     }
-    form.append("excelType", "verbal");
-    form.append("topicId", "verbal-analogy");
     form.append("questionFrom", "500");
     form.append("questionTo", "503");
     const analyzeResponse = await fetch(`${baseUrl}/admin/import/analyze`, {

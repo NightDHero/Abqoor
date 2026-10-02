@@ -189,6 +189,7 @@ export type ParsedWorkbookQuestion = {
   questionText: string;
   options: [string, string, string, string];
   correctAnswer: CorrectAnswer | null;
+  subject: Subject;
   topic: string;
   topicId: string;
   subtopic: string | null;
@@ -212,10 +213,6 @@ export type UploadedImportFile = {
 export type AnalyzeImportRequest = {
   createdBy: string;
   excel: UploadedImportFile;
-  excelType: QuestionBankType;
-  topicId?: string;
-  subtopicId?: string;
-  quantitativeTopicId?: string;
   questionRange: PageRange;
   pdf?: UploadedImportFile;
   pdfPageRange?: PageRange;

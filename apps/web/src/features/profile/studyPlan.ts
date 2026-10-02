@@ -20,22 +20,27 @@ export const getTodayDate = () => {
 
 export const calculateStudyPlan = (input: {
   bankCount: number;
-  restDays: readonly StudyRestDay[];
+  restDay: StudyRestDay;
+  reviewDay: StudyRestDay;
   startDate: string;
 }) => {
-  if (!input.startDate || input.bankCount < 1 || input.restDays.length >= 7) {
+  if (
+    !input.startDate ||
+    input.bankCount < 1 ||
+    input.restDay === input.reviewDay
+  ) {
     return null;
   }
 
   const [year, month, day] = input.startDate.split("-").map(Number);
   const cursor = new Date(year, month - 1, day);
-  const restDays = new Set(input.restDays);
   let completedBanks = 0;
   let calendarDays = 0;
 
   while (completedBanks < input.bankCount) {
     calendarDays += 1;
-    if (!restDays.has(cursor.getDay() as StudyRestDay)) completedBanks += 1;
+    const weekday = cursor.getDay() as StudyRestDay;
+    if (weekday !== input.restDay && weekday !== input.reviewDay) completedBanks += 1;
     if (completedBanks < input.bankCount) cursor.setDate(cursor.getDate() + 1);
   }
 

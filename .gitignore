@@ -1,4 +1,5 @@
 node_modules/
+media/object-storage/
 dist/
 data/
 .env

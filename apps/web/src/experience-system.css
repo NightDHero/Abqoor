@@ -308,6 +308,11 @@ body:has(.onboarding-shell) {
   gap: 12px;
 }
 
+.study-plan-schedule-choice {
+  display: grid;
+  gap: 8px;
+}
+
 .study-plan-date-field {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
@@ -353,6 +358,20 @@ body:has(.onboarding-shell) {
   background: rgb(85 207 224 / 15%);
   color: var(--abq-text);
   box-shadow: inset 0 -2px 0 rgb(85 207 224 / 56%);
+}
+
+.product-app-shell .study-plan-weekdays button.selected.rest-day,
+.onboarding-shell .study-plan-weekdays button.selected.rest-day {
+  border-color: #65a9ee;
+  background: rgb(101 169 238 / 16%);
+  box-shadow: inset 0 -2px 0 rgb(101 169 238 / 62%);
+}
+
+.product-app-shell .study-plan-weekdays button.selected.review-day,
+.onboarding-shell .study-plan-weekdays button.selected.review-day {
+  border-color: #de6f78;
+  background: rgb(222 111 120 / 15%);
+  box-shadow: inset 0 -2px 0 rgb(222 111 120 / 62%);
 }
 
 .study-plan-result {

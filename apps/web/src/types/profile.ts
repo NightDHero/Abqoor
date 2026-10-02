@@ -20,7 +20,8 @@ export type StudentProfile = {
   latestScore: number | null;
   weakerSection: WeakerSection | null;
   studyPlanStartDate: string | null;
-  weeklyRestDays: StudyRestDay[];
+  weeklyRestDay: StudyRestDay;
+  weeklyReviewDay: StudyRestDay;
   studyPlanBankCount: number | null;
   studyPlanStudyDays: number | null;
   studyPlanCalendarDays: number | null;
@@ -39,5 +40,6 @@ export type StudentProfileInput = {
   latestScore: number | null;
   weakerSection: WeakerSection;
   studyPlanStartDate: string;
-  weeklyRestDays: StudyRestDay[];
+  weeklyRestDay: StudyRestDay;
+  weeklyReviewDay: StudyRestDay;
 };

@@ -2,6 +2,8 @@ export type UserRecord = {
   id: string;
   email: string;
   password_hash: string;
+  phone_number: string | null;
+  session_version: number;
   created_at: string;
   updated_at: string;
 };
@@ -9,6 +11,7 @@ export type UserRecord = {
 export type PublicUser = {
   id: string;
   email: string;
+  phoneNumber: string | null;
   createdAt: string;
   profileCompleted: boolean;
   username: string | null;
@@ -18,6 +21,7 @@ export type PublicUser = {
 export type AuthTokenPayload = {
   sub: string;
   email: string;
+  ver?: number;
 };
 
 export const toPublicUser = (
@@ -28,6 +32,7 @@ export const toPublicUser = (
 ): PublicUser => ({
   id: user.id,
   email: user.email,
+  phoneNumber: user.phone_number,
   createdAt: user.created_at,
   profileCompleted,
   username,

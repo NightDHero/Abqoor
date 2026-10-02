@@ -24,7 +24,7 @@ const address = server.address();
 assert.ok(address && typeof address === "object");
 const baseUrl = `http://127.0.0.1:${address.port}`;
 
-const password = "12345678";
+const password = "correct horse battery";
 
 const readJson = async <T>(response: Response) => {
   return (await response.json()) as T;
@@ -44,7 +44,12 @@ const login = async (email: string, inputPassword = password) => {
 
 const register = async (email: string) => {
   const response = await fetch(`${baseUrl}/auth/register`, {
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({
+      email,
+      password,
+      passwordConfirmation: password,
+      phoneNumber: "+966500000001"
+    }),
     headers: { "content-type": "application/json" },
     method: "POST"
   });

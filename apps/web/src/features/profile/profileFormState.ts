@@ -16,7 +16,8 @@ export type ProfileFormState = {
   latestScore: string;
   weakerSection: WeakerSection | "";
   studyPlanStartDate: string;
-  weeklyRestDays: StudyRestDay[];
+  weeklyRestDay: StudyRestDay;
+  weeklyReviewDay: StudyRestDay;
 };
 
 export const createDefaultProfileForm = (
@@ -34,7 +35,8 @@ export const createDefaultProfileForm = (
   targetScore: profile?.targetScore ?? 90,
   username: profile?.username ?? "",
   weakerSection: profile?.weakerSection ?? "",
-  weeklyRestDays: profile?.weeklyRestDays ?? []
+  weeklyRestDay: profile?.weeklyRestDay ?? 5,
+  weeklyReviewDay: profile?.weeklyReviewDay ?? 6
 });
 
 export const toProfileInput = (
@@ -49,7 +51,8 @@ export const toProfileInput = (
   targetScore: state.targetScore,
   username: state.username.trim(),
   weakerSection: state.weakerSection as WeakerSection,
-  weeklyRestDays: state.weeklyRestDays
+  weeklyRestDay: state.weeklyRestDay,
+  weeklyReviewDay: state.weeklyReviewDay
 });
 
 export const validateProfileForm = (state: ProfileFormState) => {
@@ -80,8 +83,8 @@ export const validateProfileForm = (state: ProfileFormState) => {
   }
   if (!state.weakerSection) return "اختر القسم الذي يمثل تحدياً أكبر.";
   if (!state.studyPlanStartDate) return "اختر تاريخ بدء المذاكرة.";
-  if (state.weeklyRestDays.length >= 7) {
-    return "اختر يوماً واحداً على الأقل للمذاكرة كل أسبوع.";
+  if (state.weeklyRestDay === state.weeklyReviewDay) {
+    return "اليوم المختار للراحة لا يمكن اختياره كيوم مراجعة.";
   }
   return "";
 };

@@ -28,8 +28,6 @@ import {
 import { saveQuestion } from "../../questions/question.service.js";
 import type { QuestionRecord } from "../../questions/question.types.js";
 import {
-  findTopicDefinition,
-  findSubtopicDefinition,
   legacySubjectToSubject,
   topicTaxonomy,
   type LearningSubject
@@ -160,26 +158,8 @@ const validatePdfFile = (file: NonNullable<AnalyzeImportRequest["pdf"]>) => {
 
 const assertAnalysisInput = (request: AnalyzeImportRequest) => {
   validateExcelFile(request.excel);
-  if (!["quantitative", "verbal"].includes(request.excelType)) {
-    throw new AdminImportError("نوع بنك الأسئلة غير صالح.");
-  }
   if (!isValidRange(request.questionRange)) {
     throw new AdminImportError("نطاق أسئلة Excel غير صالح.");
-  }
-
-  const subjectId = legacySubjectToSubject[request.excelType];
-  const topic = findTopicDefinition(
-    subjectId,
-    request.topicId ?? request.quantitativeTopicId
-  );
-  if (!topic) {
-    throw new AdminImportError("اختر موضوعاً معتمداً ضمن القسم المحدد.");
-  }
-  const subtopic = request.subtopicId
-    ? findSubtopicDefinition(topic, request.subtopicId)
-    : null;
-  if (request.subtopicId && !subtopic) {
-    throw new AdminImportError("اختر موضوعاً فرعياً معتمداً ضمن الموضوع المحدد.");
   }
   const hasPdf = Boolean(request.pdf);
   const hasImages = Boolean(request.images?.length);
@@ -195,7 +175,6 @@ const assertAnalysisInput = (request: AnalyzeImportRequest) => {
     }
   }
 
-  return { subtopic, topic };
 };
 
 const withProgress = (detail: ImportJobDetail): ImportJobDetail => {
@@ -368,7 +347,7 @@ const analyzeImageMedia = async (
 export const analyzeQuestionImport = async (
   request: AnalyzeImportRequest
 ): Promise<ImportJobDetail> => {
-  const classification = assertAnalysisInput(request);
+  assertAnalysisInput(request);
 
   const sourceType = request.pdf ? "pdf" : "images";
   const mediaFilename = request.pdf?.originalname ?? `${request.images?.length ?? 0} صور PNG`;
@@ -384,14 +363,7 @@ export const analyzeQuestionImport = async (
   try {
     const workbook = await readAdminWorkbook(
       request.excel.buffer,
-      request.excelType,
-      request.questionRange,
-      {
-        topic: classification.topic.displayNameAr,
-        topicId: classification.topic.slug,
-        subtopic: classification.subtopic?.displayNameAr ?? null,
-        subtopicId: classification.subtopic?.slug ?? null
-      }
+      request.questionRange
     );
     const issues = [...workbook.issues];
     const media = request.pdf
@@ -437,7 +409,7 @@ export const analyzeQuestionImport = async (
         questionText: question.questionText,
         options: question.options,
         correctAnswer: question.correctAnswer,
-        subject: request.excelType,
+        subject: question.subject,
         topic: question.topic,
         topicId: question.topicId,
         subtopic: question.subtopic,

@@ -4,7 +4,6 @@ import { HttpError } from "../../services/http";
 import type {
   DuplicateAction,
   ImportJobDetail,
-  QuestionImportTaxonomy
 } from "../../types/admin";
 import { answerLabel, importStatusLabels } from "./adminUtils";
 import { AdminShell } from "./AdminShell";
@@ -19,10 +18,6 @@ export function AdminImportPage() {
   const [excel, setExcel] = useState<File | null>(null);
   const [pdf, setPdf] = useState<File | null>(null);
   const [images, setImages] = useState<File[]>([]);
-  const [excelType, setExcelType] = useState<"quantitative" | "verbal">("quantitative");
-  const [taxonomySections, setTaxonomySections] = useState<QuestionImportTaxonomy["sections"]>([]);
-  const [topicId, setTopicId] = useState("");
-  const [subtopicId, setSubtopicId] = useState("");
   const [mediaType, setMediaType] = useState<"pdf" | "images">("pdf");
   const [questionFrom, setQuestionFrom] = useState("1");
   const [questionTo, setQuestionTo] = useState("1");
@@ -38,33 +33,6 @@ export function AdminImportPage() {
   const [error, setError] = useState("");
   const [previewPage, setPreviewPage] = useState(1);
   const previewPageSize = 25;
-
-  useEffect(() => {
-    void adminService
-      .getImportTaxonomy()
-      .then((taxonomy) => {
-        setTaxonomySections(taxonomy.sections);
-        const section = taxonomy.sections.find((item) => item.id === "quantitative");
-        setTopicId((currentTopicId) => currentTopicId || section?.topics[0]?.id || "");
-      })
-      .catch(() => setError("تعذر تحميل تصنيف الموضوعات."));
-  }, []);
-
-  const selectedSection = useMemo(
-    () => taxonomySections.find((section) => section.id === excelType),
-    [excelType, taxonomySections]
-  );
-  const selectedTopic = useMemo(
-    () => selectedSection?.topics.find((topic) => topic.id === topicId),
-    [selectedSection, topicId]
-  );
-
-  const selectExcelType = (nextType: "quantitative" | "verbal") => {
-    const section = taxonomySections.find((item) => item.id === nextType);
-    setExcelType(nextType);
-    setTopicId(section?.topics[0]?.id ?? "");
-    setSubtopicId("");
-  };
 
   useEffect(() => {
     if (detail?.job.status !== "importing") {
@@ -112,10 +80,6 @@ export function AdminImportPage() {
       setError("اختر ملف Excel أولاً.");
       return;
     }
-    if (!topicId) {
-      setError("اختر موضوع السؤال من التصنيف المعتمد.");
-      return;
-    }
     if (mediaType === "pdf" && !pdf) {
       setError("اختر ملف PDF.");
       return;
@@ -146,9 +110,6 @@ export function AdminImportPage() {
     try {
       const response = await adminService.analyzeImport({
         excel,
-        excelType,
-        topicId,
-        subtopicId: subtopicId || undefined,
         questionFrom,
         questionTo,
         pdf: mediaType === "pdf" ? pdf ?? undefined : undefined,
@@ -238,38 +199,10 @@ export function AdminImportPage() {
         </header>
 
         <div className="admin-form-grid">
-          <fieldset className="admin-segmented-field">
-            <legend>نوع بنك الأسئلة</legend>
-            <label><input checked={excelType === "quantitative"} name="excelType" type="radio" onChange={() => selectExcelType("quantitative")} /> كمي</label>
-            <label><input checked={excelType === "verbal"} name="excelType" type="radio" onChange={() => selectExcelType("verbal")} /> لفظي</label>
-          </fieldset>
-          <label>
-            الموضوع
-            <select
-              required
-              value={topicId}
-              onChange={(event) => {
-                setTopicId(event.target.value);
-                setSubtopicId("");
-              }}
-            >
-              {selectedSection?.topics.map((topic) => (
-                <option key={topic.id} value={topic.id}>{topic.label}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            الموضوع الفرعي
-            <select
-              value={subtopicId}
-              onChange={(event) => setSubtopicId(event.target.value)}
-            >
-              <option value="">بدون موضوع فرعي</option>
-              {selectedTopic?.subtopics.map((subtopic) => (
-                <option key={subtopic.id} value={subtopic.id}>{subtopic.label}</option>
-              ))}
-            </select>
-          </label>
+          <div className="admin-import-source-note">
+            <strong>التصنيف من Excel</strong>
+            <span>يحدد اسم ورقة العمل القسم والموضوع تلقائياً، ولا تتم الكتابة فوق بيانات الملف.</span>
+          </div>
           <label>
             ملف Excel
             <input

@@ -20,15 +20,21 @@ assert.ok(address && typeof address === "object");
 const baseUrl = `http://127.0.0.1:${address.port}`;
 
 const register = async (email: string) => {
+  const password = "correct horse battery";
   const response = await fetch(`${baseUrl}/auth/register`, {
-    body: JSON.stringify({ email, password: "12345678" }),
+    body: JSON.stringify({
+      email,
+      password,
+      passwordConfirmation: password,
+      phoneNumber: email.startsWith("invalid") ? "+966500000012" : "+966500000011"
+    }),
     headers: { "content-type": "application/json" },
     method: "POST"
   });
   return response.headers.get("set-cookie")?.split(";")[0] ?? "";
 };
 
-test("persists an authoritative recurring-rest-day bank plan", async () => {
+test("persists one rest day and one distinct review day", async () => {
   const cookie = await register("plan@example.com");
   const configResponse = await fetch(`${baseUrl}/banks/config`, { headers: { cookie } });
   assert.equal(configResponse.status, 200);
@@ -53,7 +59,8 @@ test("persists an authoritative recurring-rest-day bank plan", async () => {
       targetScore: 90,
       username: "plan_student",
       weakerSection: "both",
-      weeklyRestDays: [5]
+      weeklyRestDay: 5,
+      weeklyReviewDay: 6
     }),
     headers: { cookie, "content-type": "application/json" },
     method: "PUT"
@@ -65,24 +72,27 @@ test("persists an authoritative recurring-rest-day bank plan", async () => {
       studyPlanCalendarDays: number;
       studyPlanCompletionDate: string;
       studyPlanStudyDays: number;
-      weeklyRestDays: number[];
+      weeklyRestDay: number;
+      weeklyReviewDay: number;
     };
   };
   assert.equal(saved.profile.studyPlanBankCount, 14);
   assert.equal(saved.profile.studyPlanStudyDays, 14);
-  assert.equal(saved.profile.studyPlanCalendarDays, 16);
-  assert.equal(saved.profile.studyPlanCompletionDate, "2026-10-12");
-  assert.deepEqual(saved.profile.weeklyRestDays, [5]);
+  assert.equal(saved.profile.studyPlanCalendarDays, 18);
+  assert.equal(saved.profile.studyPlanCompletionDate, "2026-10-14");
+  assert.equal(saved.profile.weeklyRestDay, 5);
+  assert.equal(saved.profile.weeklyReviewDay, 6);
 
   const stored = await db.prepare<
     string,
-    { study_plan_bank_count: number; weekly_rest_days_json: string }
-  >("SELECT study_plan_bank_count, weekly_rest_days_json FROM student_profiles WHERE username = ?").get("plan_student");
+    { study_plan_bank_count: number; weekly_rest_day: number; weekly_review_day: number }
+  >("SELECT study_plan_bank_count, weekly_rest_day, weekly_review_day FROM student_profiles WHERE username = ?").get("plan_student");
   assert.equal(stored?.study_plan_bank_count, 14);
-  assert.equal(stored?.weekly_rest_days_json, "[5]");
+  assert.equal(stored?.weekly_rest_day, 5);
+  assert.equal(stored?.weekly_review_day, 6);
 });
 
-test("rejects selecting all seven days as rest days", async () => {
+test("rejects using the same day for rest and review", async () => {
   const cookie = await register("invalid-plan@example.com");
   const response = await fetch(`${baseUrl}/profile`, {
     body: JSON.stringify({
@@ -92,7 +102,8 @@ test("rejects selecting all seven days as rest days", async () => {
       targetScore: 90,
       username: "plan_student",
       weakerSection: "both",
-      weeklyRestDays: [0, 1, 2, 3, 4, 5, 6]
+      weeklyRestDay: 5,
+      weeklyReviewDay: 5
     }),
     headers: { cookie, "content-type": "application/json" },
     method: "PUT"

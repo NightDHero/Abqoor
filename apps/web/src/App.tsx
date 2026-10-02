@@ -10,6 +10,7 @@ import { AdminOverviewPage } from "./features/admin/AdminOverviewPage";
 import { AdminQuestionBankPage } from "./features/admin/AdminQuestionBankPage";
 import { AdminValidationPage } from "./features/admin/AdminValidationPage";
 import { AuthPage } from "./features/auth/AuthPage";
+import { PasswordRecoveryPage } from "./features/auth/PasswordRecoveryPage";
 import { ExamEntryDialog } from "./features/exam/ExamEntryDialog";
 import { useAuth } from "./hooks/useAuth";
 import { useRouter } from "./hooks/useRouter";
@@ -69,6 +70,14 @@ export default function App() {
         }}
       />
     );
+  }
+
+  if (path === "/forgot-password") {
+    return <PasswordRecoveryPage mode="request" />;
+  }
+
+  if (path === "/reset-password") {
+    return <PasswordRecoveryPage mode="reset" />;
   }
 
   if (path === "/") {

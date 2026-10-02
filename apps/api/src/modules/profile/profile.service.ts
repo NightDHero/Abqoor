@@ -53,7 +53,8 @@ const profileFieldLabels: Record<string, string> = {
   studyPlanStartDate: "تاريخ بدء الخطة",
   targetScore: "الدرجة المستهدفة",
   weakerSection: "القسم الأضعف",
-  weeklyRestDays: "أيام الراحة الأسبوعية"
+  weeklyRestDay: "يوم الراحة الأسبوعي",
+  weeklyReviewDay: "يوم المراجعة الأسبوعي"
 };
 
 const toFieldLabel = (fieldName: string) => {
@@ -132,24 +133,12 @@ const toStudyPlanStartDate = (value: unknown) => {
   return value.trim();
 };
 
-const toWeeklyRestDays = (value: unknown): StudyRestDay[] => {
-  if (!Array.isArray(value)) {
-    throw new ProfileError("أيام الراحة الأسبوعية غير صالحة.");
+const toStudyDay = (value: unknown, fieldName: string): StudyRestDay => {
+  if (!Number.isInteger(value) || Number(value) < 0 || Number(value) > 6) {
+    throw new ProfileError(`${toFieldLabel(fieldName)} غير صالح.`);
   }
 
-  const restDays = value.filter(
-    (day): day is StudyRestDay => Number.isInteger(day) && day >= 0 && day <= 6
-  );
-
-  if (restDays.length !== value.length || new Set(restDays).size !== restDays.length) {
-    throw new ProfileError("أيام الراحة الأسبوعية غير صالحة.");
-  }
-
-  if (restDays.length === 7) {
-    throw new ProfileError("اختر يوماً واحداً على الأقل للمذاكرة كل أسبوع.");
-  }
-
-  return restDays;
+  return Number(value) as StudyRestDay;
 };
 
 const normalizeProfileInput = (input: UpdateStudentProfileInput) => {
@@ -182,10 +171,15 @@ const normalizeProfileInput = (input: UpdateStudentProfileInput) => {
   }
 
   const studyPlanStartDate = toStudyPlanStartDate(input.studyPlanStartDate);
-  const weeklyRestDays = toWeeklyRestDays(input.weeklyRestDays);
+  const weeklyRestDay = toStudyDay(input.weeklyRestDay, "weeklyRestDay");
+  const weeklyReviewDay = toStudyDay(input.weeklyReviewDay, "weeklyReviewDay");
+  if (weeklyRestDay === weeklyReviewDay) {
+    throw new ProfileError("اليوم المختار للراحة لا يمكن اختياره كيوم مراجعة.");
+  }
   const generatedPlan = calculateStudyPlan({
     bankCount: bankConfig.availableBankCount,
-    restDays: weeklyRestDays,
+    restDay: weeklyRestDay,
+    reviewDay: weeklyReviewDay,
     startDate: studyPlanStartDate
   });
 
@@ -207,7 +201,8 @@ const normalizeProfileInput = (input: UpdateStudentProfileInput) => {
       weakerSectionOptions,
       "weakerSection"
     ) as WeakerSection,
-    weeklyRestDays
+    weeklyRestDay,
+    weeklyReviewDay
   };
 };
 

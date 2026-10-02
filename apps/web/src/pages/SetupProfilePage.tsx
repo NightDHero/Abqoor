@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { StudyPlanDateField, StudyPlanRestDaysField } from "../features/profile/StudyPlanFields";
+import { StudyPlanDateField, StudyPlanScheduleField } from "../features/profile/StudyPlanFields";
 import {
   createDefaultProfileForm,
   toProfileInput,
@@ -142,11 +142,11 @@ export function SetupProfilePage({
       },
       {
         title: "متى تبدأ مذاكرتك",
-        render: () => <StudyPlanDateField bankConfig={bankConfig} startDate={form.studyPlanStartDate} onChange={(studyPlanStartDate) => updateForm({ studyPlanStartDate })} />
+        render: () => <StudyPlanDateField bankConfig={bankConfig} restDay={form.weeklyRestDay} reviewDay={form.weeklyReviewDay} startDate={form.studyPlanStartDate} onChange={(studyPlanStartDate) => updateForm({ studyPlanStartDate })} />
       },
       {
-        title: "أي أيام الأسبوع لا تذاكر فيها",
-        render: () => <StudyPlanRestDaysField bankConfig={bankConfig} restDays={form.weeklyRestDays} startDate={form.studyPlanStartDate} onChange={(weeklyRestDays) => updateForm({ weeklyRestDays })} />
+        title: "نظّم أسبوعك",
+        render: () => <StudyPlanScheduleField bankConfig={bankConfig} restDay={form.weeklyRestDay} reviewDay={form.weeklyReviewDay} startDate={form.studyPlanStartDate} onConflict={setError} onRestDayChange={(weeklyRestDay) => updateForm({ weeklyRestDay })} onReviewDayChange={(weeklyReviewDay) => updateForm({ weeklyReviewDay })} />
       }
     ];
     if (isUsernameOnlySetup) return [allSteps[0]];

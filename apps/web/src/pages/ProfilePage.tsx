@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { PageContainer } from "../components/layout/PageContainer";
 import { SummaryMetric } from "../components/ui/SummaryMetric";
-import { StudyPlanDateField, StudyPlanRestDaysField } from "../features/profile/StudyPlanFields";
+import { StudyPlanDateField, StudyPlanScheduleField } from "../features/profile/StudyPlanFields";
 import {
   createDefaultProfileForm,
   toProfileInput,
@@ -11,6 +11,7 @@ import {
 import { weakerSectionOptions } from "../features/profile/profileOptions";
 import { calculateStudyPlan, formatPlanDate } from "../features/profile/studyPlan";
 import { bankService } from "../services/bankService";
+import { authService } from "../services/authService";
 import { HttpError } from "../services/http";
 import { profileService } from "../services/profileService";
 import type { ThemePreference } from "../theme/theme";
@@ -51,6 +52,8 @@ export function ProfilePage({
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phonePassword, setPhonePassword] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -90,13 +93,34 @@ export function ProfilePage({
     } finally { setIsSaving(false); }
   };
 
+  const handlePhoneSubmit = async () => {
+    setError("");
+    setMessage("");
+    setIsSaving(true);
+    try {
+      const response = await authService.addPhoneNumber({
+        password: phonePassword,
+        phoneNumber
+      });
+      onProfileSaved(response.user);
+      setPhoneNumber("");
+      setPhonePassword("");
+      setMessage("تمت إضافة رقم الجوال إلى الحساب.");
+    } catch (caughtError) {
+      setError(caughtError instanceof HttpError ? caughtError.message : "تعذر إضافة رقم الجوال.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const examDateLabel = form.hasExamDate && form.examDate
     ? formatPlanDate(form.examDate)
     : "غير محدد";
   const visiblePlan = bankConfig
     ? calculateStudyPlan({
         bankCount: bankConfig.availableBankCount,
-        restDays: form.weeklyRestDays,
+        restDay: form.weeklyRestDay,
+        reviewDay: form.weeklyReviewDay,
         startDate: form.studyPlanStartDate
       })
     : null;
@@ -127,8 +151,17 @@ export function ProfilePage({
           <div className="profile-field-grid">
             <label className="form-field profile-username-field">اسم المستخدم<input autoComplete="username" dir="ltr" maxLength={24} minLength={3} type="text" value={form.username} onChange={(event) => updateForm({ username: event.target.value })} /><small>هويتك العامة داخل عبقور</small></label>
             <div><span>البريد الإلكتروني</span><strong dir="ltr">{user.email}</strong></div>
+            <div><span>رقم الجوال</span><strong dir="ltr">{user.phoneNumber ?? "غير مضاف"}</strong></div>
             <div><span>كلمة المرور</span><strong>تدار من نظام تسجيل الدخول</strong></div>
           </div>
+          {!user.phoneNumber ? (
+            <div className="profile-missing-phone">
+              <p>أضف رقم الجوال لتتمكن من استعادة حسابك عند الحاجة.</p>
+              <label className="form-field">رقم الجوال<input autoComplete="tel" dir="ltr" required type="tel" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} /></label>
+              <label className="form-field">كلمة المرور الحالية<input autoComplete="current-password" dir="ltr" required type="password" value={phonePassword} onChange={(event) => setPhonePassword(event.target.value)} /></label>
+              <button disabled={isSaving || !phoneNumber || !phonePassword} type="button" onClick={() => void handlePhoneSubmit()}>إضافة رقم الجوال</button>
+            </div>
+          ) : null}
         </section>
 
         <section className="profile-section profile-appearance-section" aria-labelledby="appearance-section">
@@ -158,7 +191,7 @@ export function ProfilePage({
 
         <section className="profile-section profile-study-plan" aria-labelledby="study-plan-section">
           <h2 id="study-plan-section">خطة الأقسام</h2>
-          {bankConfig ? <><StudyPlanDateField bankConfig={bankConfig} startDate={form.studyPlanStartDate} onChange={(studyPlanStartDate) => updateForm({ studyPlanStartDate })} /><StudyPlanRestDaysField bankConfig={bankConfig} restDays={form.weeklyRestDays} startDate={form.studyPlanStartDate} onChange={(weeklyRestDays) => updateForm({ weeklyRestDays })} /></> : <p className="status-message">جاري تحميل إعدادات الأقسام...</p>}
+          {bankConfig ? <><StudyPlanDateField bankConfig={bankConfig} restDay={form.weeklyRestDay} reviewDay={form.weeklyReviewDay} startDate={form.studyPlanStartDate} onChange={(studyPlanStartDate) => updateForm({ studyPlanStartDate })} /><StudyPlanScheduleField bankConfig={bankConfig} restDay={form.weeklyRestDay} reviewDay={form.weeklyReviewDay} startDate={form.studyPlanStartDate} onConflict={setError} onRestDayChange={(weeklyRestDay) => updateForm({ weeklyRestDay })} onReviewDayChange={(weeklyReviewDay) => updateForm({ weeklyReviewDay })} /></> : <p className="status-message">جاري تحميل إعدادات الأقسام...</p>}
         </section>
 
         <div className="action-row"><button type="submit" disabled={isSaving || isLoading || !bankConfig}>{isSaving ? "جاري الحفظ..." : "حفظ التغييرات الآن"}</button></div>
