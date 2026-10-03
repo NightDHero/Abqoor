@@ -50,6 +50,7 @@ const profileFieldLabels: Record<string, string> = {
   hasExamDate: "حالة موعد الاختبار",
   hasTakenQudurat: "حالة دخول اختبار القدرات",
   latestScore: "آخر درجة",
+  studyPlanBankCount: "عدد الأقسام في الخطة",
   studyPlanStartDate: "تاريخ بدء الخطة",
   targetScore: "الدرجة المستهدفة",
   weakerSection: "القسم الأضعف",
@@ -134,11 +135,29 @@ const toStudyPlanStartDate = (value: unknown) => {
 };
 
 const toStudyDay = (value: unknown, fieldName: string): StudyRestDay => {
-  if (!Number.isInteger(value) || Number(value) < 0 || Number(value) > 6) {
+  const parsed =
+    typeof value === "string" && value.trim()
+      ? Number(value)
+      : value;
+
+  if (!Number.isInteger(parsed) || Number(parsed) < 0 || Number(parsed) > 6) {
     throw new ProfileError(`${toFieldLabel(fieldName)} غير صالح.`);
   }
 
-  return Number(value) as StudyRestDay;
+  return Number(parsed) as StudyRestDay;
+};
+
+const toStudyPlanBankCount = (value: unknown) => {
+  const bankCount =
+    value === undefined
+      ? bankConfig.availableBankCount
+      : toInteger(value, "studyPlanBankCount");
+
+  if (bankCount < 1 || bankCount > bankConfig.availableBankCount) {
+    throw new ProfileError("عدد الأقسام المختار غير صالح.");
+  }
+
+  return bankCount;
 };
 
 const normalizeProfileInput = (input: UpdateStudentProfileInput) => {
@@ -171,13 +190,14 @@ const normalizeProfileInput = (input: UpdateStudentProfileInput) => {
   }
 
   const studyPlanStartDate = toStudyPlanStartDate(input.studyPlanStartDate);
+  const studyPlanBankCount = toStudyPlanBankCount(input.studyPlanBankCount);
   const weeklyRestDay = toStudyDay(input.weeklyRestDay, "weeklyRestDay");
   const weeklyReviewDay = toStudyDay(input.weeklyReviewDay, "weeklyReviewDay");
   if (weeklyRestDay === weeklyReviewDay) {
     throw new ProfileError("اليوم المختار للراحة لا يمكن اختياره كيوم مراجعة.");
   }
   const generatedPlan = calculateStudyPlan({
-    bankCount: bankConfig.availableBankCount,
+    bankCount: studyPlanBankCount,
     restDay: weeklyRestDay,
     reviewDay: weeklyReviewDay,
     startDate: studyPlanStartDate
@@ -208,10 +228,12 @@ const normalizeProfileInput = (input: UpdateStudentProfileInput) => {
 
 export const previewStudentStudyPlan = (input: {
   studyPlanStartDate?: unknown;
+  studyPlanBankCount?: unknown;
   weeklyRestDay?: unknown;
   weeklyReviewDay?: unknown;
 }) => {
   const studyPlanStartDate = toStudyPlanStartDate(input.studyPlanStartDate);
+  const studyPlanBankCount = toStudyPlanBankCount(input.studyPlanBankCount);
   const weeklyRestDay = toStudyDay(input.weeklyRestDay, "weeklyRestDay");
   const weeklyReviewDay = toStudyDay(input.weeklyReviewDay, "weeklyReviewDay");
   if (weeklyRestDay === weeklyReviewDay) {
@@ -219,7 +241,7 @@ export const previewStudentStudyPlan = (input: {
   }
 
   return calculateStudyPlan({
-    bankCount: bankConfig.availableBankCount,
+    bankCount: studyPlanBankCount,
     restDay: weeklyRestDay,
     reviewDay: weeklyReviewDay,
     startDate: studyPlanStartDate

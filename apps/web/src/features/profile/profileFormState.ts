@@ -14,6 +14,7 @@ export type ProfileFormState = {
   hasTakenQudurat: boolean | null;
   attemptCount: string;
   latestScore: string;
+  studyPlanBankCount: number;
   weakerSection: WeakerSection | "";
   studyPlanStartDate: string;
   weeklyRestDay: StudyRestDay;
@@ -21,7 +22,8 @@ export type ProfileFormState = {
 };
 
 export const createDefaultProfileForm = (
-  profile?: StudentProfile | null
+  profile?: StudentProfile | null,
+  availableBankCount = 1
 ): ProfileFormState => ({
   attemptCount: profile?.attemptCount ? String(profile.attemptCount) : "",
   examDate: profile?.examDate ?? "",
@@ -31,6 +33,8 @@ export const createDefaultProfileForm = (
     profile?.latestScore !== null && profile?.latestScore !== undefined
       ? String(profile.latestScore)
       : "",
+  studyPlanBankCount:
+    profile?.studyPlanBankCount ?? availableBankCount,
   studyPlanStartDate: profile?.studyPlanStartDate ?? getTodayDate(),
   targetScore: profile?.targetScore ?? 90,
   username: profile?.username ?? "",
@@ -47,6 +51,7 @@ export const toProfileInput = (
   hasExamDate: state.hasExamDate,
   hasTakenQudurat: state.hasTakenQudurat === true,
   latestScore: state.hasTakenQudurat ? Number(state.latestScore) : null,
+  studyPlanBankCount: state.studyPlanBankCount,
   studyPlanStartDate: state.studyPlanStartDate,
   targetScore: state.targetScore,
   username: state.username.trim(),
@@ -55,7 +60,10 @@ export const toProfileInput = (
   weeklyReviewDay: state.weeklyReviewDay
 });
 
-export const validateProfileForm = (state: ProfileFormState) => {
+export const validateProfileForm = (
+  state: ProfileFormState,
+  availableBankCount = Number.POSITIVE_INFINITY
+) => {
   const usernamePattern =
     /^[\p{L}\p{N}](?:[\p{L}\p{N}_-]{1,22}[\p{L}\p{N}])$/u;
 
@@ -82,6 +90,13 @@ export const validateProfileForm = (state: ProfileFormState) => {
     }
   }
   if (!state.weakerSection) return "اختر القسم الذي يمثل تحدياً أكبر.";
+  if (
+    !Number.isInteger(state.studyPlanBankCount) ||
+    state.studyPlanBankCount < 1 ||
+    state.studyPlanBankCount > availableBankCount
+  ) {
+    return "اختر عدداً صالحاً من الأقسام المتاحة.";
+  }
   if (!state.studyPlanStartDate) return "اختر تاريخ بدء المذاكرة.";
   if (state.weeklyRestDay === state.weeklyReviewDay) {
     return "اليوم المختار للراحة لا يمكن اختياره كيوم مراجعة.";

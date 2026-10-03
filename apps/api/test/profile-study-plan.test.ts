@@ -29,6 +29,8 @@ const register = async (email: string) => {
       passwordConfirmation: password,
       phoneNumber: email.startsWith("invalid")
         ? "+966500000012"
+        : email.startsWith("schedule-day")
+          ? "+966500000014"
         : email.startsWith("schedule")
           ? "+966500000013"
           : "+966500000011"
@@ -60,6 +62,7 @@ test("persists one rest day and one distinct review day", async () => {
       hasExamDate: false,
       hasTakenQudurat: false,
       latestScore: null,
+      studyPlanBankCount: 10,
       studyPlanStartDate: "2026-09-27",
       targetScore: 90,
       username: "plan_student",
@@ -81,10 +84,10 @@ test("persists one rest day and one distinct review day", async () => {
       weeklyReviewDay: number;
     };
   };
-  assert.equal(saved.profile.studyPlanBankCount, 14);
-  assert.equal(saved.profile.studyPlanStudyDays, 14);
-  assert.equal(saved.profile.studyPlanCalendarDays, 18);
-  assert.equal(saved.profile.studyPlanCompletionDate, "2026-10-14");
+  assert.equal(saved.profile.studyPlanBankCount, 10);
+  assert.equal(saved.profile.studyPlanStudyDays, 10);
+  assert.equal(saved.profile.studyPlanCalendarDays, 12);
+  assert.equal(saved.profile.studyPlanCompletionDate, "2026-10-08");
   assert.equal(saved.profile.weeklyRestDay, 5);
   assert.equal(saved.profile.weeklyReviewDay, 6);
 
@@ -92,7 +95,7 @@ test("persists one rest day and one distinct review day", async () => {
     string,
     { study_plan_bank_count: number; weekly_rest_day: number; weekly_review_day: number }
   >("SELECT study_plan_bank_count, weekly_rest_day, weekly_review_day FROM student_profiles WHERE username = ?").get("plan_student");
-  assert.equal(stored?.study_plan_bank_count, 14);
+  assert.equal(stored?.study_plan_bank_count, 10);
   assert.equal(stored?.weekly_rest_day, 5);
   assert.equal(stored?.weekly_review_day, 6);
 });
@@ -114,6 +117,37 @@ test("rejects using the same day for rest and review", async () => {
     method: "PUT"
   });
   assert.equal(response.status, 400);
+});
+
+test("accepts each valid single-day value and rejects out-of-range schedule days", async () => {
+  const cookie = await register("schedule-day-validation@example.com");
+  for (let weeklyRestDay = 0; weeklyRestDay <= 6; weeklyRestDay += 1) {
+    const validResponse = await fetch(`${baseUrl}/profile/schedule-preview`, {
+      body: JSON.stringify({
+        studyPlanBankCount: 14,
+        studyPlanStartDate: "2026-09-27",
+        weeklyRestDay: String(weeklyRestDay),
+        weeklyReviewDay: String((weeklyRestDay + 1) % 7)
+      }),
+      headers: { cookie, "content-type": "application/json" },
+      method: "POST"
+    });
+    assert.equal(validResponse.status, 200);
+  }
+
+  for (const weeklyRestDay of [-1, 7, [5]]) {
+    const invalidResponse = await fetch(`${baseUrl}/profile/schedule-preview`, {
+      body: JSON.stringify({
+        studyPlanBankCount: 14,
+        studyPlanStartDate: "2026-09-27",
+        weeklyRestDay,
+        weeklyReviewDay: 6
+      }),
+      headers: { cookie, "content-type": "application/json" },
+      method: "POST"
+    });
+    assert.equal(invalidResponse.status, 400);
+  }
 });
 
 test("normalizes an invalid legacy schedule without changing new-input validation", () => {

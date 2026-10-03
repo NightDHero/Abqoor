@@ -36,6 +36,7 @@ const navigationItems = [
   },
   {
     activePath: "/profile",
+    icon: "/assets/navigation/settings.png",
     label: "ملفي",
     route: "/profile"
   }

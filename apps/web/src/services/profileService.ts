@@ -13,6 +13,7 @@ type ProfileResponse = {
 export const profileService = {
   getProfile: () => apiRequest<ProfileResponse>("/profile"),
   previewSchedule: (input: {
+    studyPlanBankCount: number;
     studyPlanStartDate: string;
     weeklyRestDay: StudyRestDay;
     weeklyReviewDay: StudyRestDay;

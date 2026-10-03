@@ -1,4 +1,7 @@
-import type { StudyRestDay } from "../banks/bank-config.js";
+import {
+  normalizeStoredStudyDays,
+  type StudyRestDay
+} from "../banks/bank-config.js";
 
 export const weakerSectionOptions = ["quantitative", "verbal", "both"] as const;
 
@@ -59,6 +62,7 @@ export type UpdateStudentProfileInput = {
   latestScore?: unknown;
   weakerSection: unknown;
   studyPlanStartDate: unknown;
+  studyPlanBankCount?: unknown;
   weeklyRestDay: unknown;
   weeklyReviewDay: unknown;
 };
@@ -91,6 +95,11 @@ export const toStudentProfile = (
     };
   }
 
+  const storedSchedule = normalizeStoredStudyDays({
+    restDay: record.weekly_rest_day,
+    reviewDay: record.weekly_review_day
+  });
+
   return {
     attemptCount: record.attempt_count,
     createdAt: record.created_at,
@@ -110,7 +119,7 @@ export const toStudentProfile = (
     userId: record.user_id,
     username: record.username,
     weakerSection: record.weaker_section,
-    weeklyRestDay: record.weekly_rest_day,
-    weeklyReviewDay: record.weekly_review_day
+    weeklyRestDay: storedSchedule.restDay,
+    weeklyReviewDay: storedSchedule.reviewDay
   };
 };

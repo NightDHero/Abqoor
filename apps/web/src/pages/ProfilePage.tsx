@@ -56,6 +56,7 @@ export function ProfilePage({
   const [phoneNumber, setPhoneNumber] = useState("");
   const [phonePassword, setPhonePassword] = useState("");
   const studyPlanPreview = useStudyPlanPreview({
+    bankCount: form.studyPlanBankCount,
     restDay: form.weeklyRestDay,
     reviewDay: form.weeklyReviewDay,
     startDate: form.studyPlanStartDate
@@ -66,7 +67,12 @@ export function ProfilePage({
     void Promise.all([profileService.getProfile(), bankService.getConfig()])
       .then(([profileResponse, bankResponse]) => {
         if (!isMounted) return;
-        setForm(createDefaultProfileForm(profileResponse.profile));
+        setForm(
+          createDefaultProfileForm(
+            profileResponse.profile,
+            bankResponse.config.availableBankCount
+          )
+        );
         setBankConfig(bankResponse.config);
       })
       .catch((caughtError) => {
@@ -84,7 +90,10 @@ export function ProfilePage({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const validationMessage = validateProfileForm(form);
+    const validationMessage = validateProfileForm(
+      form,
+      bankConfig?.availableBankCount
+    );
     if (validationMessage) { setError(validationMessage); return; }
     setError("");
     setMessage("");
@@ -137,7 +146,7 @@ export function ProfilePage({
         <div className="profile-overview">
           <SummaryMetric label="الدرجة المستهدفة" value={form.targetScore} />
           <SummaryMetric label="الاختبار" value={examDateLabel} />
-          <SummaryMetric label="الأقسام المتاحة" value={bankConfig?.availableBankCount.toLocaleString("ar-SA") ?? "..."} />
+          <SummaryMetric label="الأقسام المتاحة" value={form.studyPlanBankCount.toLocaleString("ar-SA")} />
           <SummaryMetric label="الخطة" value={completionDateLabel} />
         </div>
       </section>
@@ -189,7 +198,7 @@ export function ProfilePage({
 
         <section className="profile-section profile-study-plan" aria-labelledby="study-plan-section">
           <h2 id="study-plan-section">خطة الأقسام</h2>
-          {bankConfig ? <><StudyPlanDateField bankConfig={bankConfig} isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} startDate={form.studyPlanStartDate} onChange={(studyPlanStartDate) => updateForm({ studyPlanStartDate })} /><StudyPlanScheduleField isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} restDay={form.weeklyRestDay} reviewDay={form.weeklyReviewDay} onConflict={setError} onRestDayChange={(weeklyRestDay) => updateForm({ weeklyRestDay })} onReviewDayChange={(weeklyReviewDay) => updateForm({ weeklyReviewDay })} /></> : <p className="status-message">جاري تحميل إعدادات الأقسام...</p>}
+          {bankConfig ? <><StudyPlanDateField bankCount={form.studyPlanBankCount} bankConfig={bankConfig} isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} startDate={form.studyPlanStartDate} onBankCountChange={(studyPlanBankCount) => updateForm({ studyPlanBankCount })} onChange={(studyPlanStartDate) => updateForm({ studyPlanStartDate })} /><StudyPlanScheduleField isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} restDay={form.weeklyRestDay} reviewDay={form.weeklyReviewDay} onConflict={setError} onRestDayChange={(weeklyRestDay) => updateForm({ weeklyRestDay })} onReviewDayChange={(weeklyReviewDay) => updateForm({ weeklyReviewDay })} /></> : <p className="status-message">جاري تحميل إعدادات الأقسام...</p>}
         </section>
 
         <div className="action-row"><button type="submit" disabled={isSaving || isLoading || !bankConfig}>{isSaving ? "جاري الحفظ..." : "حفظ التغييرات الآن"}</button></div>

@@ -6,20 +6,42 @@ import type {
 import { formatPlanDate, getTodayDate, weekdayOptions } from "./studyPlan";
 
 export function StudyPlanDateField({
+  bankCount,
   bankConfig,
   isPlanLoading,
   plan,
   startDate,
+  onBankCountChange,
   onChange
 }: {
+  bankCount: number;
   bankConfig: BankConfig;
   isPlanLoading: boolean;
   plan: StudyPlanPreview | null;
   startDate: string;
+  onBankCountChange: (value: number) => void;
   onChange: (value: string) => void;
 }) {
+  const bankCountOptions = Array.from(
+    { length: bankConfig.availableBankCount },
+    (_value, index) => index + 1
+  );
+
   return (
     <div className="study-plan-date-field">
+      <label className="form-field">
+        الأقسام المتاحة في خطتي
+        <select
+          value={bankCount}
+          onChange={(event) => onBankCountChange(Number(event.target.value))}
+        >
+          {bankCountOptions.map((count) => (
+            <option key={count} value={count}>
+              {count.toLocaleString("ar-SA")} {count === 1 ? "قسم" : "أقسام"}
+            </option>
+          ))}
+        </select>
+      </label>
       <label className="form-field">
         تاريخ بدء الخطة
         <input
@@ -33,7 +55,7 @@ export function StudyPlanDateField({
         أبدأ اليوم
       </button>
       <p className="study-plan-basis">
-        {bankConfig.availableBankCount.toLocaleString("ar-SA")} قسماً في {bankConfig.availableBankCount.toLocaleString("ar-SA")} جلسة دراسة
+        {bankCount.toLocaleString("ar-SA")} قسماً في {bankCount.toLocaleString("ar-SA")} جلسة دراسة
       </p>
       {isPlanLoading ? <p className="study-plan-inline-summary">جاري حساب الخطة...</p> : null}
       {plan ? (

@@ -59,6 +59,7 @@ export function SetupProfilePage({
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const studyPlanPreview = useStudyPlanPreview({
+    bankCount: form.studyPlanBankCount,
     restDay: form.weeklyRestDay,
     reviewDay: form.weeklyReviewDay,
     startDate: form.studyPlanStartDate
@@ -69,7 +70,12 @@ export function SetupProfilePage({
     void Promise.all([profileService.getProfile(), bankService.getConfig()])
       .then(([profileResponse, bankResponse]) => {
         if (!isMounted) return;
-        setForm(createDefaultProfileForm(profileResponse.profile));
+        setForm(
+          createDefaultProfileForm(
+            profileResponse.profile,
+            bankResponse.config.availableBankCount
+          )
+        );
         setBankConfig(bankResponse.config);
         setIsUsernameOnlySetup(
           profileResponse.profile.profileCompleted && !profileResponse.profile.username
@@ -148,7 +154,7 @@ export function SetupProfilePage({
       },
       {
         title: "متى تبدأ مذاكرتك",
-        render: () => <StudyPlanDateField bankConfig={bankConfig} isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} startDate={form.studyPlanStartDate} onChange={(studyPlanStartDate) => updateForm({ studyPlanStartDate })} />
+        render: () => <StudyPlanDateField bankCount={form.studyPlanBankCount} bankConfig={bankConfig} isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} startDate={form.studyPlanStartDate} onBankCountChange={(studyPlanBankCount) => updateForm({ studyPlanBankCount })} onChange={(studyPlanStartDate) => updateForm({ studyPlanStartDate })} />
       },
       {
         title: "نظّم أسبوعك",
@@ -168,7 +174,10 @@ export function SetupProfilePage({
   const isLastStep = stepIndex >= steps.length - 1;
 
   const saveProfile = async () => {
-    const validationMessage = validateProfileForm(form);
+    const validationMessage = validateProfileForm(
+      form,
+      bankConfig?.availableBankCount
+    );
     if (validationMessage) { setError(validationMessage); return; }
     setError("");
     setIsSaving(true);

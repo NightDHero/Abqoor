@@ -801,16 +801,6 @@
   animation: study-progress-welcome-arrive 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.study-progress-plan-intro::before {
-  position: absolute;
-  inset-block: 0;
-  inset-inline-start: 0;
-  width: min(36%, 260px);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--world-cyan) 12%, transparent), transparent);
-  content: "";
-  pointer-events: none;
-}
-
 .study-progress-welcome-mark {
   position: relative;
   display: grid;
@@ -860,6 +850,14 @@
 }
 
 .study-progress-welcome strong {
+  display: inline-block;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--world-cyan) 20%, transparent),
+    color-mix(in srgb, var(--world-cyan) 7%, transparent)
+  );
+  padding: 0.04em 0.38em 0.08em;
   color: var(--world-cyan);
   font-size: 1.08em;
   font-weight: 950;
@@ -911,9 +909,9 @@
   box-shadow: none;
   cursor: pointer;
   transition:
-    border-color 200ms ease,
-    box-shadow 200ms ease,
-    transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+    border-color 240ms ease,
+    box-shadow 240ms ease,
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .career-app-shell button.study-progress-today-plan-card:hover {
@@ -921,17 +919,31 @@
   box-shadow:
     0 18px 42px rgb(0 7 14 / 18%),
     0 0 24px rgb(103 220 231 / 8%);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 .career-app-shell .study-progress-journey-plan button.study-progress-today-plan-card:hover {
   border-color: transparent;
   background: transparent;
   box-shadow: none;
+  transform: translateY(-1px);
 }
 
 .career-app-shell button.study-progress-today-plan-card:active {
-  transform: translateY(0);
+  transform: translateY(-1px);
+}
+
+.study-progress-plan-cta {
+  transition:
+    border-color 240ms ease,
+    background-color 240ms ease,
+    box-shadow 240ms ease;
+}
+
+.career-app-shell button.study-progress-today-plan-card:hover .study-progress-plan-cta {
+  border-color: rgb(103 220 231 / 38%);
+  background: rgb(103 220 231 / 12%);
+  box-shadow: 0 10px 28px rgb(0 7 14 / 12%);
 }
 
 .career-app-shell button.study-progress-today-plan-card:focus-visible,
@@ -1201,8 +1213,25 @@
   }
 
   .study-progress-overview-grid > .study-progress-journey {
-    height: 560px;
+    height: auto;
+    min-height: 560px;
   }
+
+  .study-progress-overview-grid > .study-progress-journey-plan:has(.study-progress-past-plans[data-empty="true"]) {
+    height: auto;
+  }
+}
+
+.study-progress-journey-loading {
+  min-height: 280px;
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+}
+
+.study-progress-body-month {
+  align-content: start;
+  min-height: 0;
 }
 
 .study-progress-daily-plan-header,

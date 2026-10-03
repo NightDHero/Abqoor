@@ -733,7 +733,7 @@ export function StudyProgressTracker({
         </>
       ) : (
         <section
-          className="study-progress-journey study-progress-journey-progress"
+          className="study-progress-journey study-progress-journey-progress study-progress-journey-loading"
           aria-labelledby="study-progress-title"
         >
           <header className="study-progress-header">

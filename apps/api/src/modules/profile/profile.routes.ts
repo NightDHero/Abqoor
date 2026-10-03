@@ -33,6 +33,7 @@ profileRouter.post("/schedule-preview", requireAuth, async (request, response) =
   try {
     const body = (request.body ?? {}) as {
       studyPlanStartDate?: unknown;
+      studyPlanBankCount?: unknown;
       weeklyRestDay?: unknown;
       weeklyReviewDay?: unknown;
     };

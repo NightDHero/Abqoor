@@ -60,6 +60,7 @@ export type StudentProfileInput = {
   attemptCount: number | null;
   latestScore: number | null;
   weakerSection: WeakerSection;
+  studyPlanBankCount: number;
   studyPlanStartDate: string;
   weeklyRestDay: StudyRestDay;
   weeklyReviewDay: StudyRestDay;

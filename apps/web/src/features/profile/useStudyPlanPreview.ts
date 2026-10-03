@@ -6,6 +6,7 @@ import type {
 } from "../../types/profile";
 
 export function useStudyPlanPreview(input: {
+  bankCount: number;
   restDay: StudyRestDay;
   reviewDay: StudyRestDay;
   startDate: string;
@@ -14,7 +15,12 @@ export function useStudyPlanPreview(input: {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!input.startDate || input.restDay === input.reviewDay) {
+    if (
+      !input.startDate ||
+      !Number.isInteger(input.bankCount) ||
+      input.bankCount < 1 ||
+      input.restDay === input.reviewDay
+    ) {
       setPlan(null);
       return;
     }
@@ -23,6 +29,7 @@ export function useStudyPlanPreview(input: {
     setIsLoading(true);
     void profileService
       .previewSchedule({
+        studyPlanBankCount: input.bankCount,
         studyPlanStartDate: input.startDate,
         weeklyRestDay: input.restDay,
         weeklyReviewDay: input.reviewDay
@@ -40,7 +47,7 @@ export function useStudyPlanPreview(input: {
     return () => {
       isMounted = false;
     };
-  }, [input.restDay, input.reviewDay, input.startDate]);
+  }, [input.bankCount, input.restDay, input.reviewDay, input.startDate]);
 
   return { isLoading, plan };
 }
