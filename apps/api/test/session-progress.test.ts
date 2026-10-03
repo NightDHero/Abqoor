@@ -329,13 +329,21 @@ test("summarizes real session activity into study progress windows", async () =>
       answeredQuestions: number;
       correctAnswers: number;
       approximateStudySeconds: number;
+      planAnsweredQuestions: number;
+      planKind: "study" | "review" | "rest";
+      planSubjectId: "math" | "arabic" | null;
+      questionTarget: number | null;
     };
     week: {
       activeDays: number;
       answeredQuestions: number;
       correctAnswers: number;
       approximateStudySeconds: number;
-      days: Array<{ planKind: "study" | "review" | "rest" }>;
+      days: Array<{
+        planKind: "study" | "review" | "rest";
+        planSubjectId: "math" | "arabic" | null;
+        questionTarget: number | null;
+      }>;
     };
     month: { days: unknown[]; endDate: string; startDate: string };
     monthWeeks: Array<{ days: unknown[]; endDate: string; startDate: string }>;
@@ -355,6 +363,16 @@ test("summarizes real session activity into study progress windows", async () =>
   assert.equal(payload.week.days.length, 7);
   assert.equal(payload.week.days.filter((day) => day.planKind === "rest").length, 1);
   assert.equal(payload.week.days.filter((day) => day.planKind === "review").length, 1);
+  assert.equal(payload.week.days.filter((day) => day.planKind === "study").length, 5);
+  assert.equal(
+    payload.week.days.every((day) =>
+      day.planKind !== "study"
+        ? day.questionTarget === null && day.planSubjectId === null
+        : day.questionTarget === (day.planSubjectId === "math" ? 55 : 65)
+    ),
+    true
+  );
+  assert.equal(payload.week.days.some((day) => day.questionTarget === 120), false);
   assert.equal(payload.month.days.length, getCurrentUtcMonthDayCount());
   assert.ok(payload.monthWeeks.length >= 4);
   assert.equal(payload.monthWeeks.every((week) => week.days.length === 7), true);
@@ -606,6 +624,120 @@ test("prevents duplicate study answer mutation and cross-user session access", a
     }
   );
   assert.equal(otherUserResult.status, 404);
+});
+
+test("resumes the persisted daily-plan session instead of creating a duplicate", async () => {
+  for (let index = 1; index <= 49; index += 1) {
+    insertBootstrapQuestion(`Q-${String(index).padStart(3, "0")}`);
+  }
+
+  const user = await registerUser("daily-plan@example.com", password);
+  await completeProfile({ userId: user.id, username: "daily_plan_user" });
+  const loginResult = await login("daily-plan@example.com");
+  assert.equal(loginResult.response.status, 200);
+
+  const start = () => fetch(`${baseUrl}/sessions/start`, {
+    body: JSON.stringify({
+      planDate: "2026-01-01",
+      questionLimit: 2,
+      subjectId: "math"
+    }),
+    headers: {
+      "content-type": "application/json",
+      cookie: loginResult.cookie
+    },
+    method: "POST"
+  });
+
+  const firstResponse = await start();
+  assert.equal(firstResponse.status, 201);
+  const first = (await firstResponse.json()) as {
+    answers: unknown[];
+    questions: Array<{ id: string }>;
+    resumed: boolean;
+    sessionId: string;
+  };
+  assert.equal(first.resumed, false);
+  assert.equal(first.answers.length, 0);
+
+  const secondResponse = await start();
+  assert.equal(secondResponse.status, 200);
+  const second = (await secondResponse.json()) as {
+    answers: unknown[];
+    resumed: boolean;
+    sessionId: string;
+  };
+  assert.equal(second.resumed, true);
+  assert.equal(second.sessionId, first.sessionId);
+
+  const firstQuestionId = first.questions[0]?.id;
+  assert.ok(firstQuestionId);
+  const submitResponse = await fetch(`${baseUrl}/sessions/submit`, {
+    body: JSON.stringify({
+      questionId: firstQuestionId,
+      sessionId: first.sessionId,
+      userAnswer: "A"
+    }),
+    headers: {
+      "content-type": "application/json",
+      cookie: loginResult.cookie
+    },
+    method: "POST"
+  });
+  assert.equal(submitResponse.status, 200);
+
+  const resumedResponse = await start();
+  assert.equal(resumedResponse.status, 200);
+  const resumed = (await resumedResponse.json()) as {
+    answers: Array<{ questionId: string }>;
+    sessionId: string;
+  };
+  assert.equal(resumed.sessionId, first.sessionId);
+  assert.deepEqual(resumed.answers.map((answer) => answer.questionId), [firstQuestionId]);
+
+  const stored = await db.prepare<
+    { planDate: string; subjectId: string; userId: string },
+    { count: number }
+  >(`
+    SELECT COUNT(*) AS count
+    FROM sessions
+    WHERE user_id = @userId
+      AND subject_id = @subjectId
+      AND plan_date = @planDate
+      AND status = 'active'
+  `).get({ planDate: "2026-01-01", subjectId: "math", userId: user.id });
+  assert.equal(stored?.count, 1);
+});
+
+test("allows a completed legacy profile without stored plan dates to use the derived daily plan", async () => {
+  for (let index = 1; index <= 49; index += 1) {
+    insertBootstrapQuestion(`Q-${String(index).padStart(3, "0")}`);
+  }
+
+  const user = await registerUser("legacy-plan@example.com", password);
+  await completeProfile({ userId: user.id, username: "legacy_plan_user" });
+  await db.prepare(`
+    UPDATE student_profiles
+    SET study_plan_start_date = NULL,
+        study_plan_completion_date = NULL
+    WHERE user_id = ?
+  `).run(user.id);
+  const loginResult = await login("legacy-plan@example.com");
+  assert.equal(loginResult.response.status, 200);
+
+  const response = await fetch(`${baseUrl}/sessions/start`, {
+    body: JSON.stringify({
+      planDate: "2026-01-01",
+      questionLimit: 1,
+      subjectId: "math"
+    }),
+    headers: {
+      "content-type": "application/json",
+      cookie: loginResult.cookie
+    },
+    method: "POST"
+  });
+  assert.equal(response.status, 201);
 });
 
 after(async () => {

@@ -170,7 +170,10 @@ export function useStudySession() {
     [questions, responsesByQuestionId]
   );
 
-  const start = async () => {
+  const start = async (
+    subjectId?: "math" | "arabic",
+    planDate?: string
+  ) => {
     setIsStarting(true);
     setError("");
     setResult(null);
@@ -181,9 +184,24 @@ export function useStudySession() {
     activeQuestionTimer.reset();
 
     try {
-      const response = await sessionService.startSession(studyQuestionLimit);
+      const response = await sessionService.startSession({
+        planDate,
+        questionLimit: studyQuestionLimit,
+        subjectId
+      });
       setSessionId(response.sessionId);
       setQuestions(response.questions);
+      const restoredResponses = Object.fromEntries(
+        response.answers.map((answer) => [answer.questionId, answer])
+      );
+      setResponsesByQuestionId(restoredResponses);
+      const firstUnansweredIndex = response.questions.findIndex(
+        (question) => !restoredResponses[question.id]
+      );
+      setCurrentIndex(firstUnansweredIndex >= 0 ? firstUnansweredIndex : 0);
+      if (response.status === "completed") {
+        setResult(await sessionService.getResult(response.sessionId));
+      }
     } catch (caughtError) {
       setError(readErrorMessage(caughtError, "تعذر بدء جلسة الدراسة."));
     } finally {

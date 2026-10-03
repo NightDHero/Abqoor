@@ -12,6 +12,7 @@ process.env.NODE_ENV = "test";
 
 const { createApp } = await import("../src/app.js");
 const { closeDatabase, db } = await import("../src/database/client.js");
+const { normalizeStoredStudyDays } = await import("../src/modules/banks/bank-config.js");
 const app = await createApp();
 const server = app.listen(0);
 await new Promise<void>((resolve) => server.once("listening", resolve));
@@ -26,7 +27,11 @@ const register = async (email: string) => {
       email,
       password,
       passwordConfirmation: password,
-      phoneNumber: email.startsWith("invalid") ? "+966500000012" : "+966500000011"
+      phoneNumber: email.startsWith("invalid")
+        ? "+966500000012"
+        : email.startsWith("schedule")
+          ? "+966500000013"
+          : "+966500000011"
     }),
     headers: { "content-type": "application/json" },
     method: "POST"
@@ -109,6 +114,59 @@ test("rejects using the same day for rest and review", async () => {
     method: "PUT"
   });
   assert.equal(response.status, 400);
+});
+
+test("normalizes an invalid legacy schedule without changing new-input validation", () => {
+  assert.deepEqual(
+    normalizeStoredStudyDays({ restDay: 5, reviewDay: 5 }),
+    { restDay: 5, reviewDay: 6 }
+  );
+});
+
+test("derives a five-day alternating week from rest and review selections", async () => {
+  const cookie = await register("schedule-preview@example.com");
+  const response = await fetch(`${baseUrl}/profile/schedule-preview`, {
+    body: JSON.stringify({
+      studyPlanStartDate: "2026-09-27",
+      weeklyRestDay: 5,
+      weeklyReviewDay: 6
+    }),
+    headers: { cookie, "content-type": "application/json" },
+    method: "POST"
+  });
+  assert.equal(response.status, 200);
+
+  const payload = (await response.json()) as {
+    plan: {
+      schedule: Array<{
+        kind: "study" | "review" | "rest";
+        questionTarget: number | null;
+        subjectId: "math" | "arabic" | null;
+      }>;
+      weeklyReviewDays: number;
+      weeklyRestDays: number;
+      weeklyStudyDays: number;
+    };
+  };
+  assert.equal(payload.plan.weeklyStudyDays, 5);
+  assert.equal(payload.plan.weeklyReviewDays, 1);
+  assert.equal(payload.plan.weeklyRestDays, 1);
+  assert.deepEqual(
+    payload.plan.schedule.map((day) => day.kind),
+    ["study", "study", "study", "study", "study", "rest", "review"]
+  );
+  assert.deepEqual(
+    payload.plan.schedule.map((day) => day.subjectId),
+    ["math", "arabic", "math", "arabic", "math", null, null]
+  );
+  assert.deepEqual(
+    payload.plan.schedule.map((day) => day.questionTarget),
+    [55, 65, 55, 65, 55, null, null]
+  );
+  assert.equal(
+    payload.plan.schedule.some((day) => day.questionTarget === 120),
+    false
+  );
 });
 
 after(async () => {

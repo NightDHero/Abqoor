@@ -1,15 +1,18 @@
 const studyDestinations = [
   {
     id: "math",
-    label: "الكمي"
+    label: "الكمي",
+    subjectId: "math"
   },
   {
     id: "mixed",
-    label: "كمي ولفظي"
+    label: "كمي ولفظي",
+    subjectId: undefined
   },
   {
     id: "verbal",
-    label: "اللفظي"
+    label: "اللفظي",
+    subjectId: "arabic"
   }
 ] as const;
 
@@ -18,7 +21,7 @@ export function StudyWorldSelector({
   onSelect
 }: {
   isStarting: boolean;
-  onSelect: () => void;
+  onSelect: (subjectId?: "math" | "arabic") => void;
 }) {
   return (
     <div className="study-world-selector" aria-label="اختر مسار سحب">
@@ -37,7 +40,7 @@ export function StudyWorldSelector({
           disabled={isStarting}
           key={destination.id}
           type="button"
-          onClick={onSelect}
+          onClick={() => onSelect(destination.subjectId)}
         >
           <strong>{destination.label}</strong>
         </button>

@@ -779,6 +779,13 @@
   white-space: nowrap;
 }
 
+.study-progress-plan-complete {
+  color: #7dd6a8;
+  font-size: 0.78rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .study-progress-daily-plan-details strong[data-pace="ahead"] {
   color: #d7aa52;
 }
@@ -1076,9 +1083,14 @@
   font-weight: 900;
 }
 
+.study-progress-day .study-progress-day-total {
+  color: var(--world-muted);
+  font-size: 0.62rem;
+}
+
 .study-progress-day-month {
   gap: 5px;
-  min-height: 70px;
+  min-height: 88px;
   border-radius: 15px;
   padding: 9px 6px;
 }
@@ -1513,7 +1525,7 @@
   }
 
   .study-progress-day-week {
-    min-height: 76px;
+    min-height: 92px;
   }
 
   .study-progress-day-week .study-progress-day-name {
@@ -1521,7 +1533,8 @@
   }
 
   .study-progress-day-week small {
-    display: none;
+    display: block;
+    font-size: 0.6rem;
   }
 
   .study-progress-month-weekdays {

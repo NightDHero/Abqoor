@@ -148,7 +148,11 @@ const emptyProgressDay = (date: string): StudyProgressDay => ({
   correctAnswers: 0,
   date,
   intensity: 0,
-  planKind: "study"
+  planAnsweredQuestions: 0,
+  planKind: "study",
+  planSubjectId: null,
+  planSubjectLabel: null,
+  questionTarget: null
 });
 
 const summarizeProgressDays = (days: StudyProgressDay[]): StudyProgressPeriod => {
@@ -222,8 +226,15 @@ function CalendarDayCell({
   const dateParts = formatDateParts(day.date);
   const tooltipQuestions = toQuestionCount(day.answeredQuestions);
   const tooltipTime = toStudyMinutes(day.approximateStudySeconds);
-  const planLabel = day.planKind === "rest" ? "راحة" : day.planKind === "review" ? "مراجعة" : "مذاكرة";
-  const ariaLabel = `${dateParts.fullDate}: ${planLabel}، ${tooltipQuestions}، ${tooltipTime}`;
+  const planLabel = day.planKind === "rest"
+    ? "راحة"
+    : day.planKind === "review"
+      ? "مراجعة"
+      : day.planSubjectLabel ?? "مذاكرة";
+  const planProgress = day.planKind === "study" && day.questionTarget
+    ? `${toArabicNumber(day.planAnsweredQuestions)} / ${toArabicNumber(day.questionTarget)}`
+    : null;
+  const ariaLabel = `${dateParts.fullDate}: ${planLabel}${planProgress ? `، ${planProgress}` : ""}، ${tooltipQuestions}، ${tooltipTime}`;
 
   return (
     <div
@@ -244,14 +255,14 @@ function CalendarDayCell({
       <span className="study-progress-day-activity" aria-hidden="true">
         <span />
       </span>
-      {showCount && day.answeredQuestions > 0 ? (
-        <small>{toArabicNumber(day.answeredQuestions)}</small>
-      ) : null}
-      {day.planKind !== "study" ? (
-        <span className="study-progress-day-kind">{planLabel}</span>
+      <span className="study-progress-day-kind">{planLabel}</span>
+      {planProgress ? <small>{planProgress}</small> : null}
+      {showCount && day.answeredQuestions > day.planAnsweredQuestions ? (
+        <small className="study-progress-day-total">إجمالي {toArabicNumber(day.answeredQuestions)}</small>
       ) : null}
       <span className="study-progress-day-tooltip" role="tooltip">
         <strong>{dateParts.monthDay}</strong>
+        <span>{planLabel}{planProgress ? ` · ${planProgress}` : ""}</span>
         <span>{tooltipQuestions}</span>
         <span>{tooltipTime}</span>
       </span>
@@ -263,20 +274,31 @@ function TodayPlan({ progress }: { progress: StudyProgressResponse }) {
   const day = progress.today;
   const isRestDay = day.planKind === "rest";
   const isReviewDay = day.planKind === "review";
-  const target = progress.dailyQuestionTarget;
-  const percent = isRestDay
-    ? 100
-    : Math.min(100, Math.round((day.answeredQuestions / target) * 100));
+  const target = day.questionTarget;
+  const isStudyDay = day.planKind === "study" && target !== null;
+  const isComplete = isStudyDay && day.planAnsweredQuestions >= target;
+  const hasStarted = progress.dailyPlanHasActiveSession || day.planAnsweredQuestions > 0;
+  const percent = isStudyDay
+    ? Math.min(100, Math.round((day.planAnsweredQuestions / target) * 100))
+    : 0;
   const title = isRestDay
     ? "يوم الراحة"
     : isReviewDay
-      ? "مراجعة عامة"
-      : "إكمال قسم اليوم";
+      ? "يوم المراجعة"
+      : day.planSubjectLabel ?? "خطة الدراسة";
   const description = isRestDay
     ? "خذ استراحة هادئة وعد غداً بطاقة جديدة."
     : isReviewDay
       ? "راجع الأسئلة المحفوظة وأخطاءك السابقة."
-      : `${toQuestionCount(day.answeredQuestions)} من ${toArabicNumber(target)} سؤال`;
+      : `${toArabicNumber(day.planAnsweredQuestions)} سؤال من ${toArabicNumber(target ?? 0)} سؤال`;
+  const actionLabel = isReviewDay
+    ? "ابدأ المراجعة"
+    : hasStarted
+      ? "استكمل خطة اليوم"
+      : "ابدأ خطة اليوم";
+  const actionDestination = isReviewDay
+    ? "/review"
+    : `/study?subject=${day.planSubjectId}&planDate=${day.date}`;
 
   return (
     <section className="study-progress-daily-plan" aria-labelledby="today-plan-title" data-plan-kind={day.planKind}>
@@ -287,17 +309,17 @@ function TodayPlan({ progress }: { progress: StudyProgressResponse }) {
       <div className="study-progress-daily-plan-details">
         <div>
           <span>{description}</span>
-          {!isRestDay ? <strong>{toArabicNumber(percent)}٪</strong> : <strong>راحة</strong>}
+          {isRestDay ? <strong>راحة</strong> : isReviewDay ? <strong>مراجعة</strong> : <strong>{toArabicNumber(percent)}٪</strong>}
         </div>
-        {!isRestDay ? (
+        {!isRestDay && !isComplete ? (
           <button
             className="study-progress-plan-action"
             type="button"
-            onClick={() => navigateTo(isReviewDay ? "/review" : "/study")}
+            onClick={() => navigateTo(actionDestination)}
           >
-            {isReviewDay ? "ابدأ المراجعة" : "ابدأ خطة اليوم"}
+            {actionLabel}
           </button>
-        ) : null}
+        ) : isComplete ? <strong className="study-progress-plan-complete">اكتملت خطة اليوم</strong> : null}
       </div>
       <div className="study-progress-daily-plan-track" aria-hidden="true">
         <span style={{ width: `${percent}%` }} />

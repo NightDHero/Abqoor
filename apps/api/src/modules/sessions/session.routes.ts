@@ -39,14 +39,25 @@ sessionRouter.post(
   async (request: Request, response: Response) => {
     try {
       const body = (request.body ?? {}) as {
+        planDate?: unknown;
         questionLimit?: unknown;
+        subjectId?: unknown;
       };
       const questionLimit =
         typeof body.questionLimit === "number" ? body.questionLimit : undefined;
+      if (
+        body.subjectId !== undefined &&
+        body.subjectId !== "math" &&
+        body.subjectId !== "arabic"
+      ) {
+        throw new SessionError("subjectId must be math or arabic.");
+      }
       const session = await startLearningSession(request.user?.id ?? "", {
-        questionLimit
+        planDate: typeof body.planDate === "string" ? body.planDate : undefined,
+        questionLimit,
+        subjectId: body.subjectId
       });
-      response.status(201).json(session);
+      response.status(session.resumed ? 200 : 201).json(session);
     } catch (error) {
       handleSessionError(error, response);
     }

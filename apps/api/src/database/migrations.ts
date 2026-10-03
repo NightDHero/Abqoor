@@ -241,6 +241,16 @@ const migrateAccountRecovery = (db: Database.Database) => {
   `);
 };
 
+const migrateDailyPlanSessions = (db: Database.Database) => {
+  addColumnIfMissing(db, "sessions", "subject_id", "TEXT");
+  addColumnIfMissing(db, "sessions", "plan_date", "TEXT");
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_active_daily_plan
+    ON sessions(user_id, subject_id, plan_date)
+    WHERE status = 'active' AND subject_id IS NOT NULL AND plan_date IS NOT NULL;
+  `);
+};
+
 const migrateAdminAccounts = (db: Database.Database) => {
   db.exec(`
     CREATE TABLE IF NOT EXISTS admin_accounts (
@@ -461,6 +471,7 @@ export const runDatabaseMigrations = (db: Database.Database) => {
   migrateStudentStudyPlan(db);
   migrateStudentSchedule(db);
   migrateAccountRecovery(db);
+  migrateDailyPlanSessions(db);
   migrateAdminAccounts(db);
   migrateSessionAnswerTiming(db);
   migratePersistentMediaStorage(db);

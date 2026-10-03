@@ -1,31 +1,23 @@
-import type { BankConfig, StudyRestDay } from "../../types/profile";
-import {
-  calculateStudyPlan,
-  formatPlanDate,
-  getTodayDate,
-  weekdayOptions
-} from "./studyPlan";
+import type {
+  BankConfig,
+  StudyPlanPreview,
+  StudyRestDay
+} from "../../types/profile";
+import { formatPlanDate, getTodayDate, weekdayOptions } from "./studyPlan";
 
 export function StudyPlanDateField({
   bankConfig,
-  restDay,
-  reviewDay,
+  isPlanLoading,
+  plan,
   startDate,
   onChange
 }: {
   bankConfig: BankConfig;
-  restDay: StudyRestDay;
-  reviewDay: StudyRestDay;
+  isPlanLoading: boolean;
+  plan: StudyPlanPreview | null;
   startDate: string;
   onChange: (value: string) => void;
 }) {
-  const plan = calculateStudyPlan({
-    bankCount: bankConfig.availableBankCount,
-    restDay,
-    reviewDay,
-    startDate
-  });
-
   return (
     <div className="study-plan-date-field">
       <label className="form-field">
@@ -41,11 +33,12 @@ export function StudyPlanDateField({
         أبدأ اليوم
       </button>
       <p className="study-plan-basis">
-        {bankConfig.availableBankCount.toLocaleString("ar-SA")} قسم متاح، قسم واحد يومياً
+        {bankConfig.availableBankCount.toLocaleString("ar-SA")} قسماً في {bankConfig.availableBankCount.toLocaleString("ar-SA")} جلسة دراسة
       </p>
+      {isPlanLoading ? <p className="study-plan-inline-summary">جاري حساب الخطة...</p> : null}
       {plan ? (
         <p className="study-plan-inline-summary">
-          {plan.studyDays.toLocaleString("ar-SA")} يوم مذاكرة، والانتهاء المتوقع {formatPlanDate(plan.completionDate)}
+          {plan.weeklyStudyDays.toLocaleString("ar-SA")} أيام دراسة أسبوعياً، يوم مراجعة، يوم راحة. الانتهاء المتوقع {formatPlanDate(plan.completionDate)}
         </p>
       ) : null}
     </div>
@@ -53,28 +46,22 @@ export function StudyPlanDateField({
 }
 
 export function StudyPlanScheduleField({
-  bankConfig,
+  isPlanLoading,
+  plan,
   restDay,
   reviewDay,
-  startDate,
   onConflict,
   onRestDayChange,
   onReviewDayChange
 }: {
-  bankConfig: BankConfig;
+  isPlanLoading: boolean;
+  plan: StudyPlanPreview | null;
   restDay: StudyRestDay;
   reviewDay: StudyRestDay;
-  startDate: string;
   onConflict: (message: string) => void;
   onRestDayChange: (value: StudyRestDay) => void;
   onReviewDayChange: (value: StudyRestDay) => void;
 }) {
-  const plan = calculateStudyPlan({
-    bankCount: bankConfig.availableBankCount,
-    restDay,
-    reviewDay,
-    startDate
-  });
   const selectRestDay = (day: StudyRestDay) => {
     if (day === reviewDay) {
       onConflict("اليوم المختار للمراجعة لا يمكن اختياره كيوم راحة.");
@@ -126,11 +113,27 @@ export function StudyPlanScheduleField({
           ))}
         </div>
       </div>
+      {isPlanLoading ? <p className="study-plan-inline-summary">جاري تحديث توزيع الأسبوع...</p> : null}
       {plan ? (
         <div className="study-plan-result" aria-live="polite">
-          <strong>
-            {plan.calendarDays.toLocaleString("ar-SA")} يوم مذاكرة من أصل {plan.studyDays.toLocaleString("ar-SA")} مذاكرة
-          </strong>
+          <div className="study-plan-week-preview" aria-label="التوزيع الأسبوعي المشتق تلقائياً">
+            {plan.schedule.map((day) => {
+              const weekday = weekdayOptions.find((option) => option.value === day.weekday);
+              const label = day.kind === "rest"
+                ? "راحة"
+                : day.kind === "review"
+                  ? "مراجعة"
+                  : `${day.subjectLabel} · ${day.questionTarget?.toLocaleString("ar-SA")}`;
+
+              return (
+                <div data-kind={day.kind} key={day.date}>
+                  <span>{weekday?.label}</span>
+                  <strong>{label}</strong>
+                </div>
+              );
+            })}
+          </div>
+          <strong>٥ أيام دراسة · يوم مراجعة · يوم راحة</strong>
           <span>تاريخ الانتهاء: {formatPlanDate(plan.completionDate)}</span>
         </div>
       ) : null}

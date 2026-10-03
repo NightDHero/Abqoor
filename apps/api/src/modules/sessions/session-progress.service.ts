@@ -1,10 +1,17 @@
-import { bankConfig } from "../banks/bank-config.js";
+import {
+  bankConfig,
+  getStudyScheduleDay,
+  normalizeStoredStudyDays,
+  type StudyScheduleDayKind,
+  type StudyScheduleSubjectId
+} from "../banks/bank-config.js";
 import { findStudentProfileByUserId } from "../profile/profile.repository.js";
 import { findUserProgressActivity } from "./session-progress.repository.js";
+import { findActiveDailyPlanSession } from "./session.repository.js";
 import type { SessionProgressActivityRecord } from "./session-progress.repository.js";
 
 export type StudyProgressIntensity = 0 | 1 | 2 | 3;
-export type StudyPlanDayKind = "study" | "review" | "rest";
+export type StudyPlanDayKind = StudyScheduleDayKind;
 
 export type StudyProgressDay = {
   date: string;
@@ -12,7 +19,11 @@ export type StudyProgressDay = {
   correctAnswers: number;
   approximateStudySeconds: number;
   intensity: StudyProgressIntensity;
+  planAnsweredQuestions: number;
   planKind: StudyPlanDayKind;
+  planSubjectId: StudyScheduleSubjectId | null;
+  planSubjectLabel: string | null;
+  questionTarget: number | null;
 };
 
 export type StudyProgressPeriod = {
@@ -35,7 +46,8 @@ export type StudyProgressResponse = {
   generatedAt: string;
   timeZone: string;
   activeStudyDay: number;
-  dailyQuestionTarget: number;
+  dailyPlanHasActiveSession: boolean;
+  dailyQuestionTarget: number | null;
   streak: StudyProgressStreak;
   today: StudyProgressDay;
   week: StudyProgressPeriod;
@@ -233,13 +245,19 @@ const getIntensity = (answeredQuestions: number): StudyProgressIntensity => {
   return 3;
 };
 
-const emptyDay = (date: string, planKind: StudyPlanDayKind): StudyProgressDay => ({
+const emptyDay = (
+  schedule: ReturnType<typeof getStudyScheduleDay>
+): StudyProgressDay => ({
   approximateStudySeconds: 0,
   answeredQuestions: 0,
   correctAnswers: 0,
-  date,
+  date: schedule.date,
   intensity: 0,
-  planKind
+  planAnsweredQuestions: 0,
+  planKind: schedule.kind,
+  planSubjectId: schedule.subjectId,
+  planSubjectLabel: schedule.subjectLabel,
+  questionTarget: schedule.questionTarget
 });
 
 const toPercent = (value: number, maximum: number) =>
@@ -359,14 +377,18 @@ export const getStudyProgress = async (
   const activityByDate = new Map<string, StudyProgressDay>();
   const currentActivity: SessionProgressActivityRecord[] = [];
   const profile = await findStudentProfileByUserId(userId);
-  const restDay = profile?.weekly_rest_day ?? 5;
-  const reviewDay = profile?.weekly_review_day ?? (restDay === 6 ? 5 : 6);
-  const getPlanKind = (date: string): StudyPlanDayKind => {
-    const weekday = toUTCDate(date).getUTCDay();
-    if (weekday === restDay) return "rest";
-    if (weekday === reviewDay) return "review";
-    return "study";
-  };
+  const { restDay, reviewDay } = normalizeStoredStudyDays({
+    restDay: profile?.weekly_rest_day,
+    reviewDay: profile?.weekly_review_day
+  });
+  const studyPlanStartDate = profile?.study_plan_start_date ?? todayDate;
+  const getSchedule = (date: string) =>
+    getStudyScheduleDay({
+      date,
+      restDay,
+      reviewDay,
+      startDate: studyPlanStartDate
+    });
 
   for (const record of await findUserProgressActivity(userId)) {
     const date = getDateKey(new Date(record.answered_at), timeZone);
@@ -377,38 +399,52 @@ export const getStudyProgress = async (
 
     currentActivity.push(record);
 
-    const existing = activityByDate.get(date) ?? emptyDay(date, getPlanKind(date));
+    const existing = activityByDate.get(date) ?? emptyDay(getSchedule(date));
+    const subjectId =
+      record.subject_id ??
+      (record.subject === "quantitative" ? "math" : "arabic");
 
     existing.answeredQuestions += 1;
     existing.correctAnswers += record.is_correct === 1 ? 1 : 0;
     existing.approximateStudySeconds += getActiveStudySeconds(record);
     existing.intensity = getIntensity(existing.answeredQuestions);
+    if (existing.planSubjectId === subjectId) {
+      existing.planAnsweredQuestions += 1;
+    }
 
     activityByDate.set(date, existing);
   }
 
   const buildDays = (dayCount: number) =>
     getDateRange(todayDate, dayCount).map(
-      (date) => activityByDate.get(date) ?? emptyDay(date, getPlanKind(date))
+      (date) => activityByDate.get(date) ?? emptyDay(getSchedule(date))
     );
   const buildRange = (dates: string[]) =>
     summarizeDays(
-      dates.map((date) => activityByDate.get(date) ?? emptyDay(date, getPlanKind(date)))
+      dates.map((date) => activityByDate.get(date) ?? emptyDay(getSchedule(date)))
     );
+  const today = activityByDate.get(todayDate) ?? emptyDay(getSchedule(todayDate));
+  const activeDailyPlanSession = today.planSubjectId
+    ? await findActiveDailyPlanSession({
+        planDate: today.date,
+        subjectId: today.planSubjectId,
+        userId
+      })
+    : null;
 
   return {
     activeStudyDay: [...activityByDate.values()].filter(
       (day) => day.answeredQuestions > 0
     ).length,
     career: createCareerProgress(currentActivity),
-    dailyQuestionTarget:
-      bankConfig.mathQuestionsPerBank + bankConfig.verbalQuestionsPerBank,
+    dailyPlanHasActiveSession: Boolean(activeDailyPlanSession),
+    dailyQuestionTarget: today.questionTarget,
     generatedAt: new Date().toISOString(),
     month: buildRange(displayedMonthDates),
     monthWeeks: getCalendarWeeksForMonth(displayedMonthDates).map(buildRange),
     streak: calculateStreaks(activityByDate, todayDate),
     timeZone,
-    today: activityByDate.get(todayDate) ?? emptyDay(todayDate, getPlanKind(todayDate)),
+    today,
     week: summarizeDays(buildDays(7)),
     year: buildRange(getCalendarYearRange(`${displayedMonthKey.slice(0, 4)}-01-01`))
   };

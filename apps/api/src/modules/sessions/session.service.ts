@@ -1,11 +1,24 @@
 import { randomUUID } from "node:crypto";
-import { getQuestions, isCorrectAnswer } from "../questions/question.service.js";
+import {
+  getQuestion,
+  getQuestions,
+  isCorrectAnswer
+} from "../questions/question.service.js";
 import type { CorrectAnswer, Question } from "../questions/question.types.js";
+import {
+  getStudyScheduleDay,
+  isDateOnly,
+  normalizeStoredStudyDays,
+  type StudyScheduleSubjectId
+} from "../banks/bank-config.js";
+import { findStudentProfileByUserId } from "../profile/profile.repository.js";
 import { recordWrongAnswerReview } from "../review/review.service.js";
 import {
   countSessionAnswers,
   createSession,
+  findActiveDailyPlanSession,
   findSessionAnswer,
+  findSessionAnswers,
   findUserAnswerHistory,
   findSession,
   markSessionCompleted,
@@ -27,6 +40,10 @@ const bootstrapQuestionIds = Array.from({ length: 49 }, (_value, index) => {
 const adaptiveSessionQuestionLimit = 15;
 const minimumSessionQuestionLimit = 1;
 const maxActiveDurationSecondsPerAnswer = 24 * 60 * 60;
+const studySubjectMap = {
+  arabic: "verbal",
+  math: "quantitative"
+} as const;
 
 export class SessionError extends Error {
   constructor(
@@ -202,18 +219,6 @@ const selectAdaptiveQuestions = async (
   return selectedQuestions;
 };
 
-const getBootstrapQuestionById = async (questionId: string) => {
-  if (!bootstrapQuestionIds.includes(questionId)) {
-    return null;
-  }
-
-  const question = (await getQuestions({})).find(
-    (candidate) => candidate.id === questionId && candidate.source === "pdf"
-  );
-
-  return question ? toSessionQuestion(question) : null;
-};
-
 const getOwnedSession = async (sessionId: string, userId: string) => {
   const session = await findSession(sessionId);
 
@@ -222,6 +227,68 @@ const getOwnedSession = async (sessionId: string, userId: string) => {
   }
 
   return session;
+};
+
+const getOrderedSessionQuestions = async (session: SessionRecord) => {
+  const questionsById = new Map(
+    (await getQuestions({})).map((question) => [question.id, question] as const)
+  );
+
+  return getSessionQuestionIds(session.question_order)
+    .map((questionId) => questionsById.get(questionId))
+    .filter((question): question is Question => question !== undefined)
+    .map(toSessionQuestion);
+};
+
+const toStartSessionResponse = async (
+  session: SessionRecord,
+  resumed: boolean
+) => {
+  const questions = await getOrderedSessionQuestions(session);
+  const answers = (await findSessionAnswers(session.session_id)).map((answer) => ({
+    activeDurationSeconds: answer.active_duration_seconds,
+    answeredAt: answer.created_at,
+    correctAnswer: answer.correct_answer,
+    isCorrect: answer.is_correct === 1,
+    questionId: answer.question_id,
+    sessionId: answer.session_id,
+    userAnswer: answer.user_answer
+  }));
+
+  return {
+    answers,
+    questions: questions.map(toPublicQuestion),
+    resumed,
+    sessionId: session.session_id,
+    status: session.status,
+    totalQuestions: questions.length
+  };
+};
+
+const validateDailyPlanSubject = async (
+  userId: string,
+  subjectId: StudyScheduleSubjectId,
+  planDate: string
+) => {
+  if (!isDateOnly(planDate)) {
+    throw new SessionError("planDate must be formatted as YYYY-MM-DD.");
+  }
+
+  const profile = await findStudentProfileByUserId(userId);
+  const { restDay, reviewDay } = normalizeStoredStudyDays({
+    restDay: profile?.weekly_rest_day,
+    reviewDay: profile?.weekly_review_day
+  });
+
+  const schedule = getStudyScheduleDay({
+    date: planDate,
+    restDay,
+    reviewDay,
+    startDate: profile?.study_plan_start_date ?? planDate
+  });
+  if (schedule.kind !== "study" || schedule.subjectId !== subjectId) {
+    throw new SessionError("The requested subject does not match the daily study plan.", 409);
+  }
 };
 
 const calculateResult = async (
@@ -266,7 +333,11 @@ const completeSessionIfReady = (
 
 export const startLearningSession = async (
   userId: string,
-  options: { questionLimit?: number } = {}
+  options: {
+    planDate?: string;
+    questionLimit?: number;
+    subjectId?: StudyScheduleSubjectId;
+  } = {}
 ) => {
   const questionLimit = options.questionLimit ?? adaptiveSessionQuestionLimit;
 
@@ -280,31 +351,66 @@ export const startLearningSession = async (
     );
   }
 
-  const questions = await getBootstrapQuestions();
+  if (options.subjectId && !Object.hasOwn(studySubjectMap, options.subjectId)) {
+    throw new SessionError("subjectId must be math or arabic.");
+  }
+
+  if (options.planDate && !options.subjectId) {
+    throw new SessionError("subjectId is required with planDate.");
+  }
+
+  if (options.subjectId && options.planDate) {
+    await validateDailyPlanSubject(
+      userId,
+      options.subjectId,
+      options.planDate
+    );
+    const activeSession = await findActiveDailyPlanSession({
+      planDate: options.planDate,
+      subjectId: options.subjectId,
+      userId
+    });
+    if (activeSession) return toStartSessionResponse(activeSession, true);
+  }
+
+  const questions = options.subjectId
+    ? (await getQuestions({ subject: studySubjectMap[options.subjectId] })).map(
+        toSessionQuestion
+      )
+    : await getBootstrapQuestions();
   const selectedQuestions = await selectAdaptiveQuestions(
     questions,
     userId,
     questionLimit
   );
+  if (selectedQuestions.length === 0) {
+    throw new SessionError("No questions are available for this study section.", 409);
+  }
   const now = new Date().toISOString();
   const session = await createSession({
     sessionId: randomUUID(),
     userId,
     questionOrder: selectedQuestions.map((question) => question.id),
+    planDate: options.planDate,
+    subjectId: options.subjectId,
     createdAt: now,
     updatedAt: now,
     status: "active"
   });
 
   if (!session) {
+    if (options.subjectId && options.planDate) {
+      const activeSession = await findActiveDailyPlanSession({
+        planDate: options.planDate,
+        subjectId: options.subjectId,
+        userId
+      });
+      if (activeSession) return toStartSessionResponse(activeSession, true);
+    }
     throw new SessionError("Session creation failed.", 500);
   }
 
-  return {
-    sessionId: session.session_id,
-    questions: selectedQuestions.map(toPublicQuestion),
-    totalQuestions: selectedQuestions.length
-  };
+  return toStartSessionResponse(session, false);
 };
 
 export const submitSessionAnswer = async (
@@ -355,7 +461,8 @@ export const submitSessionAnswer = async (
     throw new SessionError("Question has already been answered.", 409);
   }
 
-  const question = await getBootstrapQuestionById(input.questionId);
+  const storedQuestion = await getQuestion(input.questionId);
+  const question = storedQuestion ? toSessionQuestion(storedQuestion) : null;
 
   if (!question) {
     throw new SessionError("Question is not part of this session.", 404);

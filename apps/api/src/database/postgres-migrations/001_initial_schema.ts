@@ -225,11 +225,17 @@ export const sql = `
     session_id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
     question_order TEXT NOT NULL DEFAULT '[]',
+    subject_id TEXT CHECK (subject_id IS NULL OR subject_id IN ('math', 'arabic')),
+    plan_date TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('active', 'completed')),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_active_daily_plan
+  ON sessions(user_id, subject_id, plan_date)
+  WHERE status = 'active' AND subject_id IS NOT NULL AND plan_date IS NOT NULL;
 
   CREATE TABLE IF NOT EXISTS session_answers (
     session_id TEXT NOT NULL,

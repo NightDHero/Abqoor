@@ -206,6 +206,8 @@ export const initializeSqliteSchema = (db: Database.Database) => {
       session_id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
       question_order TEXT NOT NULL DEFAULT '[]',
+      subject_id TEXT CHECK (subject_id IS NULL OR subject_id IN ('math', 'arabic')),
+      plan_date TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       status TEXT NOT NULL CHECK (status IN ('active', 'completed')),

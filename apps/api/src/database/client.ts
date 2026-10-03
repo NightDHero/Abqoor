@@ -8,6 +8,7 @@ import * as initialPostgresSchema from "./postgres-migrations/001_initial_schema
 import * as importItemSubtopics from "./postgres-migrations/002_import_item_subtopics.js";
 import * as studentStudyPlan from "./postgres-migrations/003_student_study_plan.js";
 import * as studentScheduleAndRecovery from "./postgres-migrations/004_student_schedule_and_recovery.js";
+import * as dailyPlanSessions from "./postgres-migrations/005_daily_plan_sessions.js";
 import { initializeSqliteSchema } from "./sqlite-schema.js";
 
 const { Pool, types } = pg;
@@ -46,7 +47,8 @@ const postgresMigrations: PostgresMigration[] = [
   initialPostgresSchema,
   importItemSubtopics,
   studentStudyPlan,
-  studentScheduleAndRecovery
+  studentScheduleAndRecovery,
+  dailyPlanSessions
 ];
 const transactionClientStorage = new AsyncLocalStorage<pg.PoolClient>();
 

@@ -338,7 +338,7 @@ body:has(.onboarding-shell) {
 
 .study-plan-weekdays {
   display: grid;
-  grid-template-columns: repeat(7, minmax(68px, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 9px;
 }
 
@@ -392,6 +392,51 @@ body:has(.onboarding-shell) {
 .study-plan-result span {
   color: var(--abq-cyan-soft);
   font-weight: 800;
+}
+
+.study-plan-week-preview {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  width: 100%;
+  gap: 7px;
+}
+
+.study-plan-week-preview > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  border: 1px solid var(--abq-line);
+  border-radius: 10px;
+  background: rgb(255 255 255 / 3%);
+  padding: 9px 6px;
+  text-align: center;
+}
+
+.study-plan-week-preview > div[data-kind="review"] {
+  border-color: rgb(222 111 120 / 48%);
+  background: rgb(222 111 120 / 12%);
+}
+
+.study-plan-week-preview > div[data-kind="rest"] {
+  border-color: rgb(101 169 238 / 48%);
+  background: rgb(101 169 238 / 12%);
+}
+
+.study-plan-week-preview span,
+.study-plan-week-preview strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.study-plan-week-preview span {
+  color: var(--abq-muted);
+  font-size: 0.72rem;
+}
+
+.study-plan-week-preview strong {
+  color: var(--abq-text);
+  font-size: 0.76rem;
 }
 
 .product-app-shell .form-field,
@@ -907,6 +952,16 @@ body:has(.onboarding-shell) {
 
   .study-plan-weekdays {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .study-plan-week-preview {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .study-plan-week-preview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

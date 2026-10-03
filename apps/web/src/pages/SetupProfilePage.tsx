@@ -7,6 +7,7 @@ import {
   type ProfileFormState
 } from "../features/profile/profileFormState";
 import { weakerSectionOptions } from "../features/profile/profileOptions";
+import { useStudyPlanPreview } from "../features/profile/useStudyPlanPreview";
 import { bankService } from "../services/bankService";
 import { HttpError } from "../services/http";
 import { profileService } from "../services/profileService";
@@ -57,6 +58,11 @@ export function SetupProfilePage({
   const [isUsernameOnlySetup, setIsUsernameOnlySetup] = useState(false);
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const studyPlanPreview = useStudyPlanPreview({
+    restDay: form.weeklyRestDay,
+    reviewDay: form.weeklyReviewDay,
+    startDate: form.studyPlanStartDate
+  });
 
   useEffect(() => {
     let isMounted = true;
@@ -142,16 +148,16 @@ export function SetupProfilePage({
       },
       {
         title: "متى تبدأ مذاكرتك",
-        render: () => <StudyPlanDateField bankConfig={bankConfig} restDay={form.weeklyRestDay} reviewDay={form.weeklyReviewDay} startDate={form.studyPlanStartDate} onChange={(studyPlanStartDate) => updateForm({ studyPlanStartDate })} />
+        render: () => <StudyPlanDateField bankConfig={bankConfig} isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} startDate={form.studyPlanStartDate} onChange={(studyPlanStartDate) => updateForm({ studyPlanStartDate })} />
       },
       {
         title: "نظّم أسبوعك",
-        render: () => <StudyPlanScheduleField bankConfig={bankConfig} restDay={form.weeklyRestDay} reviewDay={form.weeklyReviewDay} startDate={form.studyPlanStartDate} onConflict={setError} onRestDayChange={(weeklyRestDay) => updateForm({ weeklyRestDay })} onReviewDayChange={(weeklyReviewDay) => updateForm({ weeklyReviewDay })} />
+        render: () => <StudyPlanScheduleField isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} restDay={form.weeklyRestDay} reviewDay={form.weeklyReviewDay} onConflict={setError} onRestDayChange={(weeklyRestDay) => updateForm({ weeklyRestDay })} onReviewDayChange={(weeklyReviewDay) => updateForm({ weeklyReviewDay })} />
       }
     ];
     if (isUsernameOnlySetup) return [allSteps[0]];
     return form.hasTakenQudurat === true ? allSteps : allSteps.filter((_step, index) => index !== 4 && index !== 5);
-  }, [bankConfig, form, isUsernameOnlySetup]);
+  }, [bankConfig, form, isUsernameOnlySetup, studyPlanPreview.isLoading, studyPlanPreview.plan]);
 
   useEffect(() => {
     setStepIndex((current) => Math.min(current, Math.max(steps.length - 1, 0)));

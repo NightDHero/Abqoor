@@ -7,9 +7,15 @@ export type SessionRecord = {
   session_id: string;
   user_id: string;
   question_order: string;
+  subject_id: "math" | "arabic" | null;
+  plan_date: string | null;
   created_at: string;
   updated_at: string;
   status: SessionStatus;
+};
+
+export type SessionResumeAnswerRecord = SessionAnswerRecord & {
+  correct_answer: CorrectAnswer;
 };
 
 export type SessionAnswerRecord = {
@@ -26,6 +32,8 @@ const createSessionStatement = db.prepare(`
     session_id,
     user_id,
     question_order,
+    subject_id,
+    plan_date,
     created_at,
     updated_at,
     status
@@ -34,16 +42,35 @@ const createSessionStatement = db.prepare(`
     @sessionId,
     @userId,
     @questionOrder,
+    @subjectId,
+    @planDate,
     @createdAt,
     @updatedAt,
     @status
   )
+  ON CONFLICT DO NOTHING
 `);
 
 const findSessionStatement = db.prepare<string, SessionRecord>(`
-  SELECT session_id, user_id, question_order, created_at, updated_at, status
+  SELECT session_id, user_id, question_order, subject_id, plan_date,
+    created_at, updated_at, status
   FROM sessions
   WHERE session_id = ?
+`);
+
+const findActiveDailyPlanSessionStatement = db.prepare<
+  { planDate: string; subjectId: "math" | "arabic"; userId: string },
+  SessionRecord
+>(`
+  SELECT session_id, user_id, question_order, subject_id, plan_date,
+    created_at, updated_at, status
+  FROM sessions
+  WHERE user_id = @userId
+    AND subject_id = @subjectId
+    AND plan_date = @planDate
+    AND status = 'active'
+  ORDER BY created_at DESC
+  LIMIT 1
 `);
 
 const insertAnswerStatement = db.prepare(`
@@ -121,6 +148,21 @@ const findUserAnswerHistoryStatement = db.prepare<string, SessionAnswerRecord>(`
   ORDER BY session_answers.created_at ASC
 `);
 
+const findSessionAnswersStatement = db.prepare<string, SessionResumeAnswerRecord>(`
+  SELECT
+    session_answers.session_id,
+    session_answers.question_id,
+    session_answers.user_answer,
+    questions.correct_answer,
+    session_answers.is_correct,
+    session_answers.active_duration_seconds,
+    session_answers.created_at
+  FROM session_answers
+  INNER JOIN questions ON questions.id = session_answers.question_id
+  WHERE session_answers.session_id = ?
+  ORDER BY session_answers.created_at ASC
+`);
+
 const writeSessionAnswer = async (input: {
   sessionId: string;
   questionId: string;
@@ -149,16 +191,26 @@ export const createSession = async (input: {
   sessionId: string;
   userId: string;
   questionOrder: string[];
+  subjectId?: "math" | "arabic";
+  planDate?: string;
   createdAt: string;
   updatedAt: string;
   status: SessionStatus;
 }) => {
   await createSessionStatement.run({
     ...input,
+    planDate: input.planDate ?? null,
+    subjectId: input.subjectId ?? null,
     questionOrder: JSON.stringify(input.questionOrder)
   });
   return findSession(input.sessionId);
 };
+
+export const findActiveDailyPlanSession = async (input: {
+  planDate: string;
+  subjectId: "math" | "arabic";
+  userId: string;
+}) => (await findActiveDailyPlanSessionStatement.get(input)) ?? null;
 
 export const findSession = async (sessionId: string) => {
   return (await findSessionStatement.get(sessionId)) ?? null;
@@ -220,6 +272,9 @@ export const countSessionAnswers = async (sessionId: string) => {
 export const findUserAnswerHistory = async (userId: string) => {
   return (await findUserAnswerHistoryStatement.all(userId)) as SessionAnswerRecord[];
 };
+
+export const findSessionAnswers = async (sessionId: string) =>
+  (await findSessionAnswersStatement.all(sessionId)) as SessionResumeAnswerRecord[];
 
 export const markSessionCompleted = async (sessionId: string) => {
   await completeSessionStatement.run({

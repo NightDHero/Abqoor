@@ -8,9 +8,13 @@ import type {
 import { apiRequest } from "./http";
 
 export const sessionService = {
-  startSession: (questionLimit: number) =>
+  startSession: (input: {
+    planDate?: string;
+    questionLimit?: number;
+    subjectId?: "math" | "arabic";
+  } = {}) =>
     apiRequest<StartSessionResponse>("/sessions/start", {
-      body: JSON.stringify({ questionLimit }),
+      body: JSON.stringify(input),
       method: "POST"
     }),
 

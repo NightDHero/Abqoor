@@ -13,7 +13,10 @@ export type SessionQuestion = {
 };
 
 export type StartSessionResponse = {
+  answers: SubmitAnswerResponse[];
+  resumed: boolean;
   sessionId: string;
+  status: "active" | "completed";
   questions: SessionQuestion[];
   totalQuestions: number;
 };
@@ -47,7 +50,11 @@ export type StudyProgressDay = {
   correctAnswers: number;
   approximateStudySeconds: number;
   intensity: StudyProgressIntensity;
+  planAnsweredQuestions: number;
   planKind: StudyPlanDayKind;
+  planSubjectId: "math" | "arabic" | null;
+  planSubjectLabel: string | null;
+  questionTarget: number | null;
 };
 
 export type StudyProgressPeriod = {
@@ -73,7 +80,8 @@ export type StudyProgressResponse = {
   generatedAt: string;
   timeZone: string;
   activeStudyDay: number;
-  dailyQuestionTarget: number;
+  dailyPlanHasActiveSession: boolean;
+  dailyQuestionTarget: number | null;
   streak: StudyProgressStreak;
   today: StudyProgressDay;
   week: StudyProgressPeriod;

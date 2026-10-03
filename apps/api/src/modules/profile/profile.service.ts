@@ -206,6 +206,26 @@ const normalizeProfileInput = (input: UpdateStudentProfileInput) => {
   };
 };
 
+export const previewStudentStudyPlan = (input: {
+  studyPlanStartDate?: unknown;
+  weeklyRestDay?: unknown;
+  weeklyReviewDay?: unknown;
+}) => {
+  const studyPlanStartDate = toStudyPlanStartDate(input.studyPlanStartDate);
+  const weeklyRestDay = toStudyDay(input.weeklyRestDay, "weeklyRestDay");
+  const weeklyReviewDay = toStudyDay(input.weeklyReviewDay, "weeklyReviewDay");
+  if (weeklyRestDay === weeklyReviewDay) {
+    throw new ProfileError("اليوم المختار للراحة لا يمكن اختياره كيوم مراجعة.");
+  }
+
+  return calculateStudyPlan({
+    bankCount: bankConfig.availableBankCount,
+    restDay: weeklyRestDay,
+    reviewDay: weeklyReviewDay,
+    startDate: studyPlanStartDate
+  });
+};
+
 export const getStudentProfile = async (userId: string): Promise<StudentProfile> => {
   if (!userId.trim()) {
     throw new ProfileError("تسجيل الدخول مطلوب.", 401);

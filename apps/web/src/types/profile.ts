@@ -1,5 +1,26 @@
 export type WeakerSection = "quantitative" | "verbal" | "both";
 export type StudyRestDay = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+export type StudyScheduleSubjectId = "math" | "arabic";
+
+export type StudyScheduleDay = {
+  date: string;
+  kind: "study" | "review" | "rest";
+  questionTarget: number | null;
+  subjectId: StudyScheduleSubjectId | null;
+  subjectLabel: string | null;
+  weekday: StudyRestDay;
+};
+
+export type StudyPlanPreview = {
+  bankCount: number;
+  calendarDays: number;
+  completionDate: string;
+  schedule: StudyScheduleDay[];
+  studyDays: number;
+  weeklyReviewDays: 1;
+  weeklyRestDays: 1;
+  weeklyStudyDays: 5;
+};
 
 export type BankConfig = {
   availableBankCount: number;

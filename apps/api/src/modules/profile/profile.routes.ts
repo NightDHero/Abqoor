@@ -2,6 +2,7 @@ import { Router, type Response } from "express";
 import { requireAuth } from "../auth/auth.middleware.js";
 import {
   getStudentProfile,
+  previewStudentStudyPlan,
   ProfileError,
   saveStudentProfile
 } from "./profile.service.js";
@@ -22,6 +23,21 @@ profileRouter.get("/", requireAuth, async (request, response) => {
   try {
     response.status(200).json({
       profile: await getStudentProfile(request.user?.id ?? "")
+    });
+  } catch (error) {
+    handleProfileError(error, response);
+  }
+});
+
+profileRouter.post("/schedule-preview", requireAuth, async (request, response) => {
+  try {
+    const body = (request.body ?? {}) as {
+      studyPlanStartDate?: unknown;
+      weeklyRestDay?: unknown;
+      weeklyReviewDay?: unknown;
+    };
+    response.status(200).json({
+      plan: previewStudentStudyPlan(body)
     });
   } catch (error) {
     handleProfileError(error, response);

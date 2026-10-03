@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ImmersiveQuestionFeed } from "../../components/ui/ImmersiveQuestionFeed";
 import { StudyQuestion } from "./StudyQuestion";
 import { StudyResult } from "./StudyResult";
@@ -6,9 +6,24 @@ import { StudyWorldSelector } from "./StudyWorldSelector";
 import { useStudySession } from "./useStudySession";
 import { toStudyImageSrc } from "./studyUtils";
 
-export function StudyMode() {
+export function StudyMode({
+  planDate,
+  subjectId
+}: {
+  planDate?: string;
+  subjectId?: "math" | "arabic";
+}) {
   const study = useStudySession();
   const [isImmersive, setIsImmersive] = useState(false);
+  const autoStartedPlanKey = useRef("");
+
+  useEffect(() => {
+    if (!subjectId) return;
+    const planKey = `${subjectId}:${planDate ?? ""}`;
+    if (autoStartedPlanKey.current === planKey) return;
+    autoStartedPlanKey.current = planKey;
+    void study.start(subjectId, planDate);
+  }, [planDate, study, subjectId]);
   const renderModeSwitch = () => (
     <div className="study-view-switch" aria-label="طريقة عرض سحب">
       <button
@@ -35,7 +50,7 @@ export function StudyMode() {
     return (
       <StudyResult
         onStartNextSession={() => {
-          void study.start();
+          void study.start(subjectId, planDate);
         }}
         result={study.result}
         weakTopics={study.weakTopics}
@@ -54,13 +69,17 @@ export function StudyMode() {
         .join(" ")}
       aria-labelledby="study-title"
     >
-      {!study.isActive ? (
+      {!study.isActive && !subjectId ? (
         <StudyWorldSelector
           isStarting={study.isStarting}
-          onSelect={() => {
-            void study.start();
+          onSelect={(selectedSubjectId) => {
+            void study.start(selectedSubjectId);
           }}
         />
+      ) : null}
+
+      {!study.isActive && subjectId && study.isStarting ? (
+        <p className="status-message">جاري فتح خطة اليوم...</p>
       ) : null}
 
       {study.error ? <p className="error-message">{study.error}</p> : null}
