@@ -72,6 +72,16 @@ export type StudyProgressStreak = {
   highest: number;
 };
 
+export type PastUnfinishedStudyPlanDay = {
+  date: string;
+  hasStarted: boolean;
+  planAnsweredQuestions: number;
+  planKind: "study";
+  planSubjectId: "math" | "arabic";
+  planSubjectLabel: string;
+  questionTarget: number;
+};
+
 export type StudyProgressResponse = {
   career: {
     arabic: CareerSubjectProgress;
@@ -87,6 +97,8 @@ export type StudyProgressResponse = {
   week: StudyProgressPeriod;
   month: StudyProgressPeriod;
   monthWeeks: StudyProgressPeriod[];
+  pastUnfinishedDays: PastUnfinishedStudyPlanDay[];
+  pastUnfinishedHasMore: boolean;
   year: StudyProgressPeriod;
 };
 

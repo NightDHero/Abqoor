@@ -337,9 +337,9 @@ export function HomeBrowserShowcase() {
 
 export function HomeAdaptiveShowcase() {
   return (
-    <div className="home-adaptive-showcase" aria-label="سحب">
+    <div className="home-adaptive-showcase" aria-label="سائل">
       <div className="home-adaptive-core">
-        <h3>سحب</h3>
+        <h3>سائل</h3>
         <p>{homeContent.systems.adaptive}</p>
       </div>
       <ol className="home-adaptive-path">
@@ -405,7 +405,7 @@ export function HomeAdviceUnlockVisual() {
       </div>
       <div className="home-advice-assistant">
         <i />
-        <strong>سحب</strong>
+        <strong>سائل</strong>
       </div>
     </div>
   );

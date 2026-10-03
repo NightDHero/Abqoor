@@ -128,7 +128,7 @@ export default function App() {
     renderProtectedPage(auth.user?.isAdmin ? children : <NotFoundPage />);
 
   if (path === "/career") {
-    return renderProtectedPage(<CareerPage />);
+    return renderProtectedPage(<CareerPage username={auth.user?.username} />);
   }
 
   if (topicRouteValue) {

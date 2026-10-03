@@ -7,7 +7,10 @@ import {
 } from "../banks/bank-config.js";
 import { findStudentProfileByUserId } from "../profile/profile.repository.js";
 import { findUserProgressActivity } from "./session-progress.repository.js";
-import { findActiveDailyPlanSession } from "./session.repository.js";
+import {
+  findActiveDailyPlanSession,
+  findDailyPlanProgress
+} from "./session.repository.js";
 import type { SessionProgressActivityRecord } from "./session-progress.repository.js";
 
 export type StudyProgressIntensity = 0 | 1 | 2 | 3;
@@ -41,6 +44,16 @@ export type StudyProgressStreak = {
   highest: number;
 };
 
+export type PastUnfinishedStudyPlanDay = {
+  date: string;
+  hasStarted: boolean;
+  planAnsweredQuestions: number;
+  planKind: "study";
+  planSubjectId: StudyScheduleSubjectId;
+  planSubjectLabel: string;
+  questionTarget: number;
+};
+
 export type StudyProgressResponse = {
   career: CareerProgress;
   generatedAt: string;
@@ -53,6 +66,8 @@ export type StudyProgressResponse = {
   week: StudyProgressPeriod;
   month: StudyProgressPeriod;
   monthWeeks: StudyProgressPeriod[];
+  pastUnfinishedDays: PastUnfinishedStudyPlanDay[];
+  pastUnfinishedHasMore: boolean;
   year: StudyProgressPeriod;
 };
 
@@ -79,6 +94,8 @@ export class SessionProgressError extends Error {
 
 const defaultTimeZone = "Asia/Riyadh";
 const monthKeyPattern = /^\d{4}-\d{2}$/;
+const pastPlanLookbackDays = 84;
+const pastPlanResultLimit = 24;
 
 const normalizeTimeZone = (value: unknown) => {
   if (value === undefined) {
@@ -389,6 +406,36 @@ export const getStudyProgress = async (
       reviewDay,
       startDate: studyPlanStartDate
     });
+  const pastPlanStartDate = [
+    studyPlanStartDate,
+    addDays(todayDate, -pastPlanLookbackDays)
+  ].sort().at(-1) ?? studyPlanStartDate;
+  const dailyPlanProgress = await findDailyPlanProgress({
+    endDate: todayDate,
+    startDate: pastPlanStartDate,
+    userId
+  });
+  const dailyPlanProgressByDate = new Map(
+    dailyPlanProgress.map((record) => [
+      `${record.plan_date}:${record.subject_id}`,
+      record
+    ])
+  );
+
+  const applyDailyPlanProgress = (day: StudyProgressDay) => {
+    if (!day.planSubjectId) {
+      return day;
+    }
+
+    const storedProgress = dailyPlanProgressByDate.get(
+      `${day.date}:${day.planSubjectId}`
+    );
+
+    return {
+      ...day,
+      planAnsweredQuestions: storedProgress?.answered_questions ?? 0
+    };
+  };
 
   for (const record of await findUserProgressActivity(userId)) {
     const date = getDateKey(new Date(record.answered_at), timeZone);
@@ -400,30 +447,65 @@ export const getStudyProgress = async (
     currentActivity.push(record);
 
     const existing = activityByDate.get(date) ?? emptyDay(getSchedule(date));
-    const subjectId =
-      record.subject_id ??
-      (record.subject === "quantitative" ? "math" : "arabic");
-
     existing.answeredQuestions += 1;
     existing.correctAnswers += record.is_correct === 1 ? 1 : 0;
     existing.approximateStudySeconds += getActiveStudySeconds(record);
     existing.intensity = getIntensity(existing.answeredQuestions);
-    if (existing.planSubjectId === subjectId) {
-      existing.planAnsweredQuestions += 1;
-    }
-
     activityByDate.set(date, existing);
   }
 
   const buildDays = (dayCount: number) =>
     getDateRange(todayDate, dayCount).map(
-      (date) => activityByDate.get(date) ?? emptyDay(getSchedule(date))
+      (date) => applyDailyPlanProgress(
+        activityByDate.get(date) ?? emptyDay(getSchedule(date))
+      )
     );
   const buildRange = (dates: string[]) =>
     summarizeDays(
-      dates.map((date) => activityByDate.get(date) ?? emptyDay(getSchedule(date)))
+      dates.map((date) => applyDailyPlanProgress(
+        activityByDate.get(date) ?? emptyDay(getSchedule(date))
+      ))
     );
-  const today = activityByDate.get(todayDate) ?? emptyDay(getSchedule(todayDate));
+  const today = applyDailyPlanProgress(
+    activityByDate.get(todayDate) ?? emptyDay(getSchedule(todayDate))
+  );
+  const pastUnfinishedCandidates: PastUnfinishedStudyPlanDay[] = [];
+
+  for (
+    let date = addDays(todayDate, -1);
+    date >= pastPlanStartDate;
+    date = addDays(date, -1)
+  ) {
+    const schedule = getSchedule(date);
+
+    if (
+      schedule.kind !== "study" ||
+      !schedule.subjectId ||
+      !schedule.subjectLabel ||
+      !schedule.questionTarget
+    ) {
+      continue;
+    }
+
+    const storedProgress = dailyPlanProgressByDate.get(
+      `${date}:${schedule.subjectId}`
+    );
+    const answeredQuestions = storedProgress?.answered_questions ?? 0;
+
+    if (answeredQuestions >= schedule.questionTarget) {
+      continue;
+    }
+
+    pastUnfinishedCandidates.push({
+      date,
+      hasStarted: (storedProgress?.session_count ?? 0) > 0,
+      planAnsweredQuestions: answeredQuestions,
+      planKind: "study",
+      planSubjectId: schedule.subjectId,
+      planSubjectLabel: schedule.subjectLabel,
+      questionTarget: schedule.questionTarget
+    });
+  }
   const activeDailyPlanSession = today.planSubjectId
     ? await findActiveDailyPlanSession({
         planDate: today.date,
@@ -442,6 +524,9 @@ export const getStudyProgress = async (
     generatedAt: new Date().toISOString(),
     month: buildRange(displayedMonthDates),
     monthWeeks: getCalendarWeeksForMonth(displayedMonthDates).map(buildRange),
+    pastUnfinishedDays: pastUnfinishedCandidates.slice(0, pastPlanResultLimit),
+    pastUnfinishedHasMore:
+      pastUnfinishedCandidates.length > pastPlanResultLimit,
     streak: calculateStreaks(activityByDate, todayDate),
     timeZone,
     today,

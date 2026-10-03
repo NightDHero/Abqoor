@@ -27,6 +27,13 @@ export type SessionAnswerRecord = {
   created_at: string;
 };
 
+export type DailyPlanProgressRecord = {
+  plan_date: string;
+  subject_id: "math" | "arabic";
+  session_count: number;
+  answered_questions: number;
+};
+
 const createSessionStatement = db.prepare(`
   INSERT INTO sessions (
     session_id,
@@ -71,6 +78,27 @@ const findActiveDailyPlanSessionStatement = db.prepare<
     AND status = 'active'
   ORDER BY created_at DESC
   LIMIT 1
+`);
+
+const findDailyPlanProgressStatement = db.prepare<
+  { endDate: string; startDate: string; userId: string },
+  DailyPlanProgressRecord
+>(`
+  SELECT
+    sessions.plan_date,
+    sessions.subject_id,
+    COUNT(DISTINCT sessions.session_id) AS session_count,
+    COUNT(session_answers.question_id) AS answered_questions
+  FROM sessions
+  LEFT JOIN session_answers
+    ON session_answers.session_id = sessions.session_id
+  WHERE sessions.user_id = @userId
+    AND sessions.plan_date IS NOT NULL
+    AND sessions.subject_id IS NOT NULL
+    AND sessions.plan_date >= @startDate
+    AND sessions.plan_date <= @endDate
+  GROUP BY sessions.plan_date, sessions.subject_id
+  ORDER BY sessions.plan_date DESC
 `);
 
 const insertAnswerStatement = db.prepare(`
@@ -211,6 +239,12 @@ export const findActiveDailyPlanSession = async (input: {
   subjectId: "math" | "arabic";
   userId: string;
 }) => (await findActiveDailyPlanSessionStatement.get(input)) ?? null;
+
+export const findDailyPlanProgress = async (input: {
+  endDate: string;
+  startDate: string;
+  userId: string;
+}) => await findDailyPlanProgressStatement.all(input);
 
 export const findSession = async (sessionId: string) => {
   return (await findSessionStatement.get(sessionId)) ?? null;

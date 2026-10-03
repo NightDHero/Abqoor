@@ -913,6 +913,15 @@ body:has(.onboarding-shell) {
   box-shadow: none;
 }
 
+.study-progress-today-plan-card,
+.study-progress-past-plans,
+.career-app-shell button.study-progress-today-plan-card {
+  border-color: var(--world-panel-border);
+  background: var(--world-destination-bg);
+  color: var(--world-white);
+  box-shadow: none;
+}
+
 .career-app-shell .study-progress-switch button.selected {
   background: linear-gradient(135deg, rgb(22 143 165 / 15%), rgb(216 170 79 / 13%));
   color: var(--world-white);

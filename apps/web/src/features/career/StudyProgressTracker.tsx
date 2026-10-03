@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { HttpError } from "../../services/http";
 import { sessionService } from "../../services/sessionService";
 import type {
+  PastUnfinishedStudyPlanDay,
   StudyProgressDay,
   StudyProgressPeriod,
   StudyProgressResponse
@@ -216,10 +217,12 @@ const getActivityFill = (day: StudyProgressDay) => {
 
 function CalendarDayCell({
   day,
+  isToday = false,
   showCount,
   variant
 }: {
   day: StudyProgressDay;
+  isToday?: boolean;
   showCount: boolean;
   variant: CalendarCellVariant;
 }) {
@@ -242,6 +245,7 @@ function CalendarDayCell({
       className={`study-progress-day study-progress-day-${variant}`}
       data-intensity={day.intensity}
       data-plan-kind={day.planKind}
+      data-today={isToday || undefined}
       role="group"
       style={
         {
@@ -270,7 +274,7 @@ function CalendarDayCell({
   );
 }
 
-function TodayPlan({ progress }: { progress: StudyProgressResponse }) {
+function TodayPlanAction({ progress }: { progress: StudyProgressResponse }) {
   const day = progress.today;
   const isRestDay = day.planKind === "rest";
   const isReviewDay = day.planKind === "review";
@@ -281,16 +285,6 @@ function TodayPlan({ progress }: { progress: StudyProgressResponse }) {
   const percent = isStudyDay
     ? Math.min(100, Math.round((day.planAnsweredQuestions / target) * 100))
     : 0;
-  const title = isRestDay
-    ? "يوم الراحة"
-    : isReviewDay
-      ? "يوم المراجعة"
-      : day.planSubjectLabel ?? "خطة الدراسة";
-  const description = isRestDay
-    ? "خذ استراحة هادئة وعد غداً بطاقة جديدة."
-    : isReviewDay
-      ? "راجع الأسئلة المحفوظة وأخطاءك السابقة."
-      : `${toArabicNumber(day.planAnsweredQuestions)} سؤال من ${toArabicNumber(target ?? 0)} سؤال`;
   const actionLabel = isReviewDay
     ? "ابدأ المراجعة"
     : hasStarted
@@ -299,42 +293,145 @@ function TodayPlan({ progress }: { progress: StudyProgressResponse }) {
   const actionDestination = isReviewDay
     ? "/review"
     : `/study?subject=${day.planSubjectId}&planDate=${day.date}`;
+  const title = isRestDay
+    ? "يوم الراحة"
+    : isReviewDay
+      ? "المراجعة"
+      : day.planSubjectLabel ?? "خطة الدراسة";
+  const progressLabel = isStudyDay
+    ? `${toArabicNumber(day.planAnsweredQuestions)} من ${toArabicNumber(target)} سؤال`
+    : isReviewDay
+      ? "راجع الأسئلة المحفوظة وأخطاءك السابقة"
+      : "استعد لخطة الغد بطاقة جديدة";
+
+  const content = (
+    <>
+      <span className="study-progress-plan-eyebrow">خطة اليوم</span>
+      <span className="study-progress-plan-main">
+        <strong>{title}</strong>
+        <span>{progressLabel}</span>
+      </span>
+      {isStudyDay ? (
+        <span
+          aria-label={`اكتمل ${toArabicNumber(percent)} بالمئة`}
+          className="study-progress-plan-meter"
+          role="progressbar"
+          aria-valuemax={100}
+          aria-valuemin={0}
+          aria-valuenow={percent}
+        >
+          <span style={{ width: `${percent}%` }} />
+        </span>
+      ) : null}
+    </>
+  );
+
+  if (isRestDay) {
+    return (
+      <section className="study-progress-today-plan-card" data-plan-kind="rest">
+        {content}
+        <strong className="study-progress-plan-state">راحة اليوم</strong>
+      </section>
+    );
+  }
+
+  if (isComplete) {
+    return (
+      <section className="study-progress-today-plan-card" data-plan-kind="complete">
+        {content}
+        <strong className="study-progress-plan-state">اكتملت خطة اليوم</strong>
+      </section>
+    );
+  }
 
   return (
-    <section className="study-progress-daily-plan" aria-labelledby="today-plan-title" data-plan-kind={day.planKind}>
-      <div className="study-progress-daily-plan-header">
-        <span>خطة اليوم</span>
-        <strong id="today-plan-title">{title}</strong>
-      </div>
-      <div className="study-progress-daily-plan-details">
-        <div>
-          <span>{description}</span>
-          {isRestDay ? <strong>راحة</strong> : isReviewDay ? <strong>مراجعة</strong> : <strong>{toArabicNumber(percent)}٪</strong>}
+    <button
+      aria-label={`${actionLabel}: ${title}، ${progressLabel}`}
+      className="study-progress-today-plan-card study-progress-plan-action"
+      data-plan-kind={day.planKind}
+      type="button"
+      onClick={() => navigateTo(actionDestination)}
+    >
+      {content}
+      <span className="study-progress-plan-cta">
+        <strong>{actionLabel}</strong>
+        <span aria-hidden="true">←</span>
+      </span>
+    </button>
+  );
+}
+
+function PastUnfinishedPlans({ progress }: { progress: StudyProgressResponse }) {
+  const days = progress.pastUnfinishedDays ?? [];
+
+  return (
+    <section
+      aria-labelledby="past-unfinished-plans-title"
+      className="study-progress-past-plans"
+      data-empty={days.length === 0}
+    >
+      <header className="study-progress-past-plans-header">
+        <h3 id="past-unfinished-plans-title">أقسام سابقة تحتاج إكمال</h3>
+      </header>
+
+      {days.length === 0 ? (
+        <p className="study-progress-past-plans-empty">
+          <span aria-hidden="true">✓</span>
+          ما عندك أقسام سابقة غير مكتملة
+        </p>
+      ) : (
+        <div
+          aria-label="الأقسام السابقة غير المكتملة"
+          className="study-progress-past-plans-list"
+          tabIndex={0}
+        >
+          {days.map((day) => (
+            <PastUnfinishedPlan key={`${day.date}:${day.planSubjectId}`} day={day} />
+          ))}
+          {progress.pastUnfinishedHasMore ? (
+            <p className="study-progress-past-plans-more">
+              توجد أقسام أقدم أيضاً
+            </p>
+          ) : null}
         </div>
-        {!isRestDay && !isComplete ? (
-          <button
-            className="study-progress-plan-action"
-            type="button"
-            onClick={() => navigateTo(actionDestination)}
-          >
-            {actionLabel}
-          </button>
-        ) : isComplete ? <strong className="study-progress-plan-complete">اكتملت خطة اليوم</strong> : null}
-      </div>
-      <div className="study-progress-daily-plan-track" aria-hidden="true">
-        <span style={{ width: `${percent}%` }} />
-      </div>
+      )}
     </section>
   );
 }
 
-function TodayView({
-  day,
-  progress
-}: {
-  day: StudyProgressDay;
-  progress: StudyProgressResponse;
-}) {
+function PastUnfinishedPlan({ day }: { day: PastUnfinishedStudyPlanDay }) {
+  const dateParts = formatDateParts(day.date);
+  const status = day.hasStarted ? "غير مكتمل" : "لم يبدأ";
+  const progressLabel = `${toArabicNumber(day.planAnsweredQuestions)} / ${toArabicNumber(
+    day.questionTarget
+  )} سؤال`;
+
+  return (
+    <button
+      aria-label={`${dateParts.fullDate}، ${day.planSubjectLabel}، ${status}، ${progressLabel}`}
+      className="study-progress-past-plan"
+      type="button"
+      onClick={() =>
+        navigateTo(`/study?subject=${day.planSubjectId}&planDate=${day.date}`)
+      }
+    >
+      <span className="study-progress-past-plan-date">
+        <strong>{dateParts.weekday}</strong>
+        <small>{dateParts.monthDay}</small>
+      </span>
+      <span className="study-progress-past-plan-content">
+        <strong>{day.planSubjectLabel}</strong>
+        <small>{progressLabel}</small>
+      </span>
+      <span className="study-progress-past-plan-status" data-started={day.hasStarted}>
+        {status}
+      </span>
+      <span className="study-progress-past-plan-arrow" aria-hidden="true">←</span>
+    </button>
+  );
+}
+
+function TodayView({ day }: { day: StudyProgressDay }) {
   const dateParts = formatDateParts(day.date);
 
   return (
@@ -342,6 +439,7 @@ function TodayView({
       <div className="study-progress-today-stack">
         <CalendarDayCell
           day={day}
+          isToday
           showCount={false}
           variant="today"
         />
@@ -351,29 +449,22 @@ function TodayView({
         <span>{dateParts.fullDate}</span>
         <strong>{toQuestionCount(day.answeredQuestions)}</strong>
         <p>{toStudyMinutes(day.approximateStudySeconds)}</p>
-        <small>{formatStreakLabel(progress)}</small>
       </div>
     </div>
   );
 }
 
-function WeekView({
-  period,
-  progress
-}: {
-  period: StudyProgressPeriod;
-  progress: StudyProgressResponse;
-}) {
+function WeekView({ period, todayDate }: { period: StudyProgressPeriod; todayDate: string }) {
   return (
     <>
       <div className="study-progress-view-meta">
         <strong>{formatWeekRange(period)}</strong>
-        <span>{formatStreakLabel(progress)}</span>
       </div>
       <div className="study-progress-week-calendar" aria-label="تقويم نشاط الأسبوع">
         {period.days.map((day) => (
           <CalendarDayCell
             day={day}
+            isToday={day.date === todayDate}
             key={day.date}
             showCount
             variant="week"
@@ -389,13 +480,13 @@ function MonthView({
   onNextMonth,
   onPreviousMonth,
   period,
-  progress
+  todayDate
 }: {
   isLoading: boolean;
   onNextMonth: () => void;
   onPreviousMonth: () => void;
   period: StudyProgressPeriod;
-  progress: StudyProgressResponse;
+  todayDate: string;
 }) {
   const leadingBlankDays = period.days[0] ? toDate(period.days[0].date).getUTCDay() : 0;
   const trailingBlankDays =
@@ -425,7 +516,6 @@ function MonthView({
             &gt;
           </button>
         </div>
-        <span>{formatStreakLabel(progress)}</span>
       </div>
       <div className="study-progress-month-weekdays" aria-hidden="true">
         {weekdayLabels.map((weekday) => (
@@ -439,6 +529,7 @@ function MonthView({
         {period.days.map((day) => (
           <CalendarDayCell
             day={day}
+            isToday={day.date === todayDate}
             key={day.date}
             showCount={false}
             variant="month"
@@ -453,9 +544,11 @@ function MonthView({
 }
 
 export function StudyProgressTracker({
-  onCareerProgressLoaded
+  onCareerProgressLoaded,
+  username
 }: {
   onCareerProgressLoaded?: (progress: StudyProgressResponse["career"]) => void;
+  username?: string | null;
 }) {
   const [activeView, setActiveView] = useState<ProgressView>("week");
   const [displayedMonthKey, setDisplayedMonthKey] = useState<string | null>(null);
@@ -503,15 +596,6 @@ export function StudyProgressTracker({
     };
   }, [onCareerProgressLoaded]);
 
-  const currentSummary = useMemo(() => {
-    if (!progress) {
-      return "";
-    }
-
-    return `اليوم: ${toQuestionCount(progress.today.answeredQuestions)} · ${toStudyMinutes(
-      progress.today.approximateStudySeconds
-    )}`;
-  }, [progress]);
   const loadDisplayedMonth = async (monthKey: string) => {
     const requestTimeZone =
       timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -571,68 +655,94 @@ export function StudyProgressTracker({
   };
 
   return (
-    <section className="study-progress-journey" aria-labelledby="study-progress-title">
-      <header className="study-progress-header">
-        <div>
-          <h2 id="study-progress-title">تقدم الدراسة</h2>
-          {currentSummary ? <p>{currentSummary}</p> : null}
-        </div>
-
-        <div className="study-progress-switch" role="tablist" aria-label="نطاق تقدم الدراسة">
-          {progressViews.map((view) => (
-            <button
-              aria-controls={`study-progress-${view.value}`}
-              aria-selected={activeView === view.value}
-              className={activeView === view.value ? "selected" : undefined}
-              key={view.value}
-              role="tab"
-              type="button"
-              onClick={() => handleViewChange(view.value)}
-            >
-              {view.label}
-            </button>
-          ))}
-        </div>
-      </header>
-
-      {isLoading ? <p className="study-progress-empty">جاري تحميل التقدم...</p> : null}
-      {error ? <p className="study-progress-empty">{error}</p> : null}
-
+    <section className="study-progress-overview" aria-label="ملخص خطة الدراسة">
       {progress ? (
         <>
-          <p className="study-progress-streak-summary">{formatStreakLabel(progress)}</p>
-          <TodayPlan progress={progress} />
-          <div
-            className={`study-progress-body study-progress-body-${activeView}`}
-            id={`study-progress-${activeView}`}
-            role="tabpanel"
-          >
-          {activeView === "today" ? (
-            <TodayView
-              day={progress.today}
-              progress={progress}
-            />
-          ) : null}
+          <div className="study-progress-plan-intro">
+            <span className="study-progress-welcome-mark" aria-hidden="true">
+              <img alt="" src="/assets/brand/abqoor-logo.png" />
+            </span>
+            <div className="study-progress-welcome-content">
+              <span className="study-progress-welcome-kicker">مرحباً بعودتك</span>
+              <p className="study-progress-welcome">
+                <span>أهلاً بك يا</span>
+                <strong>{username?.trim() || "مستخدم عبقور"}</strong>
+              </p>
+            </div>
+            <p className="study-progress-streak-summary">{formatStreakLabel(progress)}</p>
+          </div>
+          <div className="study-progress-overview-grid">
+            <section
+              className="study-progress-journey study-progress-journey-plan"
+              aria-label="خطة اليوم والأقسام السابقة"
+            >
+              <div className="study-progress-plan-action-row">
+                <TodayPlanAction progress={progress} />
+              </div>
+              <PastUnfinishedPlans progress={progress} />
+            </section>
+            <section
+              className="study-progress-journey study-progress-journey-progress"
+              aria-labelledby="study-progress-title"
+            >
+              <header className="study-progress-header">
+                <h2 id="study-progress-title">تقدم الدراسة</h2>
 
-          {activeView === "week" ? (
-            <WeekView
-              period={progress.week}
-              progress={progress}
-            />
-          ) : null}
+                <div className="study-progress-switch" role="tablist" aria-label="نطاق تقدم الدراسة">
+                  {progressViews.map((view) => (
+                    <button
+                      aria-controls={`study-progress-${view.value}`}
+                      aria-selected={activeView === view.value}
+                      className={activeView === view.value ? "selected" : undefined}
+                      key={view.value}
+                      role="tab"
+                      type="button"
+                      onClick={() => handleViewChange(view.value)}
+                    >
+                      {view.label}
+                    </button>
+                  ))}
+                </div>
+              </header>
 
-          {activeView === "month" ? (
-            <MonthView
-              isLoading={isMonthLoading}
-              onNextMonth={() => handleMonthNavigation(1)}
-              onPreviousMonth={() => handleMonthNavigation(-1)}
-              period={progress.month}
-              progress={progress}
-            />
-          ) : null}
+              <div
+                className={`study-progress-body study-progress-body-${activeView}`}
+                id={`study-progress-${activeView}`}
+                role="tabpanel"
+              >
+                {activeView === "today" ? (
+                  <TodayView day={progress.today} />
+                ) : null}
+
+                {activeView === "week" ? (
+                  <WeekView period={progress.week} todayDate={progress.today.date} />
+                ) : null}
+
+                {activeView === "month" ? (
+                  <MonthView
+                    isLoading={isMonthLoading}
+                    onNextMonth={() => handleMonthNavigation(1)}
+                    onPreviousMonth={() => handleMonthNavigation(-1)}
+                    period={progress.month}
+                    todayDate={progress.today.date}
+                  />
+                ) : null}
+              </div>
+            </section>
           </div>
         </>
-      ) : null}
+      ) : (
+        <section
+          className="study-progress-journey study-progress-journey-progress"
+          aria-labelledby="study-progress-title"
+        >
+          <header className="study-progress-header">
+            <h2 id="study-progress-title">تقدم الدراسة</h2>
+          </header>
+          {isLoading ? <p className="study-progress-empty">جاري تحميل التقدم...</p> : null}
+          {error ? <p className="study-progress-empty">{error}</p> : null}
+        </section>
+      )}
     </section>
   );
 }

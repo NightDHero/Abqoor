@@ -137,7 +137,7 @@ const energyStreaks = [
   [82, 67, 10, 1]
 ] as const;
 
-export function CareerDashboard() {
+export function CareerDashboard({ username }: { username?: string | null }) {
   const [careerProgress, setCareerProgress] = useState(emptyCareerProgress);
   const handleCareerProgressLoaded = useCallback((progress: CareerProgress) => {
     setCareerProgress(progress);
@@ -184,7 +184,10 @@ export function CareerDashboard() {
       </div>
 
       <div className="hub-home-stage">
-        <StudyProgressTracker onCareerProgressLoaded={handleCareerProgressLoaded} />
+        <StudyProgressTracker
+          onCareerProgressLoaded={handleCareerProgressLoaded}
+          username={username}
+        />
 
         <div className="hub-world-composition">
           <nav className="hub-world-collision" aria-label="عوالم ووجهات التعلم">

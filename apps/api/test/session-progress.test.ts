@@ -16,6 +16,9 @@ const { registerUser } = await import("../src/modules/auth/auth.service.js");
 const { upsertStudentProfile } = await import(
   "../src/modules/profile/profile.repository.js"
 );
+const { getStudyScheduleDay } = await import(
+  "../src/modules/banks/bank-config.js"
+);
 
 const app = await createApp();
 const server = app.listen(0);
@@ -146,7 +149,13 @@ const insertBootstrapQuestion = (id: string, correctAnswer: "A" | "B" = "A") => 
   });
 };
 
-const completeProfile = async (input: { userId: string; username: string }) => {
+const completeProfile = async (input: {
+  studyPlanStartDate?: string;
+  userId: string;
+  username: string;
+}) => {
+  const studyPlanStartDate = input.studyPlanStartDate ?? "2026-01-01";
+
   await upsertStudentProfile({
     attemptCount: null,
     examDate: null,
@@ -155,8 +164,10 @@ const completeProfile = async (input: { userId: string; username: string }) => {
     latestScore: null,
     studyPlanBankCount: 14,
     studyPlanCalendarDays: 14,
-    studyPlanCompletionDate: "2026-01-14",
-    studyPlanStartDate: "2026-01-01",
+    studyPlanCompletionDate: input.studyPlanStartDate
+      ? "2027-12-31"
+      : "2026-01-14",
+    studyPlanStartDate,
     studyPlanStudyDays: 14,
     targetScore: 90,
     userId: input.userId,
@@ -173,6 +184,8 @@ const insertAnsweredQuestion = (input: {
   isCorrect: 0 | 1;
   questionId: string;
   sessionId: string;
+  planDate?: string;
+  subjectId?: "math" | "arabic";
   userId: string;
 }) => {
   db.prepare(
@@ -181,17 +194,30 @@ const insertAnsweredQuestion = (input: {
         session_id,
         user_id,
         question_order,
+        subject_id,
+        plan_date,
         created_at,
         updated_at,
         status
       )
-      VALUES (@sessionId, @userId, @questionOrder, @answeredAt, @answeredAt, 'active')
+      VALUES (
+        @sessionId,
+        @userId,
+        @questionOrder,
+        @subjectId,
+        @planDate,
+        @answeredAt,
+        @answeredAt,
+        'active'
+      )
       ON CONFLICT(session_id) DO NOTHING
     `
   ).run({
     answeredAt: input.answeredAt,
     questionOrder: JSON.stringify([input.questionId]),
+    planDate: input.planDate ?? null,
     sessionId: input.sessionId,
+    subjectId: input.subjectId ?? null,
     userId: input.userId
   });
 
@@ -215,6 +241,13 @@ const insertAnsweredQuestion = (input: {
       )
     `
   ).run(input);
+};
+
+const addUtcDays = (dateKey: string, offset: number) => {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + offset))
+    .toISOString()
+    .slice(0, 10);
 };
 
 const getCurrentUtcMonthDayCount = () => {
@@ -404,6 +437,114 @@ test("summarizes real session activity into study progress windows", async () =>
     }
   );
   assert.equal(invalidMonthResponse.status, 400);
+});
+
+test("returns a bounded backlog from persisted daily-plan sessions", async () => {
+  const user = await registerUser("past-plans@example.com", password);
+  const todayDate = new Date().toISOString().slice(0, 10);
+  const studyPlanStartDate = addUtcDays(todayDate, -14);
+  await completeProfile({
+    studyPlanStartDate,
+    userId: user.id,
+    username: "past_plans_user"
+  });
+
+  const pastStudyDays = Array.from({ length: 14 }, (_value, index) => {
+    const date = addUtcDays(todayDate, -(index + 1));
+    return getStudyScheduleDay({
+      date,
+      restDay: 5,
+      reviewDay: 6,
+      startDate: studyPlanStartDate
+    });
+  }).filter((day) => day.kind === "study");
+  const incompleteDay = pastStudyDays[0];
+  const completedDay = pastStudyDays[1];
+
+  assert.ok(incompleteDay?.subjectId && incompleteDay.questionTarget);
+  assert.ok(completedDay?.subjectId && completedDay.questionTarget);
+
+  insertQuestion({
+    estimatedTimeSeconds: 60,
+    id: "Q-PAST-INCOMPLETE-001",
+    subjectId: incompleteDay.subjectId
+  });
+  insertAnsweredQuestion({
+    activeDurationSeconds: 30,
+    answeredAt: new Date().toISOString(),
+    isCorrect: 1,
+    planDate: incompleteDay.date,
+    questionId: "Q-PAST-INCOMPLETE-001",
+    sessionId: "past-incomplete-session",
+    subjectId: incompleteDay.subjectId,
+    userId: user.id
+  });
+
+  for (let index = 0; index < completedDay.questionTarget; index += 1) {
+    const questionId = `Q-PAST-COMPLETE-${String(index + 1).padStart(3, "0")}`;
+    insertQuestion({
+      estimatedTimeSeconds: 60,
+      id: questionId,
+      subjectId: completedDay.subjectId
+    });
+    insertAnsweredQuestion({
+      activeDurationSeconds: 30,
+      answeredAt: new Date().toISOString(),
+      isCorrect: 1,
+      planDate: completedDay.date,
+      questionId,
+      sessionId: "past-complete-session",
+      subjectId: completedDay.subjectId,
+      userId: user.id
+    });
+  }
+
+  const { cookie, response: loginResponse } = await login("past-plans@example.com");
+  assert.equal(loginResponse.status, 200);
+
+  const response = await fetch(`${baseUrl}/sessions/progress?timeZone=UTC`, {
+    headers: { cookie }
+  });
+  assert.equal(response.status, 200);
+
+  const payload = (await response.json()) as {
+    pastUnfinishedDays: Array<{
+      date: string;
+      hasStarted: boolean;
+      planAnsweredQuestions: number;
+      planKind: string;
+      planSubjectId: "math" | "arabic";
+      questionTarget: number;
+    }>;
+    pastUnfinishedHasMore: boolean;
+    today: { date: string; planAnsweredQuestions: number };
+  };
+  const incompleteItem = payload.pastUnfinishedDays.find(
+    (day) => day.date === incompleteDay.date
+  );
+
+  assert.equal(incompleteItem?.hasStarted, true);
+  assert.equal(incompleteItem?.planAnsweredQuestions, 1);
+  assert.equal(incompleteItem?.planSubjectId, incompleteDay.subjectId);
+  assert.equal(incompleteItem?.questionTarget, incompleteDay.questionTarget);
+  assert.equal(
+    payload.pastUnfinishedDays.some((day) => day.date === completedDay.date),
+    false
+  );
+  assert.equal(
+    payload.pastUnfinishedDays.every(
+      (day) => day.date < todayDate && day.planKind === "study"
+    ),
+    true
+  );
+  assert.equal(
+    payload.pastUnfinishedDays.some((day) => !day.hasStarted),
+    true
+  );
+  assert.equal(payload.pastUnfinishedDays.length <= 24, true);
+  assert.equal(payload.today.date, todayDate);
+  assert.equal(payload.today.planAnsweredQuestions, 0);
+  assert.equal(typeof payload.pastUnfinishedHasMore, "boolean");
 });
 
 test("anchors current streak to today and ignores future-dated activity", async () => {
