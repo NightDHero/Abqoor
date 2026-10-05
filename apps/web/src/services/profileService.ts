@@ -5,6 +5,7 @@ import type {
   StudyRestDay
 } from "../types/profile";
 import { apiRequest } from "./http";
+import { invalidateStudyProgressCache } from "../features/career/studyProgressCache";
 
 type ProfileResponse = {
   profile: StudentProfile;
@@ -24,9 +25,12 @@ export const profileService = {
       body: JSON.stringify(input),
       method: "POST"
     }),
-  saveProfile: (input: StudentProfileInput) =>
-    apiRequest<ProfileResponse>("/profile", {
+  saveProfile: async (input: StudentProfileInput) => {
+    const response = await apiRequest<ProfileResponse>("/profile", {
       body: JSON.stringify(input),
       method: "PUT"
-    })
+    });
+    invalidateStudyProgressCache();
+    return response;
+  }
 };

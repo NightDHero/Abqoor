@@ -137,7 +137,7 @@ const energyStreaks = [
   [82, 67, 10, 1]
 ] as const;
 
-export function CareerDashboard({ username }: { username?: string | null }) {
+export function CareerDashboard({ userId, username }: { userId: string; username?: string | null }) {
   const [careerProgress, setCareerProgress] = useState(emptyCareerProgress);
   const handleCareerProgressLoaded = useCallback((progress: CareerProgress) => {
     setCareerProgress(progress);
@@ -186,6 +186,7 @@ export function CareerDashboard({ username }: { username?: string | null }) {
       <div className="hub-home-stage">
         <StudyProgressTracker
           onCareerProgressLoaded={handleCareerProgressLoaded}
+          userId={userId}
           username={username}
         />
 

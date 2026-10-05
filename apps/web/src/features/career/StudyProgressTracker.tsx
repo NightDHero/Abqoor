@@ -8,6 +8,12 @@ import type {
   StudyProgressResponse
 } from "../../types/session";
 import { navigateTo } from "../../utils/router";
+import {
+  getStudyProgressCacheKey,
+  loadStudyProgressCache,
+  readStudyProgressCache,
+  writeStudyProgressCache
+} from "./studyProgressCache";
 
 type ProgressView = "today" | "week" | "month";
 type CalendarCellVariant = "month" | "today" | "week";
@@ -45,6 +51,9 @@ const toQuestionCount = (answeredQuestions: number) =>
 const toDate = (dateKey: string) => new Date(`${dateKey}T00:00:00.000Z`);
 
 const getMonthKey = (dateKey: string) => dateKey.slice(0, 7);
+
+const getDefaultProgressView = (progress: StudyProgressResponse): ProgressView =>
+  progress.today.answeredQuestions > 0 ? "today" : "week";
 
 const addDays = (dateKey: string, offset: number) => {
   const [year, month, day] = dateKey.split("-").map(Number);
@@ -545,39 +554,67 @@ function MonthView({
 
 export function StudyProgressTracker({
   onCareerProgressLoaded,
+  userId,
   username
 }: {
   onCareerProgressLoaded?: (progress: StudyProgressResponse["career"]) => void;
+  userId: string;
   username?: string | null;
 }) {
-  const [activeView, setActiveView] = useState<ProgressView>("week");
+  const resolvedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const currentCacheKey = getStudyProgressCacheKey(resolvedTimeZone);
+  const initialCache = readStudyProgressCache(userId, currentCacheKey);
+  const [activeView, setActiveView] = useState<ProgressView>(() =>
+    initialCache ? getDefaultProgressView(initialCache.data) : "week"
+  );
   const [displayedMonthKey, setDisplayedMonthKey] = useState<string | null>(null);
-  const [progress, setProgress] = useState<StudyProgressResponse | null>(null);
+  const [progress, setProgress] = useState<StudyProgressResponse | null>(
+    initialCache?.data ?? null
+  );
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!initialCache);
   const [isMonthLoading, setIsMonthLoading] = useState(false);
-  const [timeZone, setTimeZone] = useState("");
+  const [timeZone] = useState(resolvedTimeZone);
 
   useEffect(() => {
-    const resolvedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const cached = readStudyProgressCache(userId, currentCacheKey);
     let isMounted = true;
 
-    setTimeZone(resolvedTimeZone);
+    if (cached) {
+      setProgress(cached.data);
+      setIsLoading(false);
+      setError("");
+      onCareerProgressLoaded?.(cached.data.career);
+    } else {
+      setProgress(null);
+      setIsLoading(true);
+    }
 
-    const progressRequest = sessionService.getProgress(resolvedTimeZone);
-    void progressRequest
+    if (cached && !cached.isStale) {
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    void loadStudyProgressCache(
+      userId,
+      currentCacheKey,
+      () => sessionService.getProgress(timeZone)
+    )
       .then((response) => {
+        writeStudyProgressCache(
+          userId,
+          getStudyProgressCacheKey(timeZone, getMonthKey(response.month.startDate)),
+          response
+        );
         if (isMounted) {
-          const defaultView =
-            response.today.answeredQuestions > 0 ? "today" : "week";
-
           setProgress(response);
           onCareerProgressLoaded?.(response.career);
-          setActiveView(defaultView);
+          if (!cached) setActiveView(getDefaultProgressView(response));
         }
       })
       .catch((caughtError) => {
-        if (isMounted) {
+        if (isMounted && !cached) {
           setError(
             caughtError instanceof HttpError
               ? caughtError.message
@@ -594,26 +631,39 @@ export function StudyProgressTracker({
     return () => {
       isMounted = false;
     };
-  }, [onCareerProgressLoaded]);
+  }, [currentCacheKey, onCareerProgressLoaded, timeZone, userId]);
 
   const loadDisplayedMonth = async (monthKey: string) => {
-    const requestTimeZone =
-      timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const cacheKey = getStudyProgressCacheKey(timeZone, monthKey);
+    const cached = readStudyProgressCache(userId, cacheKey);
 
     setError("");
-    setIsMonthLoading(true);
+    if (cached) {
+      setProgress(cached.data);
+      onCareerProgressLoaded?.(cached.data.career);
+      setIsMonthLoading(false);
+      if (!cached.isStale) return;
+    } else {
+      setIsMonthLoading(true);
+    }
 
     try {
-      const response = await sessionService.getProgress(requestTimeZone, monthKey);
+      const response = await loadStudyProgressCache(
+        userId,
+        cacheKey,
+        () => sessionService.getProgress(timeZone, monthKey)
+      );
 
       setProgress(response);
       onCareerProgressLoaded?.(response.career);
     } catch (caughtError) {
-      setError(
-        caughtError instanceof HttpError
-          ? caughtError.message
-          : "تعذر تحميل تقدم الدراسة."
-      );
+      if (!cached) {
+        setError(
+          caughtError instanceof HttpError
+            ? caughtError.message
+            : "تعذر تحميل تقدم الدراسة."
+        );
+      }
     } finally {
       setIsMonthLoading(false);
     }

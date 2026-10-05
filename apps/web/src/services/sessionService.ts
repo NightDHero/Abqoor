@@ -6,6 +6,7 @@ import type {
   SubmitAnswerResponse
 } from "../types/session";
 import { apiRequest } from "./http";
+import { invalidateStudyProgressCache } from "../features/career/studyProgressCache";
 
 export const sessionService = {
   startSession: (input: {
@@ -18,16 +19,19 @@ export const sessionService = {
       method: "POST"
     }),
 
-  submitAnswer: (input: {
+  submitAnswer: async (input: {
     activeDurationSeconds?: number;
     questionId: string;
     sessionId: string;
     userAnswer: CorrectAnswer;
-  }) =>
-    apiRequest<SubmitAnswerResponse>("/sessions/submit", {
+  }) => {
+    const response = await apiRequest<SubmitAnswerResponse>("/sessions/submit", {
       body: JSON.stringify(input),
       method: "POST"
-    }),
+    });
+    invalidateStudyProgressCache();
+    return response;
+  },
 
   getResult: (sessionId: string) =>
     apiRequest<SessionResult>(`/sessions/${sessionId}/result`),

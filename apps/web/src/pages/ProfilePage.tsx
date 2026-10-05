@@ -175,8 +175,8 @@ export function ProfilePage({
           {isEditingPhone ? (
             <div className="profile-missing-phone">
               <p>{user.phoneNumber ? "أدخل الرقم الجديد وأكد التغيير بكلمة المرور الحالية." : "أضف رقم الجوال لتتمكن من استعادة حسابك عند الحاجة."}</p>
-              <label className="form-field">رقم الجوال<input autoComplete="tel" dir="ltr" required type="tel" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} /></label>
-              <label className="form-field">كلمة المرور الحالية<input autoComplete="current-password" dir="ltr" required type="password" value={phonePassword} onChange={(event) => setPhonePassword(event.target.value)} /></label>
+              <label className="form-field">رقم الجوال<input autoComplete="tel" dir="ltr" type="tel" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} /></label>
+              <label className="form-field">كلمة المرور الحالية<input autoComplete="current-password" dir="ltr" type="password" value={phonePassword} onChange={(event) => setPhonePassword(event.target.value)} /></label>
               <div className="action-row">
                 <button disabled={isSaving || !phoneNumber || !phonePassword} type="button" onClick={() => void handlePhoneSubmit()}>{user.phoneNumber ? "حفظ رقم الجوال" : "إضافة رقم الجوال"}</button>
                 {user.phoneNumber ? <button className="secondary" type="button" onClick={() => {
