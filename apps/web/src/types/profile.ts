@@ -41,6 +41,7 @@ export type StudentProfile = {
   latestScore: number | null;
   weakerSection: WeakerSection | null;
   studyPlanStartDate: string | null;
+  quantitativeStudyDays: StudyRestDay[];
   weeklyRestDay: StudyRestDay;
   weeklyReviewDay: StudyRestDay;
   studyPlanBankCount: number | null;
@@ -49,6 +50,7 @@ export type StudentProfile = {
   studyPlanCompletionDate: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  verbalStudyDays: StudyRestDay[];
 };
 
 export type StudentProfileInput = {
@@ -62,6 +64,8 @@ export type StudentProfileInput = {
   weakerSection: WeakerSection;
   studyPlanBankCount: number;
   studyPlanStartDate: string;
+  quantitativeStudyDays: StudyRestDay[];
   weeklyRestDay: StudyRestDay;
   weeklyReviewDay: StudyRestDay;
+  verbalStudyDays: StudyRestDay[];
 };

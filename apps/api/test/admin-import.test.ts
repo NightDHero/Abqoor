@@ -34,7 +34,7 @@ const questionService = await import(
   "../src/modules/questions/question.service.js"
 );
 const { createApp } = await import("../src/app.js");
-const { closeDatabase } = await import("../src/database/client.js");
+const { closeDatabase, db } = await import("../src/database/client.js");
 
 const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADklEQVQImWP4DwUMMAYAj4IP8cvlVgcAAAAASUVORK5CYII=",
@@ -763,6 +763,10 @@ test("handles replace, skip, and stop for the exact 500 through 700 batch", asyn
       (candidate) => candidate.id === job.id
     );
     assert.equal(historyEntry?.status, "completed");
+    const storedTimestamp = await db.prepare<string, { created_at: string }>(
+      "SELECT created_at FROM import_jobs WHERE id = ?"
+    ).get(job.id);
+    assert.equal(historyEntry?.createdAt, storedTimestamp?.created_at);
 
     await importService.rollbackQuestionImport(job.id);
     assert.equal(await questionRepository.findQuestionById("Q-500"), null);

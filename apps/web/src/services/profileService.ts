@@ -15,8 +15,10 @@ export const profileService = {
   previewSchedule: (input: {
     studyPlanBankCount: number;
     studyPlanStartDate: string;
+    quantitativeStudyDays: StudyRestDay[];
     weeklyRestDay: StudyRestDay;
     weeklyReviewDay: StudyRestDay;
+    verbalStudyDays: StudyRestDay[];
   }) =>
     apiRequest<{ plan: StudyPlanPreview }>("/profile/schedule-preview", {
       body: JSON.stringify(input),

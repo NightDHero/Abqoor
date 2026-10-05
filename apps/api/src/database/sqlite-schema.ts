@@ -54,6 +54,8 @@ export const initializeSqliteSchema = (db: Database.Database) => {
       ),
       study_plan_start_date TEXT,
       weekly_rest_days_json TEXT NOT NULL DEFAULT '[]',
+      quantitative_study_days_json TEXT NOT NULL DEFAULT '[]',
+      verbal_study_days_json TEXT NOT NULL DEFAULT '[]',
       weekly_rest_day INTEGER NOT NULL DEFAULT 5 CHECK (weekly_rest_day BETWEEN 0 AND 6),
       weekly_review_day INTEGER NOT NULL DEFAULT 6 CHECK (
         weekly_review_day BETWEEN 0 AND 6 AND weekly_review_day <> weekly_rest_day

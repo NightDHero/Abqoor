@@ -4,12 +4,15 @@ import type {
   StudyPlanPreview,
   StudyRestDay
 } from "../../types/profile";
+import { isCompleteWeeklySchedule } from "./studyPlan";
 
 export function useStudyPlanPreview(input: {
   bankCount: number;
+  quantitativeStudyDays: StudyRestDay[];
   restDay: StudyRestDay;
   reviewDay: StudyRestDay;
   startDate: string;
+  verbalStudyDays: StudyRestDay[];
 }) {
   const [plan, setPlan] = useState<StudyPlanPreview | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -19,7 +22,12 @@ export function useStudyPlanPreview(input: {
       !input.startDate ||
       !Number.isInteger(input.bankCount) ||
       input.bankCount < 1 ||
-      input.restDay === input.reviewDay
+      !isCompleteWeeklySchedule({
+        quantitativeStudyDays: input.quantitativeStudyDays,
+        restDay: input.restDay,
+        reviewDay: input.reviewDay,
+        verbalStudyDays: input.verbalStudyDays
+      })
     ) {
       setPlan(null);
       return;
@@ -31,8 +39,10 @@ export function useStudyPlanPreview(input: {
       .previewSchedule({
         studyPlanBankCount: input.bankCount,
         studyPlanStartDate: input.startDate,
+        quantitativeStudyDays: input.quantitativeStudyDays,
         weeklyRestDay: input.restDay,
-        weeklyReviewDay: input.reviewDay
+        weeklyReviewDay: input.reviewDay,
+        verbalStudyDays: input.verbalStudyDays
       })
       .then((response) => {
         if (isMounted) setPlan(response.plan);
@@ -47,7 +57,14 @@ export function useStudyPlanPreview(input: {
     return () => {
       isMounted = false;
     };
-  }, [input.bankCount, input.restDay, input.reviewDay, input.startDate]);
+  }, [
+    input.bankCount,
+    input.quantitativeStudyDays,
+    input.restDay,
+    input.reviewDay,
+    input.startDate,
+    input.verbalStudyDays
+  ]);
 
   return { isLoading, plan };
 }

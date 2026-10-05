@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { adminService } from "../../services/adminService";
 import { navigateTo } from "../../utils/router";
 import type { ImportJob } from "../../types/admin";
-import { formatAdminDate, importStatusLabels } from "./adminUtils";
+import { formatAdminDate, formatRelativeAdminDays, importStatusLabels } from "./adminUtils";
 import { AdminShell } from "./AdminShell";
 
 export function AdminImportHistoryPage() {
@@ -26,7 +26,7 @@ export function AdminImportHistoryPage() {
       <div className="admin-history-list full">
         {jobs.map((job) => (
           <button className="admin-history-row" key={job.id} type="button" onClick={() => navigateTo(`/admin/imports/${job.id}`)}>
-            <span><strong>رفع #{job.id.slice(0, 8)}</strong><small>{formatAdminDate(job.createdAt)} · {job.createdBy}</small></span>
+            <span><strong>رفع #{job.id.slice(0, 8)}</strong><small><b>{formatRelativeAdminDays(job.createdAt)}</b> · {formatAdminDate(job.createdAt)} · {job.createdBy}</small></span>
             <span><b>{job.totalQuestions.toLocaleString("ar-SA")}</b><small>سؤال</small></span>
             <span><b>{job.createdCount.toLocaleString("ar-SA")}</b><small>جديد</small></span>
             <span><b>{job.replacedCount.toLocaleString("ar-SA")}</b><small>مستبدل</small></span>

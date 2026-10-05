@@ -1,5 +1,5 @@
 import {
-  normalizeStoredStudyDays,
+  normalizeStoredStudySchedule,
   type StudyRestDay
 } from "../banks/bank-config.js";
 
@@ -17,6 +17,7 @@ export type StudentProfileRecord = {
   has_taken_qudurat: 0 | 1 | null;
   attempt_count: number | null;
   latest_score: number | null;
+  quantitative_study_days_json: string;
   weaker_section: WeakerSection | null;
   study_plan_start_date: string | null;
   weekly_rest_days_json: string;
@@ -28,6 +29,7 @@ export type StudentProfileRecord = {
   study_plan_completion_date: string | null;
   created_at: string;
   updated_at: string;
+  verbal_study_days_json: string;
 };
 
 export type StudentProfile = {
@@ -42,6 +44,7 @@ export type StudentProfile = {
   latestScore: number | null;
   weakerSection: WeakerSection | null;
   studyPlanStartDate: string | null;
+  quantitativeStudyDays: StudyRestDay[];
   weeklyRestDay: StudyRestDay;
   weeklyReviewDay: StudyRestDay;
   studyPlanBankCount: number | null;
@@ -50,6 +53,7 @@ export type StudentProfile = {
   studyPlanCompletionDate: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  verbalStudyDays: StudyRestDay[];
 };
 
 export type UpdateStudentProfileInput = {
@@ -63,8 +67,10 @@ export type UpdateStudentProfileInput = {
   weakerSection: unknown;
   studyPlanStartDate: unknown;
   studyPlanBankCount?: unknown;
+  quantitativeStudyDays: unknown;
   weeklyRestDay: unknown;
   weeklyReviewDay: unknown;
+  verbalStudyDays: unknown;
 };
 
 export const toStudentProfile = (
@@ -80,6 +86,7 @@ export const toStudentProfile = (
       hasTakenQudurat: null,
       latestScore: null,
       profileCompleted: false,
+      quantitativeStudyDays: [0, 2, 4],
       studyPlanBankCount: null,
       studyPlanCalendarDays: null,
       studyPlanCompletionDate: null,
@@ -87,6 +94,7 @@ export const toStudentProfile = (
       studyPlanStudyDays: null,
       targetScore: null,
       updatedAt: null,
+      verbalStudyDays: [1, 3],
       userId,
       username: null,
       weakerSection: null,
@@ -95,9 +103,11 @@ export const toStudentProfile = (
     };
   }
 
-  const storedSchedule = normalizeStoredStudyDays({
+  const storedSchedule = normalizeStoredStudySchedule({
+    quantitativeStudyDays: record.quantitative_study_days_json,
     restDay: record.weekly_rest_day,
-    reviewDay: record.weekly_review_day
+    reviewDay: record.weekly_review_day,
+    verbalStudyDays: record.verbal_study_days_json
   });
 
   return {
@@ -109,6 +119,7 @@ export const toStudentProfile = (
       record.has_taken_qudurat === null ? null : record.has_taken_qudurat === 1,
     latestScore: record.latest_score,
     profileCompleted: record.profile_completed === 1,
+    quantitativeStudyDays: storedSchedule.quantitativeStudyDays,
     studyPlanBankCount: record.study_plan_bank_count,
     studyPlanCalendarDays: record.study_plan_calendar_days,
     studyPlanCompletionDate: record.study_plan_completion_date,
@@ -116,6 +127,7 @@ export const toStudentProfile = (
     studyPlanStudyDays: record.study_plan_study_days,
     targetScore: record.target_score,
     updatedAt: record.updated_at,
+    verbalStudyDays: storedSchedule.verbalStudyDays,
     userId: record.user_id,
     username: record.username,
     weakerSection: record.weaker_section,

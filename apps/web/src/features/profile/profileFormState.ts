@@ -4,7 +4,13 @@ import type {
   StudyRestDay,
   WeakerSection
 } from "../../types/profile";
-import { getTodayDate } from "./studyPlan";
+import {
+  defaultQuantitativeStudyDays,
+  defaultVerbalStudyDays,
+  isCompleteWeeklySchedule,
+  temporaryAvailableSectionCount,
+  getTodayDate
+} from "./studyPlan";
 
 export type ProfileFormState = {
   username: string;
@@ -17,13 +23,15 @@ export type ProfileFormState = {
   studyPlanBankCount: number;
   weakerSection: WeakerSection | "";
   studyPlanStartDate: string;
+  quantitativeStudyDays: StudyRestDay[];
   weeklyRestDay: StudyRestDay;
   weeklyReviewDay: StudyRestDay;
+  verbalStudyDays: StudyRestDay[];
 };
 
 export const createDefaultProfileForm = (
   profile?: StudentProfile | null,
-  availableBankCount = 1
+  _availableBankCount = temporaryAvailableSectionCount
 ): ProfileFormState => ({
   attemptCount: profile?.attemptCount ? String(profile.attemptCount) : "",
   examDate: profile?.examDate ?? "",
@@ -33,15 +41,23 @@ export const createDefaultProfileForm = (
     profile?.latestScore !== null && profile?.latestScore !== undefined
       ? String(profile.latestScore)
       : "",
-  studyPlanBankCount:
-    profile?.studyPlanBankCount ?? availableBankCount,
+  studyPlanBankCount: temporaryAvailableSectionCount,
   studyPlanStartDate: profile?.studyPlanStartDate ?? getTodayDate(),
+  quantitativeStudyDays: profile?.quantitativeStudyDays ?? defaultQuantitativeStudyDays,
   targetScore: profile?.targetScore ?? 90,
   username: profile?.username ?? "",
   weakerSection: profile?.weakerSection ?? "",
   weeklyRestDay: profile?.weeklyRestDay ?? 5,
-  weeklyReviewDay: profile?.weeklyReviewDay ?? 6
+  weeklyReviewDay: profile?.weeklyReviewDay ?? 6,
+  verbalStudyDays: profile?.verbalStudyDays ?? defaultVerbalStudyDays
 });
+
+export const applyProfileFormUpdate = (
+  current: ProfileFormState,
+  nextValues: Partial<ProfileFormState>
+): ProfileFormState => {
+  return { ...current, ...nextValues };
+};
 
 export const toProfileInput = (
   state: ProfileFormState
@@ -53,11 +69,13 @@ export const toProfileInput = (
   latestScore: state.hasTakenQudurat ? Number(state.latestScore) : null,
   studyPlanBankCount: state.studyPlanBankCount,
   studyPlanStartDate: state.studyPlanStartDate,
+  quantitativeStudyDays: state.quantitativeStudyDays,
   targetScore: state.targetScore,
   username: state.username.trim(),
   weakerSection: state.weakerSection as WeakerSection,
   weeklyRestDay: state.weeklyRestDay,
-  weeklyReviewDay: state.weeklyReviewDay
+  weeklyReviewDay: state.weeklyReviewDay,
+  verbalStudyDays: state.verbalStudyDays
 });
 
 export const validateProfileForm = (
@@ -98,8 +116,13 @@ export const validateProfileForm = (
     return "اختر عدداً صالحاً من الأقسام المتاحة.";
   }
   if (!state.studyPlanStartDate) return "اختر تاريخ بدء المذاكرة.";
-  if (state.weeklyRestDay === state.weeklyReviewDay) {
-    return "اليوم المختار للراحة لا يمكن اختياره كيوم مراجعة.";
+  if (!isCompleteWeeklySchedule({
+    quantitativeStudyDays: state.quantitativeStudyDays,
+    restDay: state.weeklyRestDay,
+    reviewDay: state.weeklyReviewDay,
+    verbalStudyDays: state.verbalStudyDays
+  })) {
+    return "يجب أن يحتوي الأسبوع على ٥ أيام مذاكرة ويوم مراجعة ويوم راحة دون تداخل.";
   }
   return "";
 };

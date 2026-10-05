@@ -100,11 +100,15 @@ const ensureSeedAdminProfile = async (user: UserRecord) => {
   }
 
   const studyPlanStartDate = new Date().toISOString().slice(0, 10);
+  const quantitativeStudyDays = [0, 2, 4] as const;
+  const verbalStudyDays = [1, 3] as const;
   const studyPlan = calculateStudyPlan({
     bankCount: bankConfig.availableBankCount,
+    quantitativeStudyDays,
     restDay: 5,
     reviewDay: 6,
-    startDate: studyPlanStartDate
+    startDate: studyPlanStartDate,
+    verbalStudyDays
   });
 
   await upsertStudentProfile({
@@ -113,6 +117,7 @@ const ensureSeedAdminProfile = async (user: UserRecord) => {
     hasExamDate: false,
     hasTakenQudurat: false,
     latestScore: null,
+    quantitativeStudyDays: [...quantitativeStudyDays],
     studyPlanBankCount: studyPlan.bankCount,
     studyPlanCalendarDays: studyPlan.calendarDays,
     studyPlanCompletionDate: studyPlan.completionDate,
@@ -124,7 +129,8 @@ const ensureSeedAdminProfile = async (user: UserRecord) => {
       profile?.username ?? (await getAvailableSeedUsername(user.email, user.id)),
     weakerSection: "both",
     weeklyRestDay: 5,
-    weeklyReviewDay: 6
+    weeklyReviewDay: 6,
+    verbalStudyDays: [...verbalStudyDays]
   });
 };
 

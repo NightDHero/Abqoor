@@ -4,6 +4,7 @@ import { SummaryMetric } from "../components/ui/SummaryMetric";
 import { StudyPlanDateField, StudyPlanScheduleField } from "../features/profile/StudyPlanFields";
 import {
   createDefaultProfileForm,
+  applyProfileFormUpdate,
   toProfileInput,
   validateProfileForm,
   type ProfileFormState
@@ -55,11 +56,14 @@ export function ProfilePage({
   const [error, setError] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [phonePassword, setPhonePassword] = useState("");
+  const [isEditingPhone, setIsEditingPhone] = useState(!user.phoneNumber);
   const studyPlanPreview = useStudyPlanPreview({
     bankCount: form.studyPlanBankCount,
+    quantitativeStudyDays: form.quantitativeStudyDays,
     restDay: form.weeklyRestDay,
     reviewDay: form.weeklyReviewDay,
-    startDate: form.studyPlanStartDate
+    startDate: form.studyPlanStartDate,
+    verbalStudyDays: form.verbalStudyDays
   });
 
   useEffect(() => {
@@ -85,7 +89,7 @@ export function ProfilePage({
   const updateForm = (nextValues: Partial<ProfileFormState>) => {
     setError("");
     setMessage("");
-    setForm((current) => ({ ...current, ...nextValues }));
+    setForm((current) => applyProfileFormUpdate(current, nextValues));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -120,7 +124,8 @@ export function ProfilePage({
       onProfileSaved(response.user);
       setPhoneNumber("");
       setPhonePassword("");
-      setMessage("تمت إضافة رقم الجوال إلى الحساب.");
+      setIsEditingPhone(false);
+      setMessage(user.phoneNumber ? "تم تحديث رقم الجوال." : "تمت إضافة رقم الجوال إلى الحساب.");
     } catch (caughtError) {
       setError(caughtError instanceof HttpError ? caughtError.message : "تعذر إضافة رقم الجوال.");
     } finally {
@@ -161,12 +166,25 @@ export function ProfilePage({
             <div><span>رقم الجوال</span><strong dir="ltr">{user.phoneNumber ?? "غير مضاف"}</strong></div>
             <div><span>كلمة المرور</span><strong>تدار من نظام تسجيل الدخول</strong></div>
           </div>
-          {!user.phoneNumber ? (
+          {user.phoneNumber && !isEditingPhone ? (
+            <button className="secondary profile-change-phone" type="button" onClick={() => {
+              setPhoneNumber(user.phoneNumber ?? "");
+              setIsEditingPhone(true);
+            }}>تغيير رقم الجوال</button>
+          ) : null}
+          {isEditingPhone ? (
             <div className="profile-missing-phone">
-              <p>أضف رقم الجوال لتتمكن من استعادة حسابك عند الحاجة.</p>
+              <p>{user.phoneNumber ? "أدخل الرقم الجديد وأكد التغيير بكلمة المرور الحالية." : "أضف رقم الجوال لتتمكن من استعادة حسابك عند الحاجة."}</p>
               <label className="form-field">رقم الجوال<input autoComplete="tel" dir="ltr" required type="tel" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} /></label>
               <label className="form-field">كلمة المرور الحالية<input autoComplete="current-password" dir="ltr" required type="password" value={phonePassword} onChange={(event) => setPhonePassword(event.target.value)} /></label>
-              <button disabled={isSaving || !phoneNumber || !phonePassword} type="button" onClick={() => void handlePhoneSubmit()}>إضافة رقم الجوال</button>
+              <div className="action-row">
+                <button disabled={isSaving || !phoneNumber || !phonePassword} type="button" onClick={() => void handlePhoneSubmit()}>{user.phoneNumber ? "حفظ رقم الجوال" : "إضافة رقم الجوال"}</button>
+                {user.phoneNumber ? <button className="secondary" type="button" onClick={() => {
+                  setPhoneNumber("");
+                  setPhonePassword("");
+                  setIsEditingPhone(false);
+                }}>إلغاء</button> : null}
+              </div>
             </div>
           ) : null}
         </section>
@@ -198,7 +216,7 @@ export function ProfilePage({
 
         <section className="profile-section profile-study-plan" aria-labelledby="study-plan-section">
           <h2 id="study-plan-section">خطة الأقسام</h2>
-          {bankConfig ? <><StudyPlanDateField bankCount={form.studyPlanBankCount} bankConfig={bankConfig} isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} startDate={form.studyPlanStartDate} onBankCountChange={(studyPlanBankCount) => updateForm({ studyPlanBankCount })} onChange={(studyPlanStartDate) => updateForm({ studyPlanStartDate })} /><StudyPlanScheduleField isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} restDay={form.weeklyRestDay} reviewDay={form.weeklyReviewDay} onConflict={setError} onRestDayChange={(weeklyRestDay) => updateForm({ weeklyRestDay })} onReviewDayChange={(weeklyReviewDay) => updateForm({ weeklyReviewDay })} /></> : <p className="status-message">جاري تحميل إعدادات الأقسام...</p>}
+          {bankConfig ? <><StudyPlanDateField isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} startDate={form.studyPlanStartDate} onChange={(studyPlanStartDate) => updateForm({ studyPlanStartDate })} /><StudyPlanScheduleField initiallyCollapsed isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} quantitativeStudyDays={form.quantitativeStudyDays} restDay={form.weeklyRestDay} reviewDay={form.weeklyReviewDay} verbalStudyDays={form.verbalStudyDays} onScheduleChange={({ quantitativeStudyDays, restDay: weeklyRestDay, reviewDay: weeklyReviewDay, verbalStudyDays }) => updateForm({ quantitativeStudyDays, weeklyRestDay, weeklyReviewDay, verbalStudyDays })} onStudyDaysChange={(quantitativeStudyDays, verbalStudyDays) => updateForm({ quantitativeStudyDays, verbalStudyDays })} /></> : <p className="status-message">جاري تحميل إعدادات الأقسام...</p>}
         </section>
 
         <div className="action-row"><button type="submit" disabled={isSaving || isLoading || !bankConfig}>{isSaving ? "جاري الحفظ..." : "حفظ التغييرات الآن"}</button></div>

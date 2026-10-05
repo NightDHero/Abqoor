@@ -150,11 +150,17 @@ const insertBootstrapQuestion = (id: string, correctAnswer: "A" | "B" = "A") => 
 };
 
 const completeProfile = async (input: {
+  quantitativeStudyDays?: Array<0 | 1 | 2 | 3 | 4 | 5 | 6>;
+  restDay?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  reviewDay?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
   studyPlanStartDate?: string;
   userId: string;
   username: string;
+  verbalStudyDays?: Array<0 | 1 | 2 | 3 | 4 | 5 | 6>;
 }) => {
   const studyPlanStartDate = input.studyPlanStartDate ?? "2026-01-01";
+  const quantitativeStudyDays = input.quantitativeStudyDays ?? [0, 2, 4];
+  const verbalStudyDays = input.verbalStudyDays ?? [1, 3];
 
   await upsertStudentProfile({
     attemptCount: null,
@@ -162,6 +168,7 @@ const completeProfile = async (input: {
     hasExamDate: false,
     hasTakenQudurat: false,
     latestScore: null,
+    quantitativeStudyDays,
     studyPlanBankCount: 14,
     studyPlanCalendarDays: 14,
     studyPlanCompletionDate: input.studyPlanStartDate
@@ -173,10 +180,52 @@ const completeProfile = async (input: {
     userId: input.userId,
     username: input.username,
     weakerSection: "both",
-    weeklyRestDay: 5,
-    weeklyReviewDay: 6
+    weeklyRestDay: input.restDay ?? 5,
+    weeklyReviewDay: input.reviewDay ?? 6,
+    verbalStudyDays
   });
 };
+
+test("uses persisted weekday assignments for the daily plan and progress", async () => {
+  const user = await registerUser("custom-weekdays@example.com", password);
+  const today = new Date();
+  const todayDay = today.getUTCDay() as 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  const restDay = ((todayDay + 1) % 7) as 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  const reviewDay = ((todayDay + 2) % 7) as 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  const availableDays = ([0, 1, 2, 3, 4, 5, 6] as const).filter(
+    (day) => day !== restDay && day !== reviewDay
+  );
+  const quantitativeStudyDays = [
+    todayDay,
+    ...availableDays.filter((day) => day !== todayDay).slice(0, 2)
+  ];
+  const verbalStudyDays = availableDays.filter(
+    (day) => !quantitativeStudyDays.includes(day)
+  );
+
+  await completeProfile({
+    quantitativeStudyDays,
+    restDay,
+    reviewDay,
+    studyPlanStartDate: today.toISOString().slice(0, 10),
+    userId: user.id,
+    username: "custom_weekdays_user",
+    verbalStudyDays
+  });
+  const loginResult = await login("custom-weekdays@example.com");
+  assert.equal(loginResult.response.status, 200);
+
+  const response = await fetch(`${baseUrl}/sessions/progress?timeZone=UTC`, {
+    headers: { cookie: loginResult.cookie }
+  });
+  assert.equal(response.status, 200);
+  const payload = (await response.json()) as {
+    today: { planKind: string; planSubjectId: string | null; questionTarget: number | null };
+  };
+  assert.equal(payload.today.planKind, "study");
+  assert.equal(payload.today.planSubjectId, "math");
+  assert.equal(payload.today.questionTarget, 55);
+});
 
 const insertAnsweredQuestion = (input: {
   activeDurationSeconds: number | null;
@@ -453,9 +502,11 @@ test("returns a bounded backlog from persisted daily-plan sessions", async () =>
     const date = addUtcDays(todayDate, -(index + 1));
     return getStudyScheduleDay({
       date,
+      quantitativeStudyDays: [0, 2, 4],
       restDay: 5,
       reviewDay: 6,
-      startDate: studyPlanStartDate
+      startDate: studyPlanStartDate,
+      verbalStudyDays: [1, 3]
     });
   }).filter((day) => day.kind === "study");
   const incompleteDay = pastStudyDays[0];

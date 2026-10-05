@@ -1,7 +1,7 @@
 import {
   bankConfig,
   getStudyScheduleDay,
-  normalizeStoredStudyDays,
+  normalizeStoredStudySchedule,
   type StudyScheduleDayKind,
   type StudyScheduleSubjectId
 } from "../banks/bank-config.js";
@@ -394,17 +394,21 @@ export const getStudyProgress = async (
   const activityByDate = new Map<string, StudyProgressDay>();
   const currentActivity: SessionProgressActivityRecord[] = [];
   const profile = await findStudentProfileByUserId(userId);
-  const { restDay, reviewDay } = normalizeStoredStudyDays({
+  const scheduleSettings = normalizeStoredStudySchedule({
+    quantitativeStudyDays: profile?.quantitative_study_days_json,
     restDay: profile?.weekly_rest_day,
-    reviewDay: profile?.weekly_review_day
+    reviewDay: profile?.weekly_review_day,
+    verbalStudyDays: profile?.verbal_study_days_json
   });
   const studyPlanStartDate = profile?.study_plan_start_date ?? todayDate;
   const getSchedule = (date: string) =>
     getStudyScheduleDay({
       date,
-      restDay,
-      reviewDay,
-      startDate: studyPlanStartDate
+      quantitativeStudyDays: scheduleSettings.quantitativeStudyDays,
+      restDay: scheduleSettings.restDay,
+      reviewDay: scheduleSettings.reviewDay,
+      startDate: studyPlanStartDate,
+      verbalStudyDays: scheduleSettings.verbalStudyDays
     });
   const pastPlanStartDate = [
     studyPlanStartDate,

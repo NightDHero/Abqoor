@@ -20,6 +20,7 @@ const {
   AuthError,
   createSessionToken,
   getUserFromToken,
+  registerUser,
   requestPasswordReset,
   resetPassword
 } = await import("../src/modules/auth/auth.service.js");
@@ -87,6 +88,63 @@ test("registration enforces confirmation and the shared strong-password policy",
   assert.notEqual(stored.password_hash, password);
   assert.equal(await bcrypt.compare(password, stored.password_hash), true);
   assert.equal(stored.phone_number, phoneNumber);
+});
+
+test("persists a password-confirmed phone addition and change across re-authentication", async () => {
+  const accountEmail = "phone-persistence@example.com";
+  const accountPassword = "persistent phone password";
+  const initialPhone = "+966500000034";
+  const changedPhone = "+966500000035";
+  await registerUser(accountEmail, accountPassword);
+
+  const login = async () => {
+    const response = await fetch(`${baseUrl}/auth/login`, {
+      body: JSON.stringify({ email: accountEmail, password: accountPassword }),
+      headers: { "content-type": "application/json" },
+      method: "POST"
+    });
+    assert.equal(response.status, 200);
+    return response.headers.get("set-cookie")?.split(";")[0] ?? "";
+  };
+
+  let cookie = await login();
+  for (const expectedPhone of [initialPhone, changedPhone]) {
+    const response = await fetch(`${baseUrl}/auth/phone`, {
+      body: JSON.stringify({
+        password: accountPassword,
+        phoneNumber: expectedPhone
+      }),
+      headers: { cookie, "content-type": "application/json" },
+      method: "PATCH"
+    });
+    assert.equal(response.status, 200);
+    const payload = (await response.json()) as {
+      user: { phoneNumber: string };
+    };
+    assert.equal(payload.user.phoneNumber, expectedPhone);
+    assert.equal(JSON.stringify(payload).includes("password"), false);
+
+    const reload = await fetch(`${baseUrl}/auth/me`, { headers: { cookie } });
+    assert.equal(reload.status, 200);
+    assert.equal(((await reload.json()) as { user: { phoneNumber: string } }).user.phoneNumber, expectedPhone);
+
+    await fetch(`${baseUrl}/auth/logout`, {
+      headers: { cookie },
+      method: "POST"
+    });
+    cookie = await login();
+    const reauthenticated = await fetch(`${baseUrl}/auth/me`, { headers: { cookie } });
+    assert.equal(reauthenticated.status, 200);
+    assert.equal(((await reauthenticated.json()) as { user: { phoneNumber: string } }).user.phoneNumber, expectedPhone);
+  }
+
+  const stored = await db.prepare<string, { password_hash: string; phone_number: string }>(
+    "SELECT password_hash, phone_number FROM users WHERE email = ?"
+  ).get(accountEmail);
+  assert.ok(stored);
+  assert.equal(stored.phone_number, changedPhone);
+  assert.notEqual(stored.password_hash, accountPassword);
+  assert.equal(await bcrypt.compare(accountPassword, stored.password_hash), true);
 });
 
 test("forgot-password responses are generic and requests are rate limited", async () => {

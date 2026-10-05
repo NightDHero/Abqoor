@@ -5,7 +5,8 @@ import type { StudentProfileRecord, WeakerSection } from "./profile.types.js";
 const findProfileByUserIdStatement = db.prepare<string, StudentProfileRecord>(`
   SELECT user_id, username, profile_completed, target_score, has_exam_date,
     exam_date, has_taken_qudurat, attempt_count, latest_score, weaker_section,
-    study_plan_start_date, weekly_rest_days_json, weekly_rest_day,
+    study_plan_start_date, weekly_rest_days_json, quantitative_study_days_json,
+    verbal_study_days_json, weekly_rest_day,
     weekly_review_day, study_plan_bank_count,
     study_plan_study_days, study_plan_calendar_days, study_plan_completion_date,
     created_at, updated_at
@@ -17,7 +18,8 @@ const upsertProfileStatement = db.prepare(`
   INSERT INTO student_profiles (
     user_id, username, profile_completed, target_score, has_exam_date, exam_date,
     has_taken_qudurat, attempt_count, latest_score, weaker_section,
-    study_plan_start_date, weekly_rest_days_json, weekly_rest_day,
+    study_plan_start_date, weekly_rest_days_json, quantitative_study_days_json,
+    verbal_study_days_json, weekly_rest_day,
     weekly_review_day, study_plan_bank_count,
     study_plan_study_days, study_plan_calendar_days, study_plan_completion_date,
     created_at, updated_at
@@ -25,7 +27,8 @@ const upsertProfileStatement = db.prepare(`
   VALUES (
     @userId, @username, @profileCompleted, @targetScore, @hasExamDate, @examDate,
     @hasTakenQudurat, @attemptCount, @latestScore, @weakerSection,
-    @studyPlanStartDate, @weeklyRestDaysJson, @weeklyRestDay,
+    @studyPlanStartDate, @weeklyRestDaysJson, @quantitativeStudyDaysJson,
+    @verbalStudyDaysJson, @weeklyRestDay,
     @weeklyReviewDay, @studyPlanBankCount,
     @studyPlanStudyDays, @studyPlanCalendarDays, @studyPlanCompletionDate,
     @createdAt, @updatedAt
@@ -42,6 +45,8 @@ const upsertProfileStatement = db.prepare(`
     weaker_section = excluded.weaker_section,
     study_plan_start_date = excluded.study_plan_start_date,
     weekly_rest_days_json = excluded.weekly_rest_days_json,
+    quantitative_study_days_json = excluded.quantitative_study_days_json,
+    verbal_study_days_json = excluded.verbal_study_days_json,
     weekly_rest_day = excluded.weekly_rest_day,
     weekly_review_day = excluded.weekly_review_day,
     study_plan_bank_count = excluded.study_plan_bank_count,
@@ -90,12 +95,14 @@ export const upsertStudentProfile = async (input: {
   studyPlanCompletionDate: string;
   studyPlanStartDate: string;
   studyPlanStudyDays: number;
+  quantitativeStudyDays: StudyRestDay[];
   targetScore: number;
   userId: string;
   username: string;
   weakerSection: WeakerSection;
   weeklyRestDay: StudyRestDay;
   weeklyReviewDay: StudyRestDay;
+  verbalStudyDays: StudyRestDay[];
 }) => {
   const now = new Date().toISOString();
   const existing = await findStudentProfileByUserId(input.userId);
@@ -108,6 +115,7 @@ export const upsertStudentProfile = async (input: {
     hasTakenQudurat: input.hasTakenQudurat ? 1 : 0,
     latestScore: input.latestScore,
     profileCompleted: 1,
+    quantitativeStudyDaysJson: JSON.stringify(input.quantitativeStudyDays),
     studyPlanBankCount: input.studyPlanBankCount,
     studyPlanCalendarDays: input.studyPlanCalendarDays,
     studyPlanCompletionDate: input.studyPlanCompletionDate,
@@ -118,6 +126,7 @@ export const upsertStudentProfile = async (input: {
     userId: input.userId,
     username: input.username,
     weakerSection: input.weakerSection,
+    verbalStudyDaysJson: JSON.stringify(input.verbalStudyDays),
     weeklyRestDay: input.weeklyRestDay,
     weeklyRestDaysJson: JSON.stringify([input.weeklyRestDay]),
     weeklyReviewDay: input.weeklyReviewDay

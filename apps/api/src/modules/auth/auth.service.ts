@@ -131,13 +131,15 @@ export const addPhoneNumber = async (
 ) => {
   const user = await findUserById(userId);
   if (!user) throw new AuthError("تسجيل الدخول مطلوب.", 401);
-  if (user.phone_number) throw new AuthError("رقم الجوال مسجل بالفعل.", 409);
 
   const passwordMatches = await bcrypt.compare(password, user.password_hash);
   if (!passwordMatches) throw new AuthError("كلمة المرور غير صحيحة.", 401);
 
   const phoneNumber = normalizePhoneNumber(phoneNumberInput);
-  if (await findUserByPhone(phoneNumber)) {
+  if (user.phone_number === phoneNumber) return user;
+
+  const existingUser = await findUserByPhone(phoneNumber);
+  if (existingUser && existingUser.id !== user.id) {
     throw new AuthError("رقم الجوال مستخدم بالفعل.", 409);
   }
   return updateUserPhoneNumber(user.id, phoneNumber);

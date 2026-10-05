@@ -210,6 +210,79 @@ const migrateStudentSchedule = (db: Database.Database) => {
   }
 };
 
+const migrateStudentWeekdayAssignments = (db: Database.Database) => {
+  addColumnIfMissing(
+    db,
+    "student_profiles",
+    "quantitative_study_days_json",
+    "TEXT NOT NULL DEFAULT '[]'"
+  );
+  addColumnIfMissing(
+    db,
+    "student_profiles",
+    "verbal_study_days_json",
+    "TEXT NOT NULL DEFAULT '[]'"
+  );
+
+  const profiles = db.prepare(`
+    SELECT user_id, weekly_rest_day, weekly_review_day, quantitative_study_days_json,
+      verbal_study_days_json
+    FROM student_profiles
+  `).all() as Array<{
+    quantitative_study_days_json: string;
+    user_id: string;
+    verbal_study_days_json: string;
+    weekly_rest_day: number;
+    weekly_review_day: number;
+  }>;
+  const update = db.prepare(`
+    UPDATE student_profiles
+    SET quantitative_study_days_json = @quantitativeDays,
+      verbal_study_days_json = @verbalDays
+    WHERE user_id = @userId
+  `);
+
+  for (const profile of profiles) {
+    const restDay = Number.isInteger(profile.weekly_rest_day) &&
+      profile.weekly_rest_day >= 0 && profile.weekly_rest_day <= 6
+      ? profile.weekly_rest_day
+      : 5;
+    const reviewDay = Number.isInteger(profile.weekly_review_day) &&
+      profile.weekly_review_day >= 0 && profile.weekly_review_day <= 6 &&
+      profile.weekly_review_day !== restDay
+      ? profile.weekly_review_day
+      : restDay === 6 ? 5 : 6;
+    const parseDays = (value: string) => {
+      try {
+        const parsed = JSON.parse(value) as unknown;
+        return Array.isArray(parsed)
+          ? [...new Set(parsed.filter((day) => Number.isInteger(day) && Number(day) >= 0 && Number(day) <= 6).map(Number))]
+          : [];
+      } catch {
+        return [];
+      }
+    };
+    const quantitativeDays = parseDays(profile.quantitative_study_days_json);
+    const verbalDays = parseDays(profile.verbal_study_days_json);
+    const allRoles = new Set([...quantitativeDays, ...verbalDays, restDay, reviewDay]);
+    const hasValidAssignments =
+      [2, 3].includes(quantitativeDays.length) &&
+      [2, 3].includes(verbalDays.length) &&
+      quantitativeDays.length + verbalDays.length === 5 &&
+      allRoles.size === 7;
+    if (hasValidAssignments) continue;
+
+    const availableDays = [0, 1, 2, 3, 4, 5, 6].filter(
+      (day) => day !== restDay && day !== reviewDay
+    );
+    update.run({
+      quantitativeDays: JSON.stringify(availableDays.filter((_day, index) => index % 2 === 0)),
+      userId: profile.user_id,
+      verbalDays: JSON.stringify(availableDays.filter((_day, index) => index % 2 === 1))
+    });
+  }
+};
+
 const migrateAccountRecovery = (db: Database.Database) => {
   addColumnIfMissing(db, "users", "phone_number", "TEXT");
   addColumnIfMissing(
@@ -470,6 +543,7 @@ export const runDatabaseMigrations = (db: Database.Database) => {
   migrateStudentProfileIdentity(db);
   migrateStudentStudyPlan(db);
   migrateStudentSchedule(db);
+  migrateStudentWeekdayAssignments(db);
   migrateAccountRecovery(db);
   migrateDailyPlanSessions(db);
   migrateAdminAccounts(db);

@@ -13,6 +13,7 @@ import {
 import {
   bankConfig,
   calculateStudyPlan,
+  isValidStudyWeekdaySchedule,
   isDateOnly,
   type StudyRestDay
 } from "../banks/bank-config.js";
@@ -55,7 +56,9 @@ const profileFieldLabels: Record<string, string> = {
   targetScore: "الدرجة المستهدفة",
   weakerSection: "القسم الأضعف",
   weeklyRestDay: "يوم الراحة الأسبوعي",
-  weeklyReviewDay: "يوم المراجعة الأسبوعي"
+  weeklyReviewDay: "يوم المراجعة الأسبوعي",
+  quantitativeStudyDays: "أيام الكمي",
+  verbalStudyDays: "أيام اللفظي"
 };
 
 const toFieldLabel = (fieldName: string) => {
@@ -147,6 +150,51 @@ const toStudyDay = (value: unknown, fieldName: string): StudyRestDay => {
   return Number(parsed) as StudyRestDay;
 };
 
+const toStudyDays = (value: unknown, fieldName: string): StudyRestDay[] => {
+  if (!Array.isArray(value)) {
+    throw new ProfileError(`${toFieldLabel(fieldName)} غير صالحة.`);
+  }
+
+  const days = value.map((day) => toStudyDay(day, fieldName));
+  if (![2, 3].includes(days.length) || new Set(days).size !== days.length) {
+    throw new ProfileError(`اختر يومين أو ثلاثة أيام مختلفة لـ ${toFieldLabel(fieldName)}.`);
+  }
+
+  return [...days].sort((left, right) => left - right);
+};
+
+const toWeeklySchedule = (input: {
+  quantitativeStudyDays: unknown;
+  restDay?: unknown;
+  reviewDay: unknown;
+  verbalStudyDays: unknown;
+}) => {
+  const quantitativeStudyDays = toStudyDays(
+    input.quantitativeStudyDays,
+    "quantitativeStudyDays"
+  );
+  const verbalStudyDays = toStudyDays(input.verbalStudyDays, "verbalStudyDays");
+  const weeklyRestDay = toStudyDay(input.restDay, "weeklyRestDay");
+  const weeklyReviewDay = toStudyDay(input.reviewDay, "weeklyReviewDay");
+  if (!isValidStudyWeekdaySchedule({
+    quantitativeStudyDays,
+    restDay: weeklyRestDay,
+    reviewDay: weeklyReviewDay,
+    verbalStudyDays
+  })) {
+    throw new ProfileError(
+      "يجب أن يحتوي الأسبوع على ٥ أيام مذاكرة ويوم مراجعة ويوم راحة دون تداخل."
+    );
+  }
+
+  return {
+    quantitativeStudyDays,
+    verbalStudyDays,
+    weeklyRestDay,
+    weeklyReviewDay
+  };
+};
+
 const toStudyPlanBankCount = (value: unknown) => {
   const bankCount =
     value === undefined
@@ -191,16 +239,19 @@ const normalizeProfileInput = (input: UpdateStudentProfileInput) => {
 
   const studyPlanStartDate = toStudyPlanStartDate(input.studyPlanStartDate);
   const studyPlanBankCount = toStudyPlanBankCount(input.studyPlanBankCount);
-  const weeklyRestDay = toStudyDay(input.weeklyRestDay, "weeklyRestDay");
-  const weeklyReviewDay = toStudyDay(input.weeklyReviewDay, "weeklyReviewDay");
-  if (weeklyRestDay === weeklyReviewDay) {
-    throw new ProfileError("اليوم المختار للراحة لا يمكن اختياره كيوم مراجعة.");
-  }
+  const weeklySchedule = toWeeklySchedule({
+    quantitativeStudyDays: input.quantitativeStudyDays,
+    restDay: input.weeklyRestDay,
+    reviewDay: input.weeklyReviewDay,
+    verbalStudyDays: input.verbalStudyDays
+  });
   const generatedPlan = calculateStudyPlan({
     bankCount: studyPlanBankCount,
-    restDay: weeklyRestDay,
-    reviewDay: weeklyReviewDay,
-    startDate: studyPlanStartDate
+    quantitativeStudyDays: weeklySchedule.quantitativeStudyDays,
+    restDay: weeklySchedule.weeklyRestDay,
+    reviewDay: weeklySchedule.weeklyReviewDay,
+    startDate: studyPlanStartDate,
+    verbalStudyDays: weeklySchedule.verbalStudyDays
   });
 
   return {
@@ -221,30 +272,34 @@ const normalizeProfileInput = (input: UpdateStudentProfileInput) => {
       weakerSectionOptions,
       "weakerSection"
     ) as WeakerSection,
-    weeklyRestDay,
-    weeklyReviewDay
+    ...weeklySchedule
   };
 };
 
 export const previewStudentStudyPlan = (input: {
   studyPlanStartDate?: unknown;
   studyPlanBankCount?: unknown;
+  quantitativeStudyDays?: unknown;
   weeklyRestDay?: unknown;
   weeklyReviewDay?: unknown;
+  verbalStudyDays?: unknown;
 }) => {
   const studyPlanStartDate = toStudyPlanStartDate(input.studyPlanStartDate);
   const studyPlanBankCount = toStudyPlanBankCount(input.studyPlanBankCount);
-  const weeklyRestDay = toStudyDay(input.weeklyRestDay, "weeklyRestDay");
-  const weeklyReviewDay = toStudyDay(input.weeklyReviewDay, "weeklyReviewDay");
-  if (weeklyRestDay === weeklyReviewDay) {
-    throw new ProfileError("اليوم المختار للراحة لا يمكن اختياره كيوم مراجعة.");
-  }
+  const weeklySchedule = toWeeklySchedule({
+    quantitativeStudyDays: input.quantitativeStudyDays,
+    restDay: input.weeklyRestDay,
+    reviewDay: input.weeklyReviewDay,
+    verbalStudyDays: input.verbalStudyDays
+  });
 
   return calculateStudyPlan({
     bankCount: studyPlanBankCount,
-    restDay: weeklyRestDay,
-    reviewDay: weeklyReviewDay,
-    startDate: studyPlanStartDate
+    quantitativeStudyDays: weeklySchedule.quantitativeStudyDays,
+    restDay: weeklySchedule.weeklyRestDay,
+    reviewDay: weeklySchedule.weeklyReviewDay,
+    startDate: studyPlanStartDate,
+    verbalStudyDays: weeklySchedule.verbalStudyDays
   });
 };
 

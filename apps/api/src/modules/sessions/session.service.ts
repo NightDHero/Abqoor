@@ -8,7 +8,7 @@ import type { CorrectAnswer, Question } from "../questions/question.types.js";
 import {
   getStudyScheduleDay,
   isDateOnly,
-  normalizeStoredStudyDays,
+  normalizeStoredStudySchedule,
   type StudyScheduleSubjectId
 } from "../banks/bank-config.js";
 import { findStudentProfileByUserId } from "../profile/profile.repository.js";
@@ -275,16 +275,20 @@ const validateDailyPlanSubject = async (
   }
 
   const profile = await findStudentProfileByUserId(userId);
-  const { restDay, reviewDay } = normalizeStoredStudyDays({
+  const scheduleSettings = normalizeStoredStudySchedule({
+    quantitativeStudyDays: profile?.quantitative_study_days_json,
     restDay: profile?.weekly_rest_day,
-    reviewDay: profile?.weekly_review_day
+    reviewDay: profile?.weekly_review_day,
+    verbalStudyDays: profile?.verbal_study_days_json
   });
 
   const schedule = getStudyScheduleDay({
     date: planDate,
-    restDay,
-    reviewDay,
-    startDate: profile?.study_plan_start_date ?? planDate
+    quantitativeStudyDays: scheduleSettings.quantitativeStudyDays,
+    restDay: scheduleSettings.restDay,
+    reviewDay: scheduleSettings.reviewDay,
+    startDate: profile?.study_plan_start_date ?? planDate,
+    verbalStudyDays: scheduleSettings.verbalStudyDays
   });
   if (schedule.kind !== "study" || schedule.subjectId !== subjectId) {
     throw new SessionError("The requested subject does not match the daily study plan.", 409);

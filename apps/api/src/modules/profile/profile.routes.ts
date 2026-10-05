@@ -34,8 +34,10 @@ profileRouter.post("/schedule-preview", requireAuth, async (request, response) =
     const body = (request.body ?? {}) as {
       studyPlanStartDate?: unknown;
       studyPlanBankCount?: unknown;
+      quantitativeStudyDays?: unknown;
       weeklyRestDay?: unknown;
       weeklyReviewDay?: unknown;
+      verbalStudyDays?: unknown;
     };
     response.status(200).json({
       plan: previewStudentStudyPlan(body)

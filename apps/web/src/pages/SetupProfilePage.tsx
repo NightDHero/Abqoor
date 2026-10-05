@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { StudyPlanDateField, StudyPlanScheduleField } from "../features/profile/StudyPlanFields";
 import {
   createDefaultProfileForm,
+  applyProfileFormUpdate,
   toProfileInput,
   validateProfileForm,
   type ProfileFormState
@@ -60,9 +61,11 @@ export function SetupProfilePage({
   const [isSaving, setIsSaving] = useState(false);
   const studyPlanPreview = useStudyPlanPreview({
     bankCount: form.studyPlanBankCount,
+    quantitativeStudyDays: form.quantitativeStudyDays,
     restDay: form.weeklyRestDay,
     reviewDay: form.weeklyReviewDay,
-    startDate: form.studyPlanStartDate
+    startDate: form.studyPlanStartDate,
+    verbalStudyDays: form.verbalStudyDays
   });
 
   useEffect(() => {
@@ -94,7 +97,7 @@ export function SetupProfilePage({
 
   const updateForm = (nextValues: Partial<ProfileFormState>) => {
     setError("");
-    setForm((current) => ({ ...current, ...nextValues }));
+    setForm((current) => applyProfileFormUpdate(current, nextValues));
   };
 
   const steps = useMemo<SetupStep[]>(() => {
@@ -154,11 +157,11 @@ export function SetupProfilePage({
       },
       {
         title: "متى تبدأ مذاكرتك",
-        render: () => <StudyPlanDateField bankCount={form.studyPlanBankCount} bankConfig={bankConfig} isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} startDate={form.studyPlanStartDate} onBankCountChange={(studyPlanBankCount) => updateForm({ studyPlanBankCount })} onChange={(studyPlanStartDate) => updateForm({ studyPlanStartDate })} />
+        render: () => <StudyPlanDateField isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} startDate={form.studyPlanStartDate} onChange={(studyPlanStartDate) => updateForm({ studyPlanStartDate })} />
       },
       {
         title: "نظّم أسبوعك",
-        render: () => <StudyPlanScheduleField isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} restDay={form.weeklyRestDay} reviewDay={form.weeklyReviewDay} onConflict={setError} onRestDayChange={(weeklyRestDay) => updateForm({ weeklyRestDay })} onReviewDayChange={(weeklyReviewDay) => updateForm({ weeklyReviewDay })} />
+        render: () => <StudyPlanScheduleField isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} quantitativeStudyDays={form.quantitativeStudyDays} restDay={form.weeklyRestDay} reviewDay={form.weeklyReviewDay} verbalStudyDays={form.verbalStudyDays} onScheduleChange={({ quantitativeStudyDays, restDay: weeklyRestDay, reviewDay: weeklyReviewDay, verbalStudyDays }) => updateForm({ quantitativeStudyDays, weeklyRestDay, weeklyReviewDay, verbalStudyDays })} onStudyDaysChange={(quantitativeStudyDays, verbalStudyDays) => updateForm({ quantitativeStudyDays, verbalStudyDays })} />
       }
     ];
     if (isUsernameOnlySetup) return [allSteps[0]];

@@ -10,6 +10,40 @@ export const weekdayOptions: Array<{ label: string; value: StudyRestDay }> = [
   { label: "السبت", value: 6 }
 ];
 
+export const defaultQuantitativeStudyDays: StudyRestDay[] = [0, 2, 4];
+export const defaultVerbalStudyDays: StudyRestDay[] = [1, 3];
+export const temporaryAvailableSectionCount = 14;
+
+export type StudyDistribution = "quantitative-majority" | "verbal-majority";
+
+export const getStudyDistribution = (
+  quantitativeStudyDays: readonly StudyRestDay[]
+): StudyDistribution => quantitativeStudyDays.length === 2
+  ? "verbal-majority"
+  : "quantitative-majority";
+
+export const isCompleteWeeklySchedule = (input: {
+  quantitativeStudyDays: readonly StudyRestDay[];
+  restDay: StudyRestDay;
+  reviewDay: StudyRestDay;
+  verbalStudyDays: readonly StudyRestDay[];
+}) => {
+  const assignedDays = new Set([
+    ...input.quantitativeStudyDays,
+    ...input.verbalStudyDays,
+    input.restDay,
+    input.reviewDay
+  ]);
+  if (
+    ![2, 3].includes(input.quantitativeStudyDays.length) ||
+    ![2, 3].includes(input.verbalStudyDays.length) ||
+    input.quantitativeStudyDays.length + input.verbalStudyDays.length !== 5 ||
+    assignedDays.size !== 7
+  ) return false;
+
+  return true;
+};
+
 export const getTodayDate = () => {
   const today = new Date();
   const year = today.getFullYear();
