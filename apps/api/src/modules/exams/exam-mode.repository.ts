@@ -67,14 +67,16 @@ const insertSectionStatement = db.prepare(`
     section_number,
     status,
     started_at,
-    completed_at
+    completed_at,
+    deadline_at
   )
   VALUES (
     @examId,
     @sectionNumber,
     @status,
     @startedAt,
-    NULL
+    NULL,
+    @deadlineAt
   )
 `);
 
@@ -125,7 +127,8 @@ const findSectionsStatement = db.prepare<string, OfficialExamSectionRecord>(`
     section_number,
     status,
     started_at,
-    completed_at
+    completed_at,
+    deadline_at
   FROM official_exam_sections
   WHERE exam_id = ?
   ORDER BY section_number ASC
@@ -146,6 +149,19 @@ const updateAnswerStatement = db.prepare(`
   WHERE exam_id = @examId
     AND section_number = @sectionNumber
     AND position_in_section = @positionInSection
+    AND EXISTS (
+      SELECT 1
+      FROM official_exams
+      INNER JOIN official_exam_sections
+        ON official_exam_sections.exam_id = official_exams.id
+        AND official_exam_sections.section_number = @sectionNumber
+      WHERE official_exams.id = @examId
+        AND official_exams.user_id = @userId
+        AND official_exams.status = 'active'
+        AND official_exams.current_section = @sectionNumber
+        AND official_exam_sections.status = 'active'
+        AND official_exam_sections.deadline_at > @answeredAt
+    )
 `);
 
 const updateFlagStatement = db.prepare(`
@@ -156,6 +172,19 @@ const updateFlagStatement = db.prepare(`
   WHERE exam_id = @examId
     AND section_number = @sectionNumber
     AND position_in_section = @positionInSection
+    AND EXISTS (
+      SELECT 1
+      FROM official_exams
+      INNER JOIN official_exam_sections
+        ON official_exam_sections.exam_id = official_exams.id
+        AND official_exam_sections.section_number = @sectionNumber
+      WHERE official_exams.id = @examId
+        AND official_exams.user_id = @userId
+        AND official_exams.status = 'active'
+        AND official_exams.current_section = @sectionNumber
+        AND official_exam_sections.status = 'active'
+        AND official_exam_sections.deadline_at > @updatedAt
+    )
 `);
 
 const updateExamStatement = db.prepare(`
@@ -173,7 +202,8 @@ const updateSectionStatement = db.prepare(`
   SET
     status = @status,
     started_at = COALESCE(started_at, @startedAt),
-    completed_at = @completedAt
+    completed_at = @completedAt,
+    deadline_at = COALESCE(deadline_at, @deadlineAt)
   WHERE exam_id = @examId
     AND section_number = @sectionNumber
 `);
@@ -301,6 +331,12 @@ export const createOfficialExam = async (input: {
       sectionNumber += 1
     ) {
       await insertSectionStatement.run({
+        deadlineAt:
+          sectionNumber === 1
+            ? new Date(
+                Date.parse(now) + officialExamStructure.sectionDurationSeconds * 1000
+              ).toISOString()
+            : null,
         examId: input.examId,
         sectionNumber,
         startedAt: sectionNumber === 1 ? now : null,
@@ -339,6 +375,7 @@ export const findOfficialExamQuestions = async (examId: string) => {
 
 export const updateOfficialExamAnswer = async (input: {
   examId: string;
+  userId: string;
   sectionNumber: number;
   positionInSection: number;
   userAnswer: CorrectAnswer;
@@ -353,6 +390,7 @@ export const updateOfficialExamAnswer = async (input: {
 
 export const updateOfficialExamFlag = async (input: {
   examId: string;
+  userId: string;
   sectionNumber: number;
   positionInSection: number;
   flagged: boolean;
@@ -379,6 +417,7 @@ export const completeOfficialExamSection = async (input: {
 
   await updateSectionStatement.run({
     completedAt: now,
+    deadlineAt: null,
     examId: input.examId,
     sectionNumber: input.sectionNumber,
     startedAt: null,
@@ -386,8 +425,12 @@ export const completeOfficialExamSection = async (input: {
   });
 
   if (input.nextSectionNumber) {
+    const deadlineAt = new Date(
+      Date.parse(now) + officialExamStructure.sectionDurationSeconds * 1000
+    ).toISOString();
     await updateSectionStatement.run({
       completedAt: null,
+      deadlineAt,
       examId: input.examId,
       sectionNumber: input.nextSectionNumber,
       startedAt: now,
@@ -411,6 +454,7 @@ export const completeOfficialExam = async (input: {
 
   await updateSectionStatement.run({
     completedAt: now,
+    deadlineAt: null,
     examId: input.examId,
     sectionNumber: input.currentSection,
     startedAt: null,

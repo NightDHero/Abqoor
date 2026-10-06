@@ -14,6 +14,9 @@ export const getPdfPageCount = async (pdfBuffer: Buffer) => {
   const document = await loadingTask.promise;
 
   try {
+    if (document.numPages > 500) {
+      throw new Error("PDF exceeds the 500-page import limit.");
+    }
     return document.numPages;
   } finally {
     await document.destroy();
@@ -78,19 +81,32 @@ const runPdftoppm = (
         )
     });
     const stderr: Buffer[] = [];
+    let settled = false;
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      if (error) reject(error);
+      else resolve();
+    };
+    const timeout = setTimeout(() => {
+      child.kill("SIGKILL");
+      finish(new Error("PDF rendering exceeded the 30-second processing limit."));
+    }, 30_000);
+    timeout.unref();
 
     child.stderr.on("data", (chunk: Buffer) => {
       stderr.push(chunk);
     });
 
-    child.on("error", reject);
+    child.on("error", (error) => finish(error));
     child.on("close", (code) => {
       if (code === 0) {
-        resolve();
+        finish();
         return;
       }
 
-      reject(
+      finish(
         new Error(
           Buffer.concat(stderr).toString("utf8").trim() ||
             `pdftoppm exited with code ${code}.`

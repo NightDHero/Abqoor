@@ -10,12 +10,14 @@
     "dev": "concurrently \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",
     "dev:api": "npm run dev -w apps/api",
     "dev:web": "npm run dev -w apps/web",
-    "test": "npm test -w apps/api",
+    "test": "npm test -w apps/api && npm test -w apps/web",
     "build": "npm run build -w apps/api && npm run build -w apps/web",
     "seed:admin": "npm run seed:admin -w apps/api",
     "typecheck": "npm run typecheck -w apps/api && npm run typecheck -w apps/web"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "@types/express": "4.17.25",
+    "@types/express-serve-static-core": "4.19.9",
+    "concurrently": "9.1.2"
   }
 }

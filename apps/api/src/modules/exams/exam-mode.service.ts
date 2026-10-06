@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import {
   getQuestions,
   isCorrectAnswer
@@ -97,19 +98,24 @@ const officialExamTopicDefinitions: Array<{
   }
 ];
 
-const sortByQuestionId = (questions: Question[]) => {
-  return [...questions].sort((left, right) => left.id.localeCompare(right.id));
+export const secureShuffle = <T>(items: readonly T[]) => {
+  const shuffled = [...items];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomInt(index + 1);
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled;
 };
 
 const getOfficialQuestionPools = async () => {
-  const allQuestions = sortByQuestionId(await getQuestions({}));
-  const mathQuestions = sortByQuestionId(
+  const allQuestions = await getQuestions({});
+  const mathQuestions = secureShuffle(
     allQuestions.filter(
       (question) =>
         question.subjectId === "math" || question.subject === "quantitative"
     )
   );
-  const arabicQuestions = sortByQuestionId(
+  const arabicQuestions = secureShuffle(
     allQuestions.filter(
       (question) => question.subjectId === "arabic" || question.subject === "verbal"
     )
@@ -258,6 +264,7 @@ const toOfficialExam = async (exam: OfficialExamRecord): Promise<OfficialExam> =
       status: section.status,
       startedAt: section.started_at ?? undefined,
       completedAt: section.completed_at ?? undefined,
+      deadlineAt: section.deadline_at ?? undefined,
       questions: questions.filter(
         (question) => question.sectionNumber === section.section_number
       )
@@ -276,7 +283,7 @@ const getOwnedOfficialExamRecord = async (userId: string, examId: string) => {
   return exam;
 };
 
-const assertWritableCurrentSection = (
+const assertWritableCurrentSection = async (
   exam: OfficialExamRecord,
   sectionNumber: number,
   positionInSection?: number
@@ -287,6 +294,16 @@ const assertWritableCurrentSection = (
 
   if (sectionNumber !== exam.current_section) {
     throw new OfficialExamError("Only the active section can be modified.", 409);
+  }
+
+  const section = (await findOfficialExamSections(exam.id)).find(
+    (candidate) => candidate.section_number === sectionNumber
+  );
+  if (!section || section.status !== "active") {
+    throw new OfficialExamError("Only the active section can be modified.", 409);
+  }
+  if (!section.deadline_at || Date.parse(section.deadline_at) <= Date.now()) {
+    throw new OfficialExamError("انتهى وقت هذا القسم ولا يمكن تعديل الإجابات.", 409);
   }
 
   if (
@@ -437,7 +454,7 @@ export const answerOfficialExamQuestion = async (
   }
 
   const exam = await getOwnedOfficialExamRecord(userId, input.examId);
-  assertWritableCurrentSection(
+  await assertWritableCurrentSection(
     exam,
     input.sectionNumber,
     input.positionInSection
@@ -447,11 +464,12 @@ export const answerOfficialExamQuestion = async (
     examId: exam.id,
     positionInSection: input.positionInSection,
     sectionNumber: input.sectionNumber,
-    userAnswer: input.userAnswer as CorrectAnswer
+    userAnswer: input.userAnswer as CorrectAnswer,
+    userId
   });
 
   if (changes === 0) {
-    throw new OfficialExamError("Exam question not found.", 404);
+    throw new OfficialExamError("The active exam section can no longer be modified.", 409);
   }
 
   return getOfficialExam(userId, exam.id);
@@ -471,7 +489,7 @@ export const flagOfficialExamQuestion = async (
   }
 
   const exam = await getOwnedOfficialExamRecord(userId, input.examId);
-  assertWritableCurrentSection(
+  await assertWritableCurrentSection(
     exam,
     input.sectionNumber,
     input.positionInSection
@@ -481,11 +499,12 @@ export const flagOfficialExamQuestion = async (
     examId: exam.id,
     flagged: input.flagged,
     positionInSection: input.positionInSection,
-    sectionNumber: input.sectionNumber
+    sectionNumber: input.sectionNumber,
+    userId
   });
 
   if (changes === 0) {
-    throw new OfficialExamError("Exam question not found.", 404);
+    throw new OfficialExamError("The active exam section can no longer be modified.", 409);
   }
 
   return getOfficialExam(userId, exam.id);
@@ -497,7 +516,9 @@ export const completeOfficialExamSectionFlow = async (
   sectionNumber: number
 ) => {
   const exam = await getOwnedOfficialExamRecord(userId, examId);
-  assertWritableCurrentSection(exam, sectionNumber);
+  if (exam.status === "completed" || sectionNumber !== exam.current_section) {
+    throw new OfficialExamError("Only the active section can be completed.", 409);
+  }
 
   return runOfficialExamTransaction(async () => {
     if (sectionNumber >= officialExamSectionCount) {

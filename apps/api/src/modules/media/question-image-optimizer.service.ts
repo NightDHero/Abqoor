@@ -12,7 +12,18 @@ export type OptimizedQuestionImage = {
 export const optimizeQuestionImage = async (
   pngBuffer: Buffer
 ): Promise<OptimizedQuestionImage> => {
-  const buffer = await sharp(pngBuffer)
+  const image = sharp(pngBuffer, { limitInputPixels: 40_000_000 });
+  const metadata = await image.metadata();
+  if (
+    !metadata.width ||
+    !metadata.height ||
+    metadata.width > 10_000 ||
+    metadata.height > 10_000 ||
+    metadata.width * metadata.height > 40_000_000
+  ) {
+    throw new Error("Question image dimensions exceed the safe processing limit.");
+  }
+  const buffer = await image
     .webp({
       effort: 5,
       quality: env.questionImageWebpQuality

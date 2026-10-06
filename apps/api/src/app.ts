@@ -19,7 +19,12 @@ import { profileRouter } from "./modules/profile/profile.routes.js";
 import { requireCompletedProfile } from "./modules/profile/profile.middleware.js";
 import { questionRouter } from "./modules/questions/question.routes.js";
 import { reviewRouter } from "./modules/review/review.routes.js";
-import { securityHeaders } from "./modules/security/security.middleware.js";
+import {
+  enforceBrowserRequestOrigin,
+  requestContext,
+  securityHeaders,
+  sensitiveResponseCacheControl
+} from "./modules/security/security.middleware.js";
 import { sessionRouter } from "./modules/sessions/session.routes.js";
 
 const jsonErrorHandler: ErrorRequestHandler = (error, _request, response, next) => {
@@ -42,6 +47,18 @@ const unexpectedErrorHandler: ErrorRequestHandler = (
     error.message === "Origin is not allowed by CORS."
   ) {
     response.status(403).json({ message: error.message });
+    return;
+  }
+
+  const statusCode = (error as { statusCode?: unknown } | null)?.statusCode;
+  if (
+    error instanceof Error &&
+    typeof statusCode === "number" &&
+    Number.isInteger(statusCode) &&
+    statusCode >= 400 &&
+    statusCode < 500
+  ) {
+    response.status(statusCode).json({ message: error.message });
     return;
   }
 
@@ -76,6 +93,7 @@ const corsOptions: CorsOptions = {
 export const createApp = async () => {
   const app = express();
   app.disable("x-powered-by");
+  app.set("query parser", "simple");
 
   await initializeDatabase();
   await recoverInterruptedImportJobs();
@@ -84,11 +102,14 @@ export const createApp = async () => {
     app.set("trust proxy", 1);
   }
 
+  app.use(requestContext);
   app.use(securityHeaders);
   app.options("*", cors(corsOptions));
   app.use(cors(corsOptions));
   app.use(cookieParser());
-  app.use(express.json());
+  app.use(express.json({ limit: "1mb", strict: true }));
+  app.use(sensitiveResponseCacheControl);
+  app.use(enforceBrowserRequestOrigin);
   ensureQuestionMediaDirectory();
 
   app.use(mediaRouter);
@@ -103,6 +124,9 @@ export const createApp = async () => {
   app.use("/admin", adminRouter);
   app.use("/admin/import", importerRouter);
   app.use("/admin/validation", validationRouter);
+  app.use((_request, response) => {
+    response.status(404).json({ message: "API route not found." });
+  });
   app.use(jsonErrorHandler);
   app.use(unexpectedErrorHandler);
 

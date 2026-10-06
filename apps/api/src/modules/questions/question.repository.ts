@@ -201,6 +201,18 @@ const questionReferenceCountStatement = db.prepare(`
     (SELECT COUNT(*) FROM official_exam_questions WHERE question_id = @id) +
     (SELECT COUNT(*) FROM review_items WHERE question_id = @id) AS count
 `);
+const activeExamQuestionStatement = db.prepare<
+  { questionId: string; userId: string },
+  { found: number }
+>(`
+  SELECT 1 AS found
+  FROM official_exam_questions
+  INNER JOIN official_exams ON official_exams.id = official_exam_questions.exam_id
+  WHERE official_exams.user_id = @userId
+    AND official_exams.status = 'active'
+    AND official_exam_questions.question_id = @questionId
+  LIMIT 1
+`);
 
 export const findQuestionById = async (id: string) => {
   return (await findQuestionByIdStatement.get(id)) ?? null;
@@ -307,3 +319,6 @@ export const countQuestionReferences = async (id: string) => {
   const result = (await questionReferenceCountStatement.get({ id })) as { count: number };
   return result.count;
 };
+
+export const isQuestionInActiveExam = async (userId: string, questionId: string) =>
+  Boolean(await activeExamQuestionStatement.get({ questionId, userId }));

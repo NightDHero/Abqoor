@@ -10,6 +10,7 @@ import { ReviewButton } from "./ReviewButton";
 
 export function QuestionMode({
   currentIndex,
+  correctAnswer,
   isInReview,
   onAddReview,
   onAnswer,
@@ -21,6 +22,7 @@ export function QuestionMode({
   totalQuestions
 }: {
   currentIndex: number;
+  correctAnswer?: CorrectAnswer;
   isInReview: boolean;
   onAddReview: () => void;
   onAnswer: (answer: CorrectAnswer) => void;
@@ -32,7 +34,7 @@ export function QuestionMode({
   totalQuestions: number;
 }) {
   const isAnswered = Boolean(selectedAnswer);
-  const isCorrect = selectedAnswer === question.correctAnswer;
+  const isCorrect = selectedAnswer === correctAnswer;
   const questionNumber = toQuestionNumber(question.id);
 
   return (
@@ -77,8 +79,8 @@ export function QuestionMode({
                   className={[
                     "answer-option",
                     isSelected ? "selected" : "",
-                    isAnswered && answer === question.correctAnswer ? "answer-correct" : "",
-                    isAnswered && isSelected && answer !== question.correctAnswer
+                    isAnswered && answer === correctAnswer ? "answer-correct" : "",
+                    isAnswered && isSelected && answer !== correctAnswer
                       ? "answer-wrong"
                       : ""
                   ]
@@ -97,7 +99,7 @@ export function QuestionMode({
                       src={toMediaSrc(answerImageUrl)}
                     />
                   ) : null}
-                  {isAnswered && answer === question.correctAnswer ? (
+                  {isAnswered && answer === correctAnswer ? (
                     <img
                       alt=""
                       className="answer-outcome-icon"
@@ -106,7 +108,7 @@ export function QuestionMode({
                   ) : null}
                   {isAnswered &&
                   isSelected &&
-                  answer !== question.correctAnswer ? (
+                  answer !== correctAnswer ? (
                     <img
                       alt=""
                       className="answer-outcome-icon"

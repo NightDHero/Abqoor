@@ -41,18 +41,14 @@ export function QuestionBrowser({
 
     browser.goToQuestion(questionId);
   };
-  const handleAnswer = (
+  const handleAnswer = async (
     questionId: string,
     answer: Parameters<typeof browser.answerQuestion>[0]
   ) => {
-    browser.answerQuestionById(questionId, answer);
-    const question = browser.filteredQuestions.find(
-      (candidate) => candidate.id === questionId
-    );
-
-    if (question && answer !== question.correctAnswer) {
-      void reviewBank.addQuestion(question.id, "wrong_answer");
-    }
+    const evaluation = await browser.answerQuestionById(questionId, answer);
+    if (!evaluation) return false;
+    if (!evaluation.isCorrect) void reviewBank.addQuestion(questionId, "wrong_answer");
+    return true;
   };
 
   return (
@@ -107,6 +103,7 @@ export function QuestionBrowser({
 
       {browser.displayMode === "question" && browser.currentQuestion ? (
         <QuestionMode
+          correctAnswer={browser.correctAnswersByQuestionId[browser.currentQuestion.id]}
           currentIndex={browser.currentIndex}
           isInReview={reviewBank.hasQuestion(browser.currentQuestion.id)}
           onAddReview={() => {
@@ -133,7 +130,8 @@ export function QuestionBrowser({
             );
 
             return {
-              correctAnswer: question?.correctAnswer,
+              correctAnswer: browser.correctAnswersByQuestionId[questionId],
+              isSubmitting: browser.submittingQuestionIds.has(questionId),
               selectedAnswer: browser.answersByQuestionId[questionId]
             };
           }}

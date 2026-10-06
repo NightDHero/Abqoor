@@ -1,3 +1,5 @@
+import { getAuthorizedQuestionImageUrl } from "../media/media.service.js";
+
 export const reviewSources = ["manual", "wrong_answer"] as const;
 
 export type ReviewSource = (typeof reviewSources)[number];
@@ -14,7 +16,6 @@ export type ReviewItemRecord = {
   spaced_repetition_state: string | null;
   ai_schedule_metadata: string | null;
   question_image_url: string;
-  correct_answer: string;
   subject: string;
   subject_id: string | null;
   topic: string;
@@ -29,7 +30,6 @@ export type ReviewItem = {
   id: string;
   questionId: string;
   questionImageUrl: string;
-  correctAnswer: string;
   source: ReviewSource;
   addedAt: string;
   updatedAt: string;
@@ -59,8 +59,7 @@ export const isReviewSource = (value: unknown): value is ReviewSource => {
 export const toReviewItem = (record: ReviewItemRecord): ReviewItem => ({
   id: record.id,
   questionId: record.question_id,
-  questionImageUrl: record.question_image_url,
-  correctAnswer: record.correct_answer,
+  questionImageUrl: getAuthorizedQuestionImageUrl(record.question_id),
   source: record.source,
   addedAt: record.added_at,
   updatedAt: record.updated_at,

@@ -6,7 +6,6 @@ export type ReviewItem = {
   id: string;
   questionId: string;
   questionImageUrl: string;
-  correctAnswer: string;
   source: ReviewSource;
   addedAt: string;
   updatedAt: string;

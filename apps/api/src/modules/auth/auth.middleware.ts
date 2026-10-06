@@ -9,6 +9,8 @@ import { toPublicUser } from "./auth.types.js";
 declare global {
   namespace Express {
     interface Request {
+      authSessionId?: string;
+      authenticatedAt?: number;
       user?: PublicUser;
     }
   }
@@ -28,14 +30,17 @@ export const requireAuth = (
 
   try {
     void (async () => {
-      const user = await getUserFromToken(token);
+      const authenticated = await getUserFromToken(token);
 
-      if (!user) {
+      if (!authenticated) {
         response.status(401).json({ message: "Authentication required." });
         return;
       }
 
+      const { authTime, sessionId, user } = authenticated;
       const profileIdentity = await getStudentProfileIdentity(user.id);
+      request.authSessionId = sessionId;
+      request.authenticatedAt = authTime;
       request.user = toPublicUser(
         user,
         profileIdentity.profileCompleted,

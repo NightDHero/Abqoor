@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { getAuthorizedQuestionImageUrl } from "../media/media.service.js";
 import {
   getQuestion,
   getQuestions,
@@ -56,7 +57,7 @@ export class SessionError extends Error {
 
 const toSessionQuestion = (question: Question): InternalSessionQuestion => ({
   id: question.id,
-  questionImageUrl: question.questionImageUrl,
+  questionImageUrl: getAuthorizedQuestionImageUrl(question.id),
   correctAnswer: question.correctAnswer,
   subject: question.subject,
   subjectId: question.subjectId,

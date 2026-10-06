@@ -28,18 +28,24 @@ export class ProfileError extends Error {
 }
 
 const usernamePattern =
-  /^[\p{L}\p{N}](?:[\p{L}\p{N}_-]{1,22}[\p{L}\p{N}])$/u;
+  /^[\p{L}\p{N}](?:[\p{L}\p{N}_ -]*[\p{L}\p{N}])$/u;
 
 const toUsername = (value: unknown) => {
   if (typeof value !== "string") {
     throw new ProfileError("اسم المستخدم مطلوب.");
   }
 
-  const username = value.trim();
+  const username = value.normalize("NFC");
 
-  if (!usernamePattern.test(username)) {
+  const characterCount = Array.from(username).length;
+  if (
+    characterCount < 3 ||
+    characterCount > 20 ||
+    username !== username.trim() ||
+    !usernamePattern.test(username)
+  ) {
     throw new ProfileError(
-      "اسم المستخدم يجب أن يتكون من ٣ إلى ٢٤ حرفاً أو رقماً، ويمكن استخدام _ أو - في الوسط."
+      "اسم المستخدم يجب أن يتكون من ٣ إلى ٢٠ حرفاً شاملاً المسافات، ويمكن استخدام _ أو - في الوسط."
     );
   }
 

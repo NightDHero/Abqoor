@@ -1,13 +1,17 @@
 import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { closeDatabase } from "./database/client.js";
-import { ensureConfiguredSeedAdminAccount } from "./modules/admin/admin.service.js";
+import {
+  ensureConfiguredSeedAdminAccount,
+  importConfiguredAdminEmails
+} from "./modules/admin/admin.service.js";
 
 let app: Awaited<ReturnType<typeof createApp>>;
 
 try {
   app = await createApp();
   const configuredAdmin = await ensureConfiguredSeedAdminAccount();
+  await importConfiguredAdminEmails();
 
   if (configuredAdmin) {
     console.log(`Configured administrator is ready: ${configuredAdmin.email}`);

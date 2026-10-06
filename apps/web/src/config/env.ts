@@ -6,5 +6,6 @@ const normalizeUrl = (value: string | undefined, fallback: string) => {
 };
 
 export const env = {
-  apiUrl: normalizeUrl(viteEnv?.VITE_API_URL, "http://localhost:4000")
+  apiUrl: normalizeUrl(viteEnv?.VITE_API_URL, "http://localhost:4000"),
+  googleClientId: viteEnv?.VITE_GOOGLE_CLIENT_ID?.trim() || ""
 };

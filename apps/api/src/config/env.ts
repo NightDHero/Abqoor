@@ -160,9 +160,23 @@ const databaseSsl = toBooleanEnv(
   process.env.DATABASE_SSL,
   databaseDriver === "postgres" && nodeEnv === "production"
 );
+const databaseCaCertificate = toOptionalString(process.env.DATABASE_CA_CERT)?.replace(
+  /\\n/g,
+  "\n"
+);
 const storageDriver = toStorageDriver(
   process.env.STORAGE_DRIVER,
   nodeEnv === "production" ? "r2" : "local"
+);
+const resendApiKey = toOptionalString(process.env.RESEND_API_KEY);
+const transactionalEmailFrom =
+  toOptionalString(process.env.TRANSACTIONAL_EMAIL_FROM) ??
+  toOptionalString(process.env.PASSWORD_RESET_EMAIL_FROM);
+const googleClientId = toOptionalString(process.env.GOOGLE_CLIENT_ID);
+const twilioAccountSid = toOptionalString(process.env.TWILIO_ACCOUNT_SID);
+const twilioAuthToken = toOptionalString(process.env.TWILIO_AUTH_TOKEN);
+const twilioVerifyServiceSid = toOptionalString(
+  process.env.TWILIO_VERIFY_SERVICE_SID
 );
 const r2AccountId = toOptionalString(process.env.R2_ACCOUNT_ID);
 const r2Bucket = toOptionalString(process.env.R2_BUCKET);
@@ -175,6 +189,12 @@ const sessionCookieSameSite = toCookieSameSite(
 const passwordResetUrlBase =
   toOptionalString(process.env.PASSWORD_RESET_URL_BASE)?.replace(/\/$/, "") ??
   frontendOrigins[0];
+const configuredSessionCookieName =
+  process.env.SESSION_COOKIE_NAME?.trim() || "abqoor_session";
+const sessionCookieName =
+  nodeEnv === "production" && !configuredSessionCookieName.startsWith("__Host-")
+    ? `__Host-${configuredSessionCookieName}`
+    : configuredSessionCookieName;
 
 if (nodeEnv === "production" && jwtSecret === "development-only-change-me") {
   throw new Error("JWT_SECRET must be set in production.");
@@ -215,11 +235,31 @@ if (
   );
 }
 
+if (nodeEnv === "production" && (!resendApiKey || !transactionalEmailFrom)) {
+  throw new Error(
+    "RESEND_API_KEY and TRANSACTIONAL_EMAIL_FROM are required in production for email verification and password recovery."
+  );
+}
+
+if (nodeEnv === "production" && !googleClientId) {
+  throw new Error("GOOGLE_CLIENT_ID is required in production.");
+}
+
+if (
+  nodeEnv === "production" &&
+  (!twilioAccountSid || !twilioAuthToken || !twilioVerifyServiceSid)
+) {
+  throw new Error(
+    "TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_VERIFY_SERVICE_SID are required in production."
+  );
+}
+
 export const env = {
   nodeEnv,
   port: toPort(process.env.PORT, 4000),
   frontendOrigins,
   database: {
+    caCertificate: databaseCaCertificate,
     driver: databaseDriver,
     path: databasePath,
     poolMax: databasePoolMax,
@@ -228,13 +268,47 @@ export const env = {
   },
   databasePath,
   jwtSecret,
-  sessionCookieName: process.env.SESSION_COOKIE_NAME ?? "abqoor_session",
-  sessionCookieDomain: toOptionalString(process.env.SESSION_COOKIE_DOMAIN),
+  jwtAudience: process.env.JWT_AUDIENCE?.trim() || "abqoor-web",
+  jwtIssuer: process.env.JWT_ISSUER?.trim() || "abqoor-api",
+  sessionAbsoluteTtlMinutes: toIntegerInRange(
+    process.env.SESSION_ABSOLUTE_TTL_MINUTES,
+    7 * 24 * 60,
+    30,
+    30 * 24 * 60,
+    "SESSION_ABSOLUTE_TTL_MINUTES"
+  ),
+  sessionIdleTtlMinutes: toIntegerInRange(
+    process.env.SESSION_IDLE_TTL_MINUTES,
+    12 * 60,
+    15,
+    7 * 24 * 60,
+    "SESSION_IDLE_TTL_MINUTES"
+  ),
+  sessionCookieName,
+  sessionCookieDomain:
+    nodeEnv === "production"
+      ? undefined
+      : toOptionalString(process.env.SESSION_COOKIE_DOMAIN),
   sessionCookieSameSite,
   adminEmails,
   initialAdminEmail,
   initialAdminPassword,
-  passwordResetEmailFrom: toOptionalString(process.env.PASSWORD_RESET_EMAIL_FROM),
+  transactionalEmailFrom,
+  passwordResetEmailFrom: transactionalEmailFrom,
+  emailVerificationCodeTtlMinutes: toIntegerInRange(
+    process.env.EMAIL_VERIFICATION_CODE_TTL_MINUTES,
+    10,
+    5,
+    30,
+    "EMAIL_VERIFICATION_CODE_TTL_MINUTES"
+  ),
+  emailVerificationResendCooldownSeconds: toIntegerInRange(
+    process.env.EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS,
+    60,
+    30,
+    300,
+    "EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS"
+  ),
   passwordResetTokenTtlMinutes: toIntegerInRange(
     process.env.PASSWORD_RESET_TOKEN_TTL_MINUTES,
     30,
@@ -243,7 +317,20 @@ export const env = {
     "PASSWORD_RESET_TOKEN_TTL_MINUTES"
   ),
   passwordResetUrlBase,
-  resendApiKey: toOptionalString(process.env.RESEND_API_KEY),
+  resendApiKey,
+  googleClientId,
+  phoneVerificationResendCooldownSeconds: toIntegerInRange(
+    process.env.PHONE_VERIFICATION_RESEND_COOLDOWN_SECONDS,
+    60,
+    30,
+    300,
+    "PHONE_VERIFICATION_RESEND_COOLDOWN_SECONDS"
+  ),
+  twilio: {
+    accountSid: twilioAccountSid,
+    authToken: twilioAuthToken,
+    verifyServiceSid: twilioVerifyServiceSid
+  },
   pdftoppmPath: process.env.PDFTOPPM_PATH,
   storageDriver,
   r2: {

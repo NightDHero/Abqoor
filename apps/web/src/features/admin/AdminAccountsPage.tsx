@@ -15,8 +15,6 @@ const sourceLabels: Record<AdminAccount["source"], string> = {
 export function AdminAccountsPage() {
   const [admins, setAdmins] = useState<AdminAccount[]>([]);
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -39,24 +37,15 @@ export function AdminAccountsPage() {
     setError("");
     setMessage("");
 
-    if (password !== passwordConfirmation) {
-      setError("كلمة المرور وتأكيدها غير متطابقين.");
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
       const response = await adminService.createAdminAccount({
         email,
-        password,
-        passwordConfirmation
       });
       await loadAdmins();
       setEmail("");
-      setPassword("");
-      setPasswordConfirmation("");
-      setMessage(`تم إنشاء المدير ${response.admin.email} بنجاح.`);
+      setMessage(`تم منح ${response.admin.email} صلاحيات الإدارة بنجاح.`);
     } catch (caughtError) {
       setError(
         caughtError instanceof HttpError
@@ -104,8 +93,8 @@ export function AdminAccountsPage() {
       <section className="admin-panel">
         <header className="admin-panel-heading">
           <div>
-            <h2>إنشاء مدير جديد</h2>
-            <p>سيتم إنشاء مستخدم عبقور كامل بصلاحيات إدارية.</p>
+            <h2>منح صلاحيات الإدارة</h2>
+            <p>أدخل بريد مستخدم عبقور موجود. تبقى كلمة المرور تحت سيطرة صاحب الحساب.</p>
           </div>
           <button
             className="secondary"
@@ -128,33 +117,9 @@ export function AdminAccountsPage() {
               onChange={(event) => setEmail(event.target.value)}
             />
           </label>
-          <label>
-            كلمة المرور
-            <input
-              autoComplete="new-password"
-              dir="ltr"
-              minLength={8}
-              required
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </label>
-          <label>
-            تأكيد كلمة المرور
-            <input
-              autoComplete="new-password"
-              dir="ltr"
-              minLength={8}
-              required
-              type="password"
-              value={passwordConfirmation}
-              onChange={(event) => setPasswordConfirmation(event.target.value)}
-            />
-          </label>
           <div className="admin-form-actions">
             <button disabled={isSubmitting} type="submit">
-              {isSubmitting ? "جاري الإنشاء..." : "إنشاء مدير"}
+              {isSubmitting ? "جاري المنح..." : "منح الصلاحية"}
             </button>
           </div>
         </form>

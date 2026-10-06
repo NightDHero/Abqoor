@@ -71,7 +71,7 @@ export const toProfileInput = (
   studyPlanStartDate: state.studyPlanStartDate,
   quantitativeStudyDays: state.quantitativeStudyDays,
   targetScore: state.targetScore,
-  username: state.username.trim(),
+  username: state.username,
   weakerSection: state.weakerSection as WeakerSection,
   weeklyRestDay: state.weeklyRestDay,
   weeklyReviewDay: state.weeklyReviewDay,
@@ -82,12 +82,8 @@ export const validateProfileForm = (
   state: ProfileFormState,
   availableBankCount = Number.POSITIVE_INFINITY
 ) => {
-  const usernamePattern =
-    /^[\p{L}\p{N}](?:[\p{L}\p{N}_-]{1,22}[\p{L}\p{N}])$/u;
-
-  if (!usernamePattern.test(state.username.trim())) {
-    return "اختر اسم مستخدم من ٣ إلى ٢٤ حرفاً أو رقماً، ويمكن استخدام _ أو - في الوسط.";
-  }
+  const usernameError = validateUsername(state.username);
+  if (usernameError) return usernameError;
   if (state.targetScore < 50 || state.targetScore > 100) {
     return "اختر درجة مستهدفة بين ٥٠ و١٠٠.";
   }
@@ -123,6 +119,21 @@ export const validateProfileForm = (
     verbalStudyDays: state.verbalStudyDays
   })) {
     return "يجب أن يحتوي الأسبوع على ٥ أيام مذاكرة ويوم مراجعة ويوم راحة دون تداخل.";
+  }
+  return "";
+};
+
+export const validateUsername = (value: string) => {
+  const username = value.normalize("NFC");
+  const usernamePattern = /^[\p{L}\p{N}](?:[\p{L}\p{N}_ -]*[\p{L}\p{N}])$/u;
+  const characterCount = Array.from(username).length;
+  if (
+    username !== username.trim() ||
+    characterCount < 3 ||
+    characterCount > 20 ||
+    !usernamePattern.test(username)
+  ) {
+    return "اختر اسماً من ٣ إلى ٢٠ حرفاً شاملاً المسافات، ويمكن استخدام _ أو - في الوسط.";
   }
   return "";
 };

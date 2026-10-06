@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { strToU8, zipSync } from "fflate";
+import { issueTestPhoneVerificationCode, issueTestRegistrationCode } from "./helpers/auth.js";
 
 const testDirectory = mkdtempSync(join(tmpdir(), "abqoor-admin-import-test-"));
 process.env.DATABASE_PATH = join(testDirectory, "test.sqlite");
@@ -35,6 +36,9 @@ const questionService = await import(
 );
 const { createApp } = await import("../src/app.js");
 const { closeDatabase, db } = await import("../src/database/client.js");
+const { importConfiguredAdminEmails } = await import(
+  "../src/modules/admin/admin.service.js"
+);
 
 const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADklEQVQImWP4DwUMMAYAj4IP8cvlVgcAAAAASUVORK5CYII=",
@@ -661,6 +665,16 @@ test("rejects malformed Excel and PDF files before creating an import", async ()
   );
 });
 
+test("rejects XLSX archives with unsafe decompression characteristics", () => {
+  const compressedBomb = Buffer.from(zipSync({
+    "xl/worksheets/sheet1.xml": strToU8("A".repeat(1024 * 1024))
+  }, { level: 9 }));
+  assert.throws(
+    () => excelAdapter.assertSafeWorkbookArchive(compressedBomb),
+    /safe unpacked resource limits/
+  );
+});
+
 test("commits a valid import and rolls it back without leaving a question", async () => {
   const questionNumber = 800101;
   const questionId = `Q-${questionNumber}`;
@@ -868,6 +882,9 @@ test("allows configured admins and rejects ordinary authenticated users", async 
 
   const register = async (email: string) => {
     const password = "correct horse battery";
+    const verificationCode = await issueTestRegistrationCode(email);
+    const phoneNumber = email === "admin@example.com" ? "+966500000021" : "+966500000022";
+    const phoneVerificationCode = await issueTestPhoneVerificationCode(phoneNumber);
     const response = await fetch(`${baseUrl}/auth/register`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -875,17 +892,30 @@ test("allows configured admins and rejects ordinary authenticated users", async 
         email,
         password,
         passwordConfirmation: password,
-        phoneNumber:
-          email === "admin@example.com" ? "+966500000021" : "+966500000022"
+        phoneNumber,
+        phoneVerificationCode,
+        verificationCode
       })
     });
     assert.equal(response.status, 201);
     return response.headers.get("set-cookie")?.split(";")[0] ?? "";
   };
 
+  const login = async (email: string) => {
+    const response = await fetch(`${baseUrl}/auth/login`, {
+      body: JSON.stringify({ email, password: "correct horse battery" }),
+      headers: { "content-type": "application/json" },
+      method: "POST"
+    });
+    assert.equal(response.status, 200);
+    return response.headers.get("set-cookie")?.split(";")[0] ?? "";
+  };
+
   try {
-    const adminCookie = await register("admin@example.com");
+    await register("admin@example.com");
     const userCookie = await register("student@example.com");
+    await importConfiguredAdminEmails();
+    const adminCookie = await login("admin@example.com");
     const adminResponse = await fetch(`${baseUrl}/admin/import/jobs`, {
       headers: { cookie: adminCookie }
     });

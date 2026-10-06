@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { db } from "../../database/client.js";
 import type { UserRecord } from "./auth.types.js";
+import { revokeUserAuthSessions } from "./auth-session.repository.js";
 
 const findUserByEmailStatement = db.prepare<string, UserRecord>(
   "SELECT * FROM users WHERE email = ?"
@@ -14,12 +15,18 @@ const findUserByPhoneStatement = db.prepare<string, UserRecord>(
   "SELECT * FROM users WHERE phone_number = ?"
 );
 
+const findVerifiedUserByPhoneStatement = db.prepare<string, UserRecord>(
+  "SELECT * FROM users WHERE phone_number = ? AND phone_verified_at IS NOT NULL"
+);
+
 const createUserStatement = db.prepare(`
   INSERT INTO users (
-    id, email, password_hash, phone_number, session_version, created_at, updated_at
+    id, email, email_verified_at, password_hash, phone_number,
+    phone_verified_at, session_version, created_at, updated_at
   )
   VALUES (
-    @id, @email, @passwordHash, @phoneNumber, 0, @createdAt, @updatedAt
+    @id, @email, @emailVerifiedAt, @passwordHash, @phoneNumber,
+    @phoneVerifiedAt, 0, @createdAt, @updatedAt
   )
 `);
 
@@ -40,7 +47,9 @@ const updateUserPasswordAndSessionStatement = db.prepare(`
 
 const updateUserPhoneStatement = db.prepare(`
   UPDATE users
-  SET phone_number = @phoneNumber, updated_at = @updatedAt
+  SET phone_number = @phoneNumber,
+      phone_verified_at = @phoneVerifiedAt,
+      updated_at = @updatedAt
   WHERE id = @id
 `);
 
@@ -56,17 +65,27 @@ export const findUserByPhone = async (phoneNumber: string) => {
   return (await findUserByPhoneStatement.get(phoneNumber)) ?? null;
 };
 
+export const findVerifiedUserByPhone = async (phoneNumber: string) => {
+  return (await findVerifiedUserByPhoneStatement.get(phoneNumber)) ?? null;
+};
+
 export const createUser = async (
   email: string,
   passwordHash: string,
-  phoneNumber: string | null = null
+  phoneNumber: string | null = null,
+  verification: {
+    emailVerifiedAt?: string | null;
+    phoneVerifiedAt?: string | null;
+  } = {}
 ) => {
   const now = new Date().toISOString();
   const user = {
     id: randomUUID(),
     email: email.toLowerCase(),
+    emailVerifiedAt: verification.emailVerifiedAt ?? now,
     passwordHash,
     phoneNumber,
+    phoneVerifiedAt: verification.phoneVerifiedAt ?? null,
     createdAt: now,
     updatedAt: now
   };
@@ -83,11 +102,13 @@ export const createUser = async (
 
 export const updateUserPhoneNumber = async (
   userId: string,
-  phoneNumber: string
+  phoneNumber: string,
+  phoneVerifiedAt = new Date().toISOString()
 ) => {
   await updateUserPhoneStatement.run({
     id: userId,
     phoneNumber,
+    phoneVerifiedAt,
     updatedAt: new Date().toISOString()
   });
 
@@ -123,6 +144,7 @@ export const updateUserPasswordAndInvalidateSessions = async (
     passwordHash,
     updatedAt: new Date().toISOString()
   });
+  await revokeUserAuthSessions(userId);
 
   const updatedUser = await findUserById(userId);
   if (!updatedUser) throw new Error("User password update failed.");

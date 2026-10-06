@@ -1,4 +1,4 @@
-import type { QuestionListResponse } from "../types/question";
+import type { CorrectAnswer, QuestionAnswerResponse, QuestionListResponse } from "../types/question";
 import { apiRequest } from "./http";
 
 export type QuestionQuery = {
@@ -28,5 +28,10 @@ const toQueryString = (query: QuestionQuery) => {
 
 export const questionService = {
   getQuestions: (query: QuestionQuery) =>
-    apiRequest<QuestionListResponse>(`/questions${toQueryString(query)}`)
+    apiRequest<QuestionListResponse>(`/questions${toQueryString(query)}`),
+  evaluateAnswer: (questionId: string, answer: CorrectAnswer) =>
+    apiRequest<QuestionAnswerResponse>(`/questions/${encodeURIComponent(questionId)}/answer`, {
+      body: JSON.stringify({ answer }),
+      method: "POST"
+    })
 };

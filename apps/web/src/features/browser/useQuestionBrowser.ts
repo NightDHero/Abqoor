@@ -31,6 +31,12 @@ export function useQuestionBrowser({
   const [answersByQuestionId, setAnswersByQuestionId] = useState<
     Partial<Record<string, CorrectAnswer>>
   >({});
+  const [correctAnswersByQuestionId, setCorrectAnswersByQuestionId] = useState<
+    Partial<Record<string, CorrectAnswer>>
+  >({});
+  const [submittingQuestionIds, setSubmittingQuestionIds] = useState<Set<string>>(
+    new Set()
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -42,6 +48,8 @@ export function useQuestionBrowser({
       setError("");
       setCurrentIndex(0);
       setAnswersByQuestionId({});
+      setCorrectAnswersByQuestionId({});
+      setSubmittingQuestionIds(new Set());
 
       try {
         const exact = await questionService.getQuestions({
@@ -108,7 +116,7 @@ export function useQuestionBrowser({
 
   const currentQuestion = filteredQuestions[currentIndex] ?? null;
 
-  const answerQuestionById = (
+  const answerQuestionById = async (
     questionId: string,
     answer: CorrectAnswer
   ) => {
@@ -116,19 +124,34 @@ export function useQuestionBrowser({
       !filteredQuestions.some((question) => question.id === questionId) ||
       answersByQuestionId[questionId]
     ) {
-      return;
+      return null;
     }
-
-    setAnswersByQuestionId((existing) => ({
-      ...existing,
-      [questionId]: answer
-    }));
+    setSubmittingQuestionIds((existing) => new Set(existing).add(questionId));
+    try {
+      const evaluation = await questionService.evaluateAnswer(questionId, answer);
+      setAnswersByQuestionId((existing) => ({ ...existing, [questionId]: answer }));
+      setCorrectAnswersByQuestionId((existing) => ({
+        ...existing,
+        [questionId]: evaluation.correctAnswer
+      }));
+      return evaluation;
+    } catch (caughtError) {
+      setError(readErrorMessage(caughtError, "تعذر تقييم الإجابة."));
+      return null;
+    } finally {
+      setSubmittingQuestionIds((existing) => {
+        const next = new Set(existing);
+        next.delete(questionId);
+        return next;
+      });
+    }
   };
 
-  const answerQuestion = (answer: CorrectAnswer) => {
+  const answerQuestion = async (answer: CorrectAnswer) => {
     if (currentQuestion) {
-      answerQuestionById(currentQuestion.id, answer);
+      return answerQuestionById(currentQuestion.id, answer);
     }
+    return null;
   };
 
   const goToPrevious = () => {
@@ -162,6 +185,7 @@ export function useQuestionBrowser({
     answerQuestion,
     answerQuestionById,
     answersByQuestionId,
+    correctAnswersByQuestionId,
     currentIndex,
     currentQuestion,
     displayMode,
@@ -175,6 +199,7 @@ export function useQuestionBrowser({
     questions,
     searchText,
     setDisplayMode,
-    setSearchText
+    setSearchText,
+    submittingQuestionIds
   };
 }

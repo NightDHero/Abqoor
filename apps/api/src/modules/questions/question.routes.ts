@@ -1,15 +1,17 @@
 import { Router } from "express";
 import {
-  getQuestion,
-  getQuestions,
+  evaluateStudentAnswer,
+  getStudentQuestion,
+  getStudentQuestions,
   isQuestionSubjectId,
   isSubject,
   toDifficulty
 } from "./question.service.js";
+import { asyncHandler } from "../security/async-handler.js";
 
 export const questionRouter = Router();
 
-questionRouter.get("/", async (request, response) => {
+questionRouter.get("/", asyncHandler(async (request, response) => {
   const subject = request.query.subject;
   const subjectId = request.query.subjectId;
   const topic = request.query.topic;
@@ -43,7 +45,7 @@ questionRouter.get("/", async (request, response) => {
     return;
   }
 
-  const questions = await getQuestions({
+  const questions = await getStudentQuestions({
     subject: subject,
     subjectId: typeof subjectId === "string" ? subjectId : undefined,
     topic: typeof topic === "string" ? topic : undefined,
@@ -54,10 +56,10 @@ questionRouter.get("/", async (request, response) => {
   });
 
   response.status(200).json({ questions });
-});
+}));
 
-questionRouter.get("/:id", async (request, response) => {
-  const question = await getQuestion(request.params.id);
+questionRouter.get("/:id", asyncHandler(async (request, response) => {
+  const question = await getStudentQuestion(String(request.params.id));
 
   if (!question) {
     response.status(404).json({ message: "Question not found." });
@@ -65,4 +67,13 @@ questionRouter.get("/:id", async (request, response) => {
   }
 
   response.status(200).json({ question });
-});
+}));
+
+questionRouter.post("/:id/answer", asyncHandler(async (request, response) => {
+  const result = await evaluateStudentAnswer(
+    request.user?.id ?? "",
+    String(request.params.id),
+    (request.body as { answer?: unknown } | undefined)?.answer
+  );
+  response.status(200).json(result);
+}));

@@ -94,6 +94,12 @@ test("creates and restores the canonical 120-question distribution", async () =>
       officialExamStructure.arabicPerSection
     );
   }
+  assert.ok(exam.sections[0]?.deadlineAt);
+  assert.match(
+    exam.sections[0]?.questions[0]?.questionImageUrl ?? "",
+    /[?&]signature=/
+  );
+  assert.equal(JSON.stringify(exam).includes("correctAnswer"), false);
 
   await examService.answerOfficialExamQuestion(user.id, {
     examId: exam.id,
@@ -131,6 +137,71 @@ test("creates and restores the canonical 120-question distribution", async () =>
   assert.equal(completion.result.arabicScore, 0);
   assert.equal(completion.result.finalScore, 46);
   assert.deepEqual(completion.result.sectionScores, [46, 46, 46, 46, 46]);
+});
+
+test("enforces server deadlines, ownership, active-exam grading isolation, and secure ordering", async () => {
+  const exam = await examService.startOfficialExam(user.id);
+  const secondExam = await examService.startOfficialExam(user.id);
+  const questionIds = exam.sections.flatMap((section) =>
+    section.questions.map((question) => question.questionId)
+  );
+  const secondQuestionIds = secondExam.sections.flatMap((section) =>
+    section.questions.map((question) => question.questionId)
+  );
+  assert.notDeepEqual(secondQuestionIds, questionIds);
+
+  const activeQuestionId = exam.sections[0]?.questions[0]?.questionId;
+  assert.ok(activeQuestionId);
+  await assert.rejects(
+    questionService.evaluateStudentAnswer(user.id, activeQuestionId, "A"),
+    (error: unknown) =>
+      error instanceof questionService.QuestionError && error.statusCode === 409
+  );
+
+  const otherUser = await authService.registerUser(
+    "other-exam-user@example.com",
+    "correct horse battery"
+  );
+  await assert.rejects(
+    examService.getOfficialExam(otherUser.id, exam.id),
+    (error: unknown) =>
+      error instanceof examService.OfficialExamError && error.statusCode === 404
+  );
+  await assert.rejects(
+    examService.answerOfficialExamQuestion(user.id, {
+      examId: exam.id,
+      positionInSection: 999,
+      sectionNumber: 1,
+      userAnswer: "A"
+    }),
+    examService.OfficialExamError
+  );
+
+  await database.db.prepare(`
+    UPDATE official_exam_sections
+    SET deadline_at = ?
+    WHERE exam_id = ? AND section_number = 1
+  `).run("2000-01-01T00:00:00.000Z", exam.id);
+  await assert.rejects(
+    examService.answerOfficialExamQuestion(user.id, {
+      examId: exam.id,
+      positionInSection: 1,
+      sectionNumber: 1,
+      userAnswer: "A"
+    }),
+    (error: unknown) =>
+      error instanceof examService.OfficialExamError && error.statusCode === 409
+  );
+  await assert.rejects(
+    examService.flagOfficialExamQuestion(user.id, {
+      examId: exam.id,
+      flagged: true,
+      positionInSection: 1,
+      sectionNumber: 1
+    }),
+    (error: unknown) =>
+      error instanceof examService.OfficialExamError && error.statusCode === 409
+  );
 });
 
 test("rejects a persisted attempt that no longer matches the canonical structure", async () => {

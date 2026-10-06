@@ -3,7 +3,6 @@ export type CorrectAnswer = "A" | "B" | "C" | "D";
 export type Question = {
   id: string;
   questionImageUrl: string;
-  correctAnswer: CorrectAnswer;
   subject: "quantitative" | "verbal";
   subjectId?: "math" | "arabic";
   topic: string;
@@ -18,4 +17,9 @@ export type Question = {
 
 export type QuestionListResponse = {
   questions: Question[];
+};
+
+export type QuestionAnswerResponse = {
+  correctAnswer: CorrectAnswer;
+  isCorrect: boolean;
 };

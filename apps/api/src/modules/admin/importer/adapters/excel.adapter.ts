@@ -1,4 +1,5 @@
 import readXlsxFile from "read-excel-file/node";
+import { unzipSync } from "fflate";
 import {
   topicTaxonomy,
   type LegacyQuestionSubject,
@@ -93,6 +94,32 @@ const issue = (
   message: string,
   context: Omit<ImportValidationIssue, "code" | "message" | "severity"> = {}
 ): ImportValidationIssue => ({ code, message, severity: "error", ...context });
+
+const maxWorkbookEntries = 2_000;
+const maxWorkbookUnpackedBytes = 100 * 1024 * 1024;
+const maxWorkbookEntryBytes = 50 * 1024 * 1024;
+const maxWorkbookCompressionRatio = 500;
+
+export const assertSafeWorkbookArchive = (excelBuffer: Buffer) => {
+  let entryCount = 0;
+  let unpackedBytes = 0;
+  unzipSync(new Uint8Array(excelBuffer), {
+    filter: (entry) => {
+      entryCount += 1;
+      unpackedBytes += entry.originalSize;
+      const compressionRatio = entry.originalSize / Math.max(1, entry.size);
+      if (
+        entryCount > maxWorkbookEntries ||
+        unpackedBytes > maxWorkbookUnpackedBytes ||
+        entry.originalSize > maxWorkbookEntryBytes ||
+        compressionRatio > maxWorkbookCompressionRatio
+      ) {
+        throw new Error("Excel archive exceeds safe unpacked resource limits.");
+      }
+      return false;
+    }
+  });
+};
 
 const validateHeader = (sheetName: string, actual: unknown[], expected: readonly string[]) => {
   const issues: ImportValidationIssue[] = [];
@@ -329,6 +356,7 @@ export const readAdminWorkbook = async (
   excelBuffer: Buffer,
   questionRange?: PageRange
 ) => {
+  assertSafeWorkbookArchive(excelBuffer);
   const sheets = (await readXlsxFile(excelBuffer)) as RawWorkbookSheet[];
   return analyzeWorkbookSheets(
     sheets,
@@ -337,6 +365,7 @@ export const readAdminWorkbook = async (
 };
 
 export const readArabicExcelRows = async (excelBuffer: Buffer): Promise<RawMetadataAdapterResult> => {
+  assertSafeWorkbookArchive(excelBuffer);
   const sheets = (await readXlsxFile(excelBuffer)) as RawWorkbookSheet[];
   const sheet = sheets.find((item) => item.sheet === "بنك التناظر عام");
   if (!sheet) {

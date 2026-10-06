@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import bcrypt from "bcryptjs";
+import { issueTestPhoneVerificationCode, issueTestRegistrationCode } from "./helpers/auth.js";
 
 const testDirectory = mkdtempSync(join(tmpdir(), "abqoor-auth-recovery-test-"));
 process.env.DATABASE_PATH = join(testDirectory, "test.sqlite");
@@ -20,6 +21,8 @@ const {
   AuthError,
   createSessionToken,
   getUserFromToken,
+  linkGoogleIdentity,
+  loginWithGoogle,
   registerUser,
   requestPasswordReset,
   resetPassword
@@ -40,12 +43,16 @@ const phoneNumber = "+966500000031";
 const password = "strong student password";
 
 const register = async () => {
+  const verificationCode = await issueTestRegistrationCode(email);
+  const phoneVerificationCode = await issueTestPhoneVerificationCode(phoneNumber);
   const response = await fetch(`${baseUrl}/auth/register`, {
     body: JSON.stringify({
       email,
       password,
       passwordConfirmation: password,
-      phoneNumber
+      phoneNumber,
+      phoneVerificationCode,
+      verificationCode
     }),
     headers: { "content-type": "application/json" },
     method: "POST"
@@ -55,12 +62,27 @@ const register = async () => {
 };
 
 test("registration enforces confirmation and the shared strong-password policy", async () => {
+  const missingVerification = await fetch(`${baseUrl}/auth/register`, {
+    body: JSON.stringify({
+      email: "unverified@example.com",
+      password,
+      passwordConfirmation: password,
+      phoneNumber: "+966500000030",
+      phoneVerificationCode: "000000"
+    }),
+    headers: { "content-type": "application/json" },
+    method: "POST"
+  });
+  assert.equal(missingVerification.status, 400);
+
   const weakResponse = await fetch(`${baseUrl}/auth/register`, {
     body: JSON.stringify({
       email: "weak@example.com",
       password: "12345678",
       passwordConfirmation: "12345678",
-      phoneNumber: "+966500000032"
+      phoneNumber: "+966500000032",
+      phoneVerificationCode: "000000",
+      verificationCode: "000000"
     }),
     headers: { "content-type": "application/json" },
     method: "POST"
@@ -72,7 +94,9 @@ test("registration enforces confirmation and the shared strong-password policy",
       email: "mismatch@example.com",
       password,
       passwordConfirmation: `${password}!`,
-      phoneNumber: "+966500000033"
+      phoneNumber: "+966500000033",
+      phoneVerificationCode: "000000",
+      verificationCode: "000000"
     }),
     headers: { "content-type": "application/json" },
     method: "POST"
@@ -82,15 +106,80 @@ test("registration enforces confirmation and the shared strong-password policy",
   await register();
   const stored = await db.prepare<
     string,
-    { password_hash: string; phone_number: string }
-  >("SELECT password_hash, phone_number FROM users WHERE email = ?").get(email);
+    { email_verified_at: string; password_hash: string; phone_number: string; phone_verified_at: string }
+  >("SELECT email_verified_at, password_hash, phone_number, phone_verified_at FROM users WHERE email = ?").get(email);
   assert.ok(stored);
   assert.notEqual(stored.password_hash, password);
   assert.equal(await bcrypt.compare(password, stored.password_hash), true);
   assert.equal(stored.phone_number, phoneNumber);
+  assert.ok(stored.email_verified_at);
+  assert.ok(stored.phone_verified_at);
+  const verification = await db.prepare<
+    string,
+    { code_hash: string; used_at: string | null }
+  >("SELECT code_hash, used_at FROM email_verification_codes WHERE email = ?").get(email);
+  assert.ok(verification);
+  assert.match(verification.code_hash, /^[a-f0-9]{64}$/);
+  assert.ok(verification.used_at);
 });
 
-test("persists a password-confirmed phone addition and change across re-authentication", async () => {
+test("password login accepts either the verified email or the stored phone number", async () => {
+  for (const identifier of [email, "0500000031"]) {
+    const response = await fetch(`${baseUrl}/auth/login`, {
+      body: JSON.stringify({ identifier, password }),
+      headers: { "content-type": "application/json" },
+      method: "POST"
+    });
+    assert.equal(response.status, 200);
+    const payload = await response.json() as { user: { email: string } };
+    assert.equal(payload.user.email, email);
+  }
+});
+
+test("Google identities use ordinary users and remain idempotently linked", async () => {
+  const verifiedIdentity = async () => ({
+    email: "google-student@example.com",
+    subject: "google-subject-123"
+  });
+  const first = await loginWithGoogle("test-credential", verifiedIdentity);
+  const second = await loginWithGoogle("test-credential", verifiedIdentity);
+  assert.equal(second.id, first.id);
+  const identity = await db.prepare<
+    [string, string],
+    { user_id: string }
+  >("SELECT user_id FROM auth_external_identities WHERE provider = ? AND provider_subject = ?")
+    .get("google", "google-subject-123");
+  assert.equal(identity?.user_id, first.id);
+  assert.notEqual(first.password_hash, "test-credential");
+});
+
+test("Google cannot silently take over a matching password account", async () => {
+  const accountEmail = "google-link@example.com";
+  const accountPassword = "google link password";
+  const account = await registerUser(accountEmail, accountPassword);
+  const verifiedIdentity = async () => ({
+    email: accountEmail,
+    subject: "google-link-subject"
+  });
+
+  await assert.rejects(
+    loginWithGoogle("link-credential", verifiedIdentity),
+    (error: unknown) => error instanceof AuthError && error.code === "GOOGLE_LINK_REQUIRED"
+  );
+  await assert.rejects(
+    linkGoogleIdentity("link-credential", "wrong password", verifiedIdentity),
+    /تعذر ربط حساب Google/
+  );
+  const linked = await linkGoogleIdentity(
+    "link-credential",
+    accountPassword,
+    verifiedIdentity
+  );
+  assert.equal(linked.id, account.id);
+  assert.equal((await loginWithGoogle("link-credential", verifiedIdentity)).id, account.id);
+});
+
+test("persists only SMS-verified phone additions across re-authentication", async () => {
   const accountEmail = "phone-persistence@example.com";
   const accountPassword = "persistent phone password";
   const initialPhone = "+966500000034";
@@ -109,9 +198,10 @@ test("persists a password-confirmed phone addition and change across re-authenti
 
   let cookie = await login();
   for (const expectedPhone of [initialPhone, changedPhone]) {
+    const code = await issueTestPhoneVerificationCode(expectedPhone);
     const response = await fetch(`${baseUrl}/auth/phone`, {
       body: JSON.stringify({
-        password: accountPassword,
+        code,
         phoneNumber: expectedPhone
       }),
       headers: { cookie, "content-type": "application/json" },
@@ -119,9 +209,10 @@ test("persists a password-confirmed phone addition and change across re-authenti
     });
     assert.equal(response.status, 200);
     const payload = (await response.json()) as {
-      user: { phoneNumber: string };
+      user: { phoneNumber: string; phoneVerified: boolean };
     };
     assert.equal(payload.user.phoneNumber, expectedPhone);
+    assert.equal(payload.user.phoneVerified, true);
     assert.equal(JSON.stringify(payload).includes("password"), false);
 
     const reload = await fetch(`${baseUrl}/auth/me`, { headers: { cookie } });
@@ -177,18 +268,21 @@ test("reset tokens are hashed, expiring, single-use, and invalidate old sessions
     { id: string; email: string; session_version: number }
   >("SELECT id, email, session_version FROM users WHERE email = ?").get(email);
   assert.ok(userBefore);
-  const oldToken = createSessionToken({
+  const oldToken = await createSessionToken({
     email: userBefore.email,
     sub: userBefore.id,
     ver: userBefore.session_version
   });
 
   let resetUrl = "";
-  await requestPasswordReset(email, phoneNumber, async (message) => {
+  const delivered = await requestPasswordReset(email, phoneNumber, async (message) => {
     resetUrl = message.resetUrl;
     return true;
   });
-  const token = new URL(resetUrl).searchParams.get("token");
+  assert.equal(delivered, true);
+  const parsedResetUrl = new URL(resetUrl);
+  assert.equal(parsedResetUrl.searchParams.has("token"), false);
+  const token = new URLSearchParams(parsedResetUrl.hash.slice(1)).get("token");
   assert.ok(token);
 
   const tokenRecord = await db.prepare<
@@ -226,6 +320,13 @@ test("reset tokens are hashed, expiring, single-use, and invalidate old sessions
     /غير صالح/
   );
   assert.equal(await getUserFromToken(oldToken), null);
+
+  const oldPasswordLogin = await fetch(`${baseUrl}/auth/login`, {
+    body: JSON.stringify({ email, password }),
+    headers: { "content-type": "application/json" },
+    method: "POST"
+  });
+  assert.equal(oldPasswordLogin.status, 401);
 
   const login = await fetch(`${baseUrl}/auth/login`, {
     body: JSON.stringify({ email, password: newPassword }),

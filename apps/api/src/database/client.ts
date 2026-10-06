@@ -11,6 +11,9 @@ import * as studentScheduleAndRecovery from "./postgres-migrations/004_student_s
 import * as dailyPlanSessions from "./postgres-migrations/005_daily_plan_sessions.js";
 import * as studentWeekdayAssignments from "./postgres-migrations/006_student_weekday_assignments.js";
 import * as correctedWeekdayAssignments from "./postgres-migrations/007_correct_weekday_assignments.js";
+import * as securityHardening from "./postgres-migrations/008_security_hardening.js";
+import * as authIdentityVerification from "./postgres-migrations/009_auth_identity_verification.js";
+import * as verifiedContactIdentities from "./postgres-migrations/010_verified_contact_identities.js";
 import { initializeSqliteSchema } from "./sqlite-schema.js";
 
 const { Pool, types } = pg;
@@ -52,7 +55,10 @@ const postgresMigrations: PostgresMigration[] = [
   studentScheduleAndRecovery,
   dailyPlanSessions,
   studentWeekdayAssignments,
-  correctedWeekdayAssignments
+  correctedWeekdayAssignments,
+  securityHardening,
+  authIdentityVerification,
+  verifiedContactIdentities
 ];
 const transactionClientStorage = new AsyncLocalStorage<pg.PoolClient>();
 
@@ -129,12 +135,22 @@ const getPostgresPool = () => {
     postgresPool = new Pool({
       connectionString: env.database.url,
       max: env.database.poolMax,
-      ssl: env.database.ssl ? { rejectUnauthorized: false } : undefined
+      ssl: createPostgresSslConfig(
+        env.database.ssl,
+        env.database.caCertificate
+      )
     });
   }
 
   return postgresPool;
 };
+
+export const createPostgresSslConfig = (
+  enabled: boolean,
+  caCertificate?: string
+) => enabled
+  ? { ca: caCertificate, rejectUnauthorized: true as const }
+  : undefined;
 
 const initializeSqliteDatabase = () => {
   if (sqliteDatabase) {

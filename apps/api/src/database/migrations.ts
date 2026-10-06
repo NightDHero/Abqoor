@@ -314,6 +314,100 @@ const migrateAccountRecovery = (db: Database.Database) => {
   `);
 };
 
+const migrateSecurityHardening = (db: Database.Database) => {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS auth_sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      revoked_at TEXT,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id
+    ON auth_sessions(user_id);
+
+    CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at
+    ON auth_sessions(expires_at);
+
+    CREATE TABLE IF NOT EXISTS security_bootstrap_state (
+      bootstrap_key TEXT PRIMARY KEY,
+      consumed_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS admin_security_lock (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      nonce INTEGER NOT NULL DEFAULT 0
+    );
+
+    INSERT OR IGNORE INTO admin_security_lock (id, nonce) VALUES (1, 0);
+  `);
+  addColumnIfMissing(db, "official_exam_sections", "deadline_at", "TEXT");
+  db.exec(`
+    UPDATE official_exam_sections
+    SET deadline_at = datetime(started_at, '+25 minutes')
+    WHERE started_at IS NOT NULL AND deadline_at IS NULL;
+  `);
+};
+
+const migrateAuthIdentityVerification = (db: Database.Database) => {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS email_verification_codes (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      code_hash TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+      used_at TEXT,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_email_verification_codes_email
+    ON email_verification_codes(email);
+
+    CREATE INDEX IF NOT EXISTS idx_email_verification_codes_expires_at
+    ON email_verification_codes(expires_at);
+
+    CREATE TABLE IF NOT EXISTS auth_external_identities (
+      provider TEXT NOT NULL,
+      provider_subject TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      email TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (provider, provider_subject),
+      UNIQUE (provider, user_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_auth_external_identities_user_id
+    ON auth_external_identities(user_id);
+  `);
+};
+
+const migrateVerifiedContactIdentities = (db: Database.Database) => {
+  addColumnIfMissing(db, "users", "email_verified_at", "TEXT");
+  addColumnIfMissing(db, "users", "phone_verified_at", "TEXT");
+  db.exec(`
+    UPDATE users
+    SET email_verified_at = created_at
+    WHERE email_verified_at IS NULL;
+
+    CREATE TABLE IF NOT EXISTS phone_verification_requests (
+      id TEXT PRIMARY KEY,
+      phone_number TEXT NOT NULL,
+      purpose TEXT NOT NULL CHECK (purpose IN ('registration', 'link')),
+      user_id TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_phone_verification_requests_destination
+    ON phone_verification_requests(phone_number, purpose, created_at);
+  `);
+};
+
 const migrateDailyPlanSessions = (db: Database.Database) => {
   addColumnIfMissing(db, "sessions", "subject_id", "TEXT");
   addColumnIfMissing(db, "sessions", "plan_date", "TEXT");
@@ -551,4 +645,7 @@ export const runDatabaseMigrations = (db: Database.Database) => {
   migratePersistentMediaStorage(db);
   migrateAdminImportSystem(db);
   migrateQuestionLearningFields(db);
+  migrateSecurityHardening(db);
+  migrateAuthIdentityVerification(db);
+  migrateVerifiedContactIdentities(db);
 };

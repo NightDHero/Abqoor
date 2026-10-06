@@ -1,4 +1,5 @@
 import type { CorrectAnswer } from "../questions/question.types.js";
+import { getAuthorizedQuestionImageUrl } from "../media/media.service.js";
 import {
   officialExamStructure,
   type OfficialExamStructure
@@ -31,6 +32,7 @@ export type OfficialExamSectionRecord = {
   status: OfficialExamSectionStatus;
   started_at: string | null;
   completed_at: string | null;
+  deadline_at: string | null;
 };
 
 export type OfficialExamQuestionRecord = {
@@ -95,6 +97,7 @@ export type OfficialExamSection = {
   status: OfficialExamSectionStatus;
   startedAt?: string;
   completedAt?: string;
+  deadlineAt?: string;
   questions: OfficialExamQuestion[];
 };
 
@@ -137,7 +140,7 @@ export const toOfficialExamQuestion = (
   record: OfficialExamQuestionRecord
 ): OfficialExamQuestion => ({
   questionId: record.question_id,
-  questionImageUrl: record.question_image_url,
+  questionImageUrl: getAuthorizedQuestionImageUrl(record.question_id),
   sectionNumber: record.section_number,
   positionInSection: record.position_in_section,
   globalPosition: record.global_position,

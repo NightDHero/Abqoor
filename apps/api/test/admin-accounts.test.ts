@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
+import { issueTestPhoneVerificationCode, issueTestRegistrationCode } from "./helpers/auth.js";
 import bcrypt from "bcryptjs";
 
 const testDirectory = mkdtempSync(join(tmpdir(), "abqoor-admin-accounts-test-"));
@@ -42,13 +43,17 @@ const login = async (email: string, inputPassword = password) => {
   return { cookie: cookieFrom(response), response };
 };
 
-const register = async (email: string) => {
+const register = async (email: string, phoneNumber: string) => {
+  const verificationCode = await issueTestRegistrationCode(email);
+  const phoneVerificationCode = await issueTestPhoneVerificationCode(phoneNumber);
   const response = await fetch(`${baseUrl}/auth/register`, {
     body: JSON.stringify({
       email,
       password,
       passwordConfirmation: password,
-      phoneNumber: "+966500000001"
+      phoneNumber,
+      phoneVerificationCode,
+      verificationCode
     }),
     headers: { "content-type": "application/json" },
     method: "POST"
@@ -77,7 +82,7 @@ test("manages administrator accounts without exposing password data", async () =
   assert.equal(ownerPayload.user.username, "owner");
   assert.equal(JSON.stringify(ownerPayload).includes("password"), false);
 
-  const normalUser = await register("student@example.com");
+  const normalUser = await register("student@example.com", "+966500000001");
   assert.equal(normalUser.response.status, 201);
   const rejected = await fetch(`${baseUrl}/admin/accounts`, {
     headers: { cookie: normalUser.cookie }
@@ -97,11 +102,15 @@ test("manages administrator accounts without exposing password data", async () =
   );
   assert.equal(initialPayload.admins[0]?.canRemove, false);
 
+  const secondAdminRegistration = await register(
+    "second-admin@example.com",
+    "+966500000002"
+  );
+  assert.equal(secondAdminRegistration.response.status, 201);
+
   const createResponse = await fetch(`${baseUrl}/admin/accounts`, {
     body: JSON.stringify({
-      email: "second-admin@example.com",
-      password,
-      passwordConfirmation: password
+      email: "second-admin@example.com"
     }),
     headers: {
       cookie: ownerLogin.cookie,
@@ -118,9 +127,7 @@ test("manages administrator accounts without exposing password data", async () =
 
   const duplicateResponse = await fetch(`${baseUrl}/admin/accounts`, {
     body: JSON.stringify({
-      email: "second-admin@example.com",
-      password,
-      passwordConfirmation: password
+      email: "second-admin@example.com"
     }),
     headers: {
       cookie: ownerLogin.cookie,
@@ -181,7 +188,7 @@ test("manages administrator accounts without exposing password data", async () =
 test("seed administrator setup is idempotent and keeps login usable", async () => {
   await ensureSeedAdminAccount({
     email: "boot-admin@example.com",
-    password: "oldpass123"
+    password: "oldpass123-secure"
   });
 
   const firstStored = db
@@ -209,7 +216,7 @@ test("seed administrator setup is idempotent and keeps login usable", async () =
 
   await ensureSeedAdminAccount({
     email: "boot-admin@example.com",
-    password: "oldpass123"
+    password: "oldpass123-secure"
   });
 
   const secondStored = db
@@ -241,19 +248,22 @@ test("seed administrator setup is idempotent and keeps login usable", async () =
 
   await ensureSeedAdminAccount({
     email: "boot-admin@example.com",
-    password: "newpass123"
+    password: "newpass123-secure"
   });
 
   const updatedStored = db
     .prepare("SELECT password_hash FROM users WHERE email = ?")
     .get("boot-admin@example.com") as { password_hash: string };
   assert.notEqual(updatedStored.password_hash, firstStored.password_hash);
-  assert.equal(await bcrypt.compare("newpass123", updatedStored.password_hash), true);
+  assert.equal(
+    await bcrypt.compare("newpass123-secure", updatedStored.password_hash),
+    true
+  );
 
-  const oldLogin = await login("boot-admin@example.com", "oldpass123");
+  const oldLogin = await login("boot-admin@example.com", "oldpass123-secure");
   assert.equal(oldLogin.response.status, 401);
 
-  const newLogin = await login("boot-admin@example.com", "newpass123");
+  const newLogin = await login("boot-admin@example.com", "newpass123-secure");
   assert.equal(newLogin.response.status, 200);
   const loginPayload = await readJson<{ user: { isAdmin: boolean } }>(
     newLogin.response

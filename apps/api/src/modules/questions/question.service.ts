@@ -5,6 +5,7 @@ import {
 } from "../learning-taxonomy/taxonomy.js";
 import {
   findQuestionById,
+  isQuestionInActiveExam,
   listQuestions,
   upsertQuestion
 } from "./question.repository.js";
@@ -13,6 +14,7 @@ import {
   questionSources,
   subjects,
   toQuestion,
+  toQuestionForStudent,
   type CorrectAnswer,
   type QuestionFilters,
   type QuestionWriteInput,
@@ -128,6 +130,36 @@ export const getQuestions = async (filters: QuestionFilters) => {
 export const getQuestion = async (id: string) => {
   const question = await findQuestionById(id);
   return question ? toQuestion(question) : null;
+};
+
+export const getStudentQuestions = async (filters: QuestionFilters) =>
+  (await getQuestions(filters)).map(toQuestionForStudent);
+
+export const getStudentQuestion = async (id: string) => {
+  const question = await getQuestion(id);
+  return question ? toQuestionForStudent(question) : null;
+};
+
+export const evaluateStudentAnswer = async (
+  userId: string,
+  questionId: string,
+  answer: unknown
+) => {
+  if (!isCorrectAnswer(answer)) {
+    throw new QuestionError("answer must be one of A, B, C, D.");
+  }
+  if (await isQuestionInActiveExam(userId, questionId)) {
+    throw new QuestionError(
+      "This question cannot be evaluated while it belongs to an active exam.",
+      409
+    );
+  }
+  const question = await getQuestion(questionId);
+  if (!question) throw new QuestionError("Question not found.", 404);
+  return {
+    correctAnswer: question.correctAnswer,
+    isCorrect: question.correctAnswer === answer
+  };
 };
 
 export const saveQuestion = async (question: QuestionWriteInput) => {

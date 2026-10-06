@@ -1,3 +1,5 @@
+import { getAuthorizedQuestionImageUrl } from "../media/media.service.js";
+
 export const correctAnswers = ["A", "B", "C", "D"] as const;
 export const subjects = ["quantitative", "verbal"] as const;
 export const questionSources = ["pdf", "excel", "manual"] as const;
@@ -58,6 +60,15 @@ export type Question = {
   updatedAt: string;
 };
 
+export type QuestionForStudent = Omit<
+  Question,
+  | "correctAnswer"
+  | "imageStorageKey"
+  | "importJobId"
+  | "sourcePdfId"
+  | "sourcePage"
+>;
+
 export type QuestionWriteInput = {
   id: string;
   questionImageUrl: string;
@@ -113,3 +124,20 @@ export const toQuestion = (record: QuestionRecord): Question => ({
   createdAt: record.created_at,
   updatedAt: record.updated_at
 });
+
+export const toQuestionForStudent = (
+  question: Question
+): QuestionForStudent => {
+  const {
+    correctAnswer: _correctAnswer,
+    imageStorageKey: _imageStorageKey,
+    importJobId: _importJobId,
+    sourcePdfId: _sourcePdfId,
+    sourcePage: _sourcePage,
+    ...studentQuestion
+  } = question;
+  return {
+    ...studentQuestion,
+    questionImageUrl: getAuthorizedQuestionImageUrl(question.id)
+  };
+};

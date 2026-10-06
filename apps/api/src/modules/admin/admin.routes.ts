@@ -1,5 +1,7 @@
 import { Router, type Response } from "express";
-import { requireAdmin } from "./admin.middleware.js";
+import { requireAdmin, requireRecentAuthentication } from "./admin.middleware.js";
+import { writeSecurityEvent } from "../security/security-audit.service.js";
+import { asyncHandler } from "../security/async-handler.js";
 import {
   AdminAccountError,
   createAdminAccount,
@@ -20,19 +22,17 @@ const handleAdminAccountError = (error: unknown, response: Response) => {
 
 adminRouter.use(requireAdmin);
 
-adminRouter.get("/accounts", async (request, response) => {
+adminRouter.get("/accounts", asyncHandler(async (request, response) => {
   response.status(200).json({
     admins: await listAdminAccounts(request.user?.id ?? "")
   });
-});
+}));
 
-adminRouter.post("/accounts", async (request, response) => {
+adminRouter.post("/accounts", requireRecentAuthentication, async (request, response) => {
   try {
     const user = await createAdminAccount(
       (request.body ?? {}) as {
         email?: unknown;
-        password?: unknown;
-        passwordConfirmation?: unknown;
       },
       request.user?.id ?? ""
     );
@@ -46,16 +46,27 @@ adminRouter.post("/accounts", async (request, response) => {
     }
 
     response.status(201).json({ admin });
+    writeSecurityEvent(request, "admin.privilege_granted", {
+      actorUserId: request.user?.id,
+      outcome: "success",
+      targetId: user.id
+    });
   } catch (error) {
     handleAdminAccountError(error, response);
   }
 });
 
-adminRouter.delete("/accounts/:userId", async (request, response) => {
+adminRouter.delete("/accounts/:userId", requireRecentAuthentication, async (request, response) => {
   try {
-    await removeAdminPrivileges(request.params.userId, request.user?.id ?? "");
+    const targetUserId = String(request.params.userId);
+    await removeAdminPrivileges(targetUserId, request.user?.id ?? "");
     response.status(200).json({
       admins: await listAdminAccounts(request.user?.id ?? "")
+    });
+    writeSecurityEvent(request, "admin.privilege_removed", {
+      actorUserId: request.user?.id,
+      outcome: "success",
+      targetId: targetUserId
     });
   } catch (error) {
     handleAdminAccountError(error, response);

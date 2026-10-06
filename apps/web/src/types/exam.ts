@@ -39,6 +39,7 @@ export type ExamSection = {
   status: ExamSectionStatus;
   startedAt?: string;
   completedAt?: string;
+  deadlineAt?: string;
   questions: ExamQuestion[];
 };
 

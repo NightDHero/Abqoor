@@ -5,9 +5,11 @@ import {
   applyProfileFormUpdate,
   toProfileInput,
   validateProfileForm,
+  validateUsername,
   type ProfileFormState
 } from "../features/profile/profileFormState";
 import { weakerSectionOptions } from "../features/profile/profileOptions";
+import { isCompleteWeeklySchedule } from "../features/profile/studyPlan";
 import { useStudyPlanPreview } from "../features/profile/useStudyPlanPreview";
 import { bankService } from "../services/bankService";
 import { HttpError } from "../services/http";
@@ -16,8 +18,22 @@ import type { User } from "../types/auth";
 import type { BankConfig, WeakerSection } from "../types/profile";
 import { navigateTo } from "../utils/router";
 
-type SetupStep = { title: string; render: () => ReactNode };
+type SetupStepId = "username" | "target" | "examDate" | "taken" | "attempts" | "score" | "weaker" | "startDate" | "schedule";
+type SetupStep = { id: SetupStepId; title: string; render: () => ReactNode };
 const arabicNumber = (value: number) => value.toLocaleString("ar-SA");
+
+export const validateSetupStep = (id: SetupStepId, form: ProfileFormState) => {
+  if (id === "username") return validateUsername(form.username);
+  if (id === "target" && (form.targetScore < 50 || form.targetScore > 100)) return "اختر درجة مستهدفة بين ٥٠ و١٠٠.";
+  if (id === "examDate" && form.hasExamDate && !form.examDate) return "اختر موعد الاختبار أو فعّل خيار عدم وجود موعد حالياً.";
+  if (id === "taken" && form.hasTakenQudurat === null) return "حدد هل سبق لك دخول اختبار القدرات.";
+  if (id === "attempts" && (!Number.isInteger(Number(form.attemptCount)) || Number(form.attemptCount) < 1)) return "أدخل عدد محاولات صحيحاً.";
+  if (id === "score" && (!Number.isInteger(Number(form.latestScore)) || Number(form.latestScore) < 0 || Number(form.latestScore) > 100)) return "أدخل آخر درجة بين ٠ و١٠٠.";
+  if (id === "weaker" && !form.weakerSection) return "اختر القسم الذي يمثل تحدياً أكبر.";
+  if (id === "startDate" && !form.studyPlanStartDate) return "اختر تاريخ بدء المذاكرة.";
+  if (id === "schedule" && !isCompleteWeeklySchedule({ quantitativeStudyDays: form.quantitativeStudyDays, restDay: form.weeklyRestDay, reviewDay: form.weeklyReviewDay, verbalStudyDays: form.verbalStudyDays })) return "يجب أن يحتوي الأسبوع على ٥ أيام مذاكرة ويوم مراجعة ويوم راحة دون تداخل.";
+  return "";
+};
 
 function OptionButtons<T extends string>({
   options,
@@ -57,6 +73,7 @@ export function SetupProfilePage({
   const [stepIndex, setStepIndex] = useState(0);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isUsernameOnlySetup, setIsUsernameOnlySetup] = useState(false);
+  const [stepInteracted, setStepInteracted] = useState(false);
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const studyPlanPreview = useStudyPlanPreview({
@@ -97,6 +114,7 @@ export function SetupProfilePage({
 
   const updateForm = (nextValues: Partial<ProfileFormState>) => {
     setError("");
+    setStepInteracted(true);
     setForm((current) => applyProfileFormUpdate(current, nextValues));
   };
 
@@ -104,16 +122,18 @@ export function SetupProfilePage({
     if (!bankConfig) return [];
     const allSteps: SetupStep[] = [
       {
+        id: "username",
         title: "ما اسم المستخدم الذي تريده داخل عبقور؟",
         render: () => (
           <label className="form-field onboarding-username-field">
             اسم المستخدم
-            <input autoComplete="username" dir="ltr" maxLength={24} minLength={3} placeholder="مثال: abqoor_student" type="text" value={form.username} onChange={(event) => updateForm({ username: event.target.value })} />
-            <small>هويتك العامة داخل عبقور، وهي منفصلة عن بريدك الإلكتروني واسمك الحقيقي.</small>
+            <input aria-invalid={Boolean(validateUsername(form.username))} autoComplete="username" dir="auto" maxLength={20} minLength={3} placeholder="مثال: طالب عبقور" type="text" value={form.username} onChange={(event) => updateForm({ username: event.target.value })} />
+            <small>من ٣ إلى ٢٠ حرفاً شاملاً المسافات، وهي منفصلة عن بريدك الإلكتروني.</small>
           </label>
         )
       },
       {
+        id: "target",
         title: "ما الدرجة التي تستهدف تحقيقها في اختبار القدرات؟",
         render: () => (
           <label className="onboarding-slider">
@@ -123,6 +143,7 @@ export function SetupProfilePage({
         )
       },
       {
+        id: "examDate",
         title: "متى موعد اختبارك القادم؟",
         render: () => (
           <div className="onboarding-stack">
@@ -135,6 +156,7 @@ export function SetupProfilePage({
         )
       },
       {
+        id: "taken",
         title: "هل سبق لك دخول اختبار القدرات؟",
         render: () => (
           <div className="onboarding-options">
@@ -144,22 +166,27 @@ export function SetupProfilePage({
         )
       },
       {
+        id: "attempts",
         title: "كم مرة دخلت اختبار القدرات؟",
         render: () => <label className="form-field">عدد المحاولات<input min={1} type="number" value={form.attemptCount} onChange={(event) => updateForm({ attemptCount: event.target.value })} /></label>
       },
       {
+        id: "score",
         title: "ما آخر درجة حصلت عليها؟",
         render: () => <label className="form-field">آخر درجة<input max={100} min={0} type="number" value={form.latestScore} onChange={(event) => updateForm({ latestScore: event.target.value })} /></label>
       },
       {
+        id: "weaker",
         title: "أي القسمين يمثل تحدياً أكبر بالنسبة لك؟",
         render: () => <OptionButtons options={weakerSectionOptions} value={form.weakerSection} onChange={(weakerSection: WeakerSection) => updateForm({ weakerSection })} />
       },
       {
+        id: "startDate",
         title: "متى تبدأ مذاكرتك",
         render: () => <StudyPlanDateField isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} startDate={form.studyPlanStartDate} onChange={(studyPlanStartDate) => updateForm({ studyPlanStartDate })} />
       },
       {
+        id: "schedule",
         title: "نظّم أسبوعك",
         render: () => <StudyPlanScheduleField isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} quantitativeStudyDays={form.quantitativeStudyDays} restDay={form.weeklyRestDay} reviewDay={form.weeklyReviewDay} verbalStudyDays={form.verbalStudyDays} onScheduleChange={({ quantitativeStudyDays, restDay: weeklyRestDay, reviewDay: weeklyReviewDay, verbalStudyDays }) => updateForm({ quantitativeStudyDays, weeklyRestDay, weeklyReviewDay, verbalStudyDays })} onStudyDaysChange={(quantitativeStudyDays, verbalStudyDays) => updateForm({ quantitativeStudyDays, verbalStudyDays })} />
       }
@@ -172,9 +199,15 @@ export function SetupProfilePage({
     setStepIndex((current) => Math.min(current, Math.max(steps.length - 1, 0)));
   }, [steps.length]);
 
+  useEffect(() => {
+    setStepInteracted(false);
+    setError("");
+  }, [stepIndex]);
+
   const currentStep = steps[Math.min(stepIndex, Math.max(steps.length - 1, 0))];
   const progressPercent = steps.length ? Math.round(((stepIndex + 1) / steps.length) * 100) : 0;
   const isLastStep = stepIndex >= steps.length - 1;
+  const currentStepError = currentStep ? validateSetupStep(currentStep.id, form) : "";
 
   const saveProfile = async () => {
     const validationMessage = validateProfileForm(
@@ -207,10 +240,10 @@ export function SetupProfilePage({
         </aside>
         <section className="onboarding-card">
           <section className="onboarding-question"><span className="onboarding-step-number">{arabicNumber(stepIndex + 1)}</span><h2>{currentStep.title}</h2>{currentStep.render()}</section>
-          {error ? <p className="error-message">{error}</p> : null}
+          {error || (stepInteracted && currentStepError) ? <p className="error-message" role="alert">{error || currentStepError}</p> : null}
           <div className="onboarding-actions">
             <button className="secondary" type="button" disabled={stepIndex === 0 || isSaving} onClick={() => setStepIndex((current) => current - 1)}>السابق</button>
-            <button type="button" disabled={isSaving} onClick={() => isLastStep ? void saveProfile() : setStepIndex((current) => Math.min(current + 1, steps.length - 1))}>{isSaving ? "جاري بناء الخطة..." : isLastStep ? "ولد خطتي" : "التالي"}</button>
+            <button type="button" disabled={isSaving || Boolean(currentStepError)} onClick={() => isLastStep ? void saveProfile() : setStepIndex((current) => Math.min(current + 1, steps.length - 1))}>{isSaving ? "جاري بناء الخطة..." : isLastStep ? "ولد خطتي" : "التالي"}</button>
           </div>
         </section>
       </section>

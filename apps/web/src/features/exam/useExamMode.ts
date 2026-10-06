@@ -92,24 +92,22 @@ export function useExamMode() {
   }, []);
 
   useEffect(() => {
-    if (!currentSection?.startedAt || !exam || exam.status === "completed") {
+    if (!currentSection?.deadlineAt || !exam || exam.status === "completed") {
       return;
     }
 
     const updateTimer = () => {
-      const elapsedSeconds = Math.floor(
-        (Date.now() - new Date(currentSection.startedAt ?? "").getTime()) / 1000
-      );
-      setRemainingSeconds(
-        Math.max(exam.sectionDurationSeconds - elapsedSeconds, 0)
-      );
+      setRemainingSeconds(Math.max(
+        Math.ceil((new Date(currentSection.deadlineAt ?? "").getTime() - Date.now()) / 1000),
+        0
+      ));
     };
 
     updateTimer();
     const intervalId = window.setInterval(updateTimer, 1000);
 
     return () => window.clearInterval(intervalId);
-  }, [currentSection?.startedAt, exam]);
+  }, [currentSection?.deadlineAt, exam]);
 
   useEffect(() => {
     if (

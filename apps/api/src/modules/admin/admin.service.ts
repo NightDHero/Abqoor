@@ -4,7 +4,7 @@ import {
   createUser,
   findUserByEmail,
   findUserById,
-  updateUserPasswordHash
+  updateUserPasswordAndInvalidateSessions
 } from "../auth/auth.repository.js";
 import type { UserRecord } from "../auth/auth.types.js";
 import { bankConfig, calculateStudyPlan } from "../banks/bank-config.js";
@@ -15,14 +15,19 @@ import {
 } from "../profile/profile.repository.js";
 import {
   adminAccountTransaction,
+  acquireAdminSecurityLock,
+  consumeBootstrap,
   grantManagedAdmin,
   isManagedAdminUser,
   listAllUsers,
   listManagedAdmins,
-  removeManagedAdmin
+  removeManagedAdmin,
+  isBootstrapConsumed
 } from "./admin.repository.js";
+import { revokeUserAuthSessions } from "../auth/auth-session.repository.js";
+import { validatePassword } from "../auth/auth.service.js";
 
-export type AdminAccountSource = "managed" | "environment" | "managed_and_environment";
+export type AdminAccountSource = "managed";
 
 export type PublicAdminAccount = {
   userId: string;
@@ -38,12 +43,9 @@ export type PublicAdminAccount = {
 
 type CreateAdminAccountInput = {
   email?: unknown;
-  password?: unknown;
-  passwordConfirmation?: unknown;
 };
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const passwordMinLength = 8;
 
 export class AdminAccountError extends Error {
   constructor(
@@ -56,12 +58,8 @@ export class AdminAccountError extends Error {
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
-const isConfiguredAdminEmail = (email: string) =>
-  env.adminEmails.includes(email.toLowerCase());
-
-export const isUserAdministrator = async (userId: string, email: string) => {
-  return isConfiguredAdminEmail(email) || (await isManagedAdminUser(userId));
-};
+export const isUserAdministrator = async (userId: string, _email?: string) =>
+  isManagedAdminUser(userId);
 
 const toSeedUsernameBase = (email: string) => {
   const localPart = email.split("@")[0] ?? "admin";
@@ -136,12 +134,10 @@ const ensureSeedAdminProfile = async (user: UserRecord) => {
 
 const validateCreateAdminAccountInput = (input: CreateAdminAccountInput) => {
   if (
-    typeof input.email !== "string" ||
-    typeof input.password !== "string" ||
-    typeof input.passwordConfirmation !== "string"
+    typeof input.email !== "string"
   ) {
     throw new AdminAccountError(
-      "البريد الإلكتروني وكلمة المرور وتأكيد كلمة المرور مطلوبة."
+      "البريد الإلكتروني مطلوب."
     );
   }
 
@@ -151,20 +147,7 @@ const validateCreateAdminAccountInput = (input: CreateAdminAccountInput) => {
     throw new AdminAccountError("البريد الإلكتروني غير صالح.");
   }
 
-  if (input.password.length < passwordMinLength) {
-    throw new AdminAccountError(
-      `كلمة المرور يجب أن تكون ${passwordMinLength} أحرف على الأقل.`
-    );
-  }
-
-  if (input.password !== input.passwordConfirmation) {
-    throw new AdminAccountError("كلمة المرور وتأكيدها غير متطابقين.");
-  }
-
-  return {
-    email,
-    password: input.password
-  };
+  return { email };
 };
 
 const getEffectiveAdminUsers = async () => {
@@ -172,9 +155,7 @@ const getEffectiveAdminUsers = async () => {
     (await listManagedAdmins()).map((admin) => admin.user_id)
   );
 
-  return (await listAllUsers()).filter(
-    (user) => managedAdminIds.has(user.id) || isConfiguredAdminEmail(user.email)
-  );
+  return (await listAllUsers()).filter((user) => managedAdminIds.has(user.id));
 };
 
 const getRemovalBlockReason = (
@@ -194,10 +175,6 @@ const getRemovalBlockReason = (
     return "لا يمكن إزالة آخر مدير في النظام.";
   }
 
-  if (account.source !== "managed") {
-    return "هذا المدير ممنوح عبر إعدادات التشغيل ولا يمكن إزالته من لوحة الإدارة.";
-  }
-
   return null;
 };
 
@@ -214,13 +191,7 @@ export const listAdminAccounts = async (
   return effectiveAdminUsers
     .map((user) => {
       const managedAdmin = managedByUserId.get(user.id) ?? null;
-      const configured = isConfiguredAdminEmail(user.email);
-      const source: AdminAccountSource =
-        managedAdmin && configured
-          ? "managed_and_environment"
-          : configured
-            ? "environment"
-            : "managed";
+      const source: AdminAccountSource = "managed";
       const createdAt = managedAdmin?.created_at ?? user.created_at;
       const updatedAt = managedAdmin?.updated_at ?? user.updated_at;
       const account = {
@@ -253,20 +224,22 @@ export const createAdminAccount = async (
   input: CreateAdminAccountInput,
   grantedByUserId: string
 ) => {
-  const { email, password } = validateCreateAdminAccountInput(input);
+  const { email } = validateCreateAdminAccountInput(input);
 
-  if (await findUserByEmail(email)) {
+  const user = await findUserByEmail(email);
+  if (!user) {
     throw new AdminAccountError(
-      "يوجد حساب بهذا البريد الإلكتروني. استخدم تسجيل الدخول بدلا من إنشاء حساب جديد.",
-      409
+      "يجب أن ينشئ المستخدم حساب عبقور ويسجل دخوله أولاً قبل منحه صلاحيات الإدارة.",
+      404
     );
   }
-
-  const passwordHash = await bcrypt.hash(password, 12);
-  const user = await adminAccountTransaction(async () => {
-    const createdUser = await createUser(email, passwordHash);
-    await grantManagedAdmin(createdUser.id, grantedByUserId);
-    return createdUser;
+  await adminAccountTransaction(async () => {
+    await acquireAdminSecurityLock();
+    if (await isManagedAdminUser(user.id)) {
+      throw new AdminAccountError("هذا الحساب يملك صلاحيات الإدارة بالفعل.", 409);
+    }
+    await grantManagedAdmin(user.id, grantedByUserId);
+    await revokeUserAuthSessions(user.id);
   });
 
   return user;
@@ -276,57 +249,47 @@ export const removeAdminPrivileges = async (
   targetUserId: string,
   currentUserId: string
 ) => {
-  const targetUser = await findUserById(targetUserId);
-
-  if (
-    !targetUser ||
-    !(await isUserAdministrator(targetUser.id, targetUser.email))
-  ) {
-    throw new AdminAccountError("لم يتم العثور على المدير المطلوب.", 404);
-  }
-
-  const account = (await listAdminAccounts(currentUserId)).find(
-    (admin) => admin.userId === targetUserId
-  );
-
-  if (!account) {
-    throw new AdminAccountError("لم يتم العثور على المدير المطلوب.", 404);
-  }
-
-  if (!account.canRemove) {
-    throw new AdminAccountError(
-      account.removalBlockedReason ?? "لا يمكن إزالة صلاحيات هذا المدير.",
-      409
-    );
-  }
-
-  await removeManagedAdmin(targetUserId);
+  await adminAccountTransaction(async () => {
+    await acquireAdminSecurityLock();
+    const admins = await listManagedAdmins();
+    if (!admins.some((admin) => admin.user_id === targetUserId)) {
+      throw new AdminAccountError("لم يتم العثور على المدير المطلوب.", 404);
+    }
+    if (targetUserId === currentUserId) {
+      throw new AdminAccountError("لا يمكن إزالة صلاحيات حسابك الحالي من هذه الصفحة.", 409);
+    }
+    if (admins.length <= 1) {
+      throw new AdminAccountError("لا يمكن إزالة آخر مدير في النظام.", 409);
+    }
+    await removeManagedAdmin(targetUserId);
+    await revokeUserAuthSessions(targetUserId);
+  });
 };
 
 export const ensureSeedAdminAccount = async (input: {
   email: string;
   password: string;
 }) => {
-  const validated = validateCreateAdminAccountInput({
-    email: input.email,
-    password: input.password,
-    passwordConfirmation: input.password
-  });
-  const existingUser = await findUserByEmail(validated.email);
+  const email = normalizeEmail(input.email);
+  if (!emailPattern.test(email)) {
+    throw new AdminAccountError("البريد الإلكتروني غير صالح.");
+  }
+  validatePassword(input.password);
+  const existingUser = await findUserByEmail(email);
   const existingPasswordHash = existingUser?.password_hash ?? null;
   const passwordMatches = existingPasswordHash
-    ? await bcrypt.compare(validated.password, existingPasswordHash)
+    ? await bcrypt.compare(input.password, existingPasswordHash)
     : false;
   const passwordHash = passwordMatches && existingPasswordHash
     ? existingPasswordHash
-    : await bcrypt.hash(validated.password, 12);
+    : await bcrypt.hash(input.password, 12);
 
   return adminAccountTransaction<UserRecord>(async () => {
     const user = existingUser
       ? passwordMatches
         ? existingUser
-        : await updateUserPasswordHash(existingUser.id, passwordHash)
-      : await createUser(validated.email, passwordHash);
+        : await updateUserPasswordAndInvalidateSessions(existingUser.id, passwordHash)
+      : await createUser(email, passwordHash);
 
     if (!(await isManagedAdminUser(user.id))) {
       await grantManagedAdmin(user.id, null);
@@ -349,8 +312,37 @@ export const ensureConfiguredSeedAdminAccount = async () => {
     );
   }
 
-  return ensureSeedAdminAccount({
-    email: env.initialAdminEmail,
-    password: env.initialAdminPassword
-  });
+  const email = normalizeEmail(env.initialAdminEmail);
+  const bootstrapKey = `initial-admin:${email}`;
+  if (await isBootstrapConsumed(bootstrapKey)) return findUserByEmail(email);
+
+  const existing = await findUserByEmail(email);
+  if (existing) {
+    const matches = await bcrypt.compare(env.initialAdminPassword, existing.password_hash);
+    if (!matches) {
+      throw new AdminAccountError(
+        "INITIAL_ADMIN_PASSWORD does not match the existing account; startup will not reset it.",
+        500
+      );
+    }
+  }
+  const user = await ensureSeedAdminAccount({ email, password: env.initialAdminPassword });
+  await consumeBootstrap(bootstrapKey);
+  return user;
+};
+
+export const importConfiguredAdminEmails = async () => {
+  for (const emailInput of env.adminEmails) {
+    const email = normalizeEmail(emailInput);
+    const bootstrapKey = `admin-email:${email}`;
+    if (await isBootstrapConsumed(bootstrapKey)) continue;
+    const user = await findUserByEmail(email);
+    if (!user) continue;
+    await adminAccountTransaction(async () => {
+      await acquireAdminSecurityLock();
+      await grantManagedAdmin(user.id, null);
+      await revokeUserAuthSessions(user.id);
+      await consumeBootstrap(bootstrapKey);
+    });
+  }
 };

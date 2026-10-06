@@ -22,8 +22,6 @@ export const adminService = {
     apiRequest<AdminAccountsResponse>("/admin/accounts"),
   createAdminAccount: (input: {
     email: string;
-    password: string;
-    passwordConfirmation: string;
   }) =>
     apiRequest<{ admin: AdminAccount }>("/admin/accounts", {
       body: JSON.stringify(input),

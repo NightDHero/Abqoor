@@ -852,6 +852,89 @@ body:has(.onboarding-shell) {
   gap: 8px;
 }
 
+.auth-verification-block {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--abq-line);
+  border-radius: 16px;
+  background: rgb(255 255 255 / 2%);
+}
+
+.auth-verification-block > button {
+  width: 100%;
+}
+
+.auth-verification-copy,
+.auth-google-link {
+  display: grid;
+  gap: 6px;
+}
+
+.auth-verification-copy span,
+.auth-google-link p {
+  margin: 0;
+  color: var(--abq-muted);
+  font-size: 0.86rem;
+  line-height: 1.7;
+}
+
+.auth-google-link {
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgb(85 207 224 / 28%);
+  border-radius: 16px;
+  background: rgb(85 207 224 / 6%);
+}
+
+.auth-verification-hint,
+.field-error {
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+
+.auth-verification-hint {
+  color: var(--abq-muted);
+}
+
+.field-error {
+  color: #f3b8b8;
+}
+
+.auth-shell input[aria-invalid="true"],
+.onboarding-shell input[aria-invalid="true"],
+.product-app-shell input[aria-invalid="true"] {
+  border-color: rgb(239 119 119 / 68%);
+}
+
+.auth-divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 12px;
+  align-items: center;
+  color: var(--abq-muted);
+  font-size: 0.82rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  height: 1px;
+  background: var(--abq-line);
+  content: "";
+}
+
+.auth-google-button {
+  display: flex;
+  min-height: 44px;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.auth-google-button.disabled {
+  pointer-events: none;
+  opacity: 0.55;
+}
+
 .auth-mode-switch {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

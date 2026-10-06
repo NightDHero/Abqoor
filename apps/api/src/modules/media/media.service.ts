@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import {
   copyFileSync,
   existsSync,
@@ -9,6 +10,7 @@ import {
 } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { env } from "../../config/env.js";
 import {
   contentTypeForKey,
   objectStorage,
@@ -63,6 +65,44 @@ export const getQuestionImagePath = (questionId: string) => {
 
 export const getQuestionImageUrl = (questionId: string) => {
   return `${questionImagesPublicPath}/${getQuestionImageFileName(questionId)}`;
+};
+
+const questionImageAccessTtlSeconds = 60 * 60;
+const signQuestionImageAccess = (questionId: string, expiresAt: number) =>
+  createHmac("sha256", env.jwtSecret)
+    .update(`question-image:${questionId}:${expiresAt}`)
+    .digest("base64url");
+
+export const getAuthorizedQuestionImageUrl = (
+  questionId: string,
+  now = Date.now()
+) => {
+  const expiresAt = Math.floor(now / 1000) + questionImageAccessTtlSeconds;
+  const signature = signQuestionImageAccess(questionId, expiresAt);
+  return `${getQuestionImageUrl(questionId)}?expires=${expiresAt}&signature=${encodeURIComponent(signature)}`;
+};
+
+export const isValidQuestionImageAccess = (
+  questionId: string,
+  expiresInput: unknown,
+  signatureInput: unknown,
+  now = Date.now()
+) => {
+  if (typeof expiresInput !== "string" || typeof signatureInput !== "string") {
+    return false;
+  }
+  const expiresAt = Number(expiresInput);
+  const nowSeconds = Math.floor(now / 1000);
+  if (
+    !Number.isInteger(expiresAt) ||
+    expiresAt <= nowSeconds ||
+    expiresAt > nowSeconds + questionImageAccessTtlSeconds + 60
+  ) {
+    return false;
+  }
+  const expected = Buffer.from(signQuestionImageAccess(questionId, expiresAt));
+  const supplied = Buffer.from(signatureInput);
+  return expected.length === supplied.length && timingSafeEqual(expected, supplied);
 };
 
 export const getLegacyQuestionImagePath = (questionId: string) => {

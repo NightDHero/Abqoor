@@ -44,9 +44,28 @@ const listManagedAdminsStatement = db.prepare<[], ManagedAdminRecord>(`
 const listAllUsersStatement = db.prepare<[], UserRecord>(
   "SELECT * FROM users ORDER BY created_at ASC"
 );
+const acquireAdminLockStatement = db.prepare(`
+  UPDATE admin_security_lock SET nonce = nonce + 1 WHERE id = 1
+`);
+const findBootstrapStateStatement = db.prepare<string, { bootstrap_key: string }>(
+  "SELECT bootstrap_key FROM security_bootstrap_state WHERE bootstrap_key = ?"
+);
+const consumeBootstrapStatement = db.prepare(`
+  INSERT INTO security_bootstrap_state (bootstrap_key, consumed_at)
+  VALUES (@bootstrapKey, @consumedAt)
+  ON CONFLICT(bootstrap_key) DO NOTHING
+`);
 
-export const adminAccountTransaction = <T>(operation: () => T | Promise<T>) =>
-  db.transaction(operation);
+let adminTransactionQueue: Promise<void> = Promise.resolve();
+
+export const adminAccountTransaction = <T>(operation: () => T | Promise<T>) => {
+  const transaction = adminTransactionQueue.then(() => db.transaction(operation));
+  adminTransactionQueue = transaction.then(
+    () => undefined,
+    () => undefined
+  );
+  return transaction;
+};
 
 export const isManagedAdminUser = async (userId: string) => {
   return Boolean(await findManagedAdminByUserIdStatement.get(userId));
@@ -76,4 +95,18 @@ export const listManagedAdmins = async () => {
 
 export const listAllUsers = async () => {
   return await listAllUsersStatement.all();
+};
+
+export const acquireAdminSecurityLock = async () => {
+  await acquireAdminLockStatement.run();
+};
+
+export const isBootstrapConsumed = async (bootstrapKey: string) =>
+  Boolean(await findBootstrapStateStatement.get(bootstrapKey));
+
+export const consumeBootstrap = async (bootstrapKey: string) => {
+  await consumeBootstrapStatement.run({
+    bootstrapKey,
+    consumedAt: new Date().toISOString()
+  });
 };

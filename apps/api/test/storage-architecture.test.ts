@@ -6,6 +6,7 @@ import { Readable } from "node:stream";
 import { after, test } from "node:test";
 import type { S3Client } from "@aws-sdk/client-s3";
 import sharp from "sharp";
+import { issueTestPhoneVerificationCode, issueTestRegistrationCode } from "./helpers/auth.js";
 
 const testDirectory = mkdtempSync(join(tmpdir(), "abqoor-storage-test-"));
 process.env.DATABASE_PATH = join(testDirectory, "test.sqlite");
@@ -20,6 +21,7 @@ const { optimizeQuestionImage } = await import(
   "../src/modules/media/question-image-optimizer.service.js"
 );
 const {
+  getAuthorizedQuestionImageUrl,
   getQuestionImageStorageKey,
   getQuestionImageUrl
 } = await import("../src/modules/media/media.service.js");
@@ -272,8 +274,38 @@ test("question image route serves storage-backed images and handles missing obje
     questionImageUrl: getQuestionImageUrl(questionId)
   });
 
-  const missingResponse = await fetch(
+  const unauthenticatedResponse = await fetch(
     `${baseUrl}/question-images/${questionId}.webp`
+  );
+  assert.equal(unauthenticatedResponse.status, 401);
+
+  const verificationCode = await issueTestRegistrationCode("storage-student@example.com");
+  const phoneVerificationCode = await issueTestPhoneVerificationCode("+966500000071");
+  const registration = await fetch(`${baseUrl}/auth/register`, {
+    body: JSON.stringify({
+      email: "storage-student@example.com",
+      password: "correct horse battery",
+      passwordConfirmation: "correct horse battery",
+      phoneNumber: "+966500000071",
+      phoneVerificationCode,
+      verificationCode
+    }),
+    headers: { "content-type": "application/json" },
+    method: "POST"
+  });
+  assert.equal(registration.status, 201);
+  const cookie = registration.headers.get("set-cookie")?.split(";")[0] ?? "";
+
+  const unsignedResponse = await fetch(
+    `${baseUrl}/question-images/${questionId}.webp`,
+    { headers: { cookie } }
+  );
+  assert.equal(unsignedResponse.status, 403);
+
+  const authorizedImageUrl = getAuthorizedQuestionImageUrl(questionId);
+  const missingResponse = await fetch(
+    `${baseUrl}${authorizedImageUrl}`,
+    { headers: { cookie } }
   );
   assert.equal(missingResponse.status, 404);
 
@@ -284,11 +316,19 @@ test("question image route serves storage-backed images and handles missing obje
     key: storageKey
   });
 
-  const response = await fetch(`${baseUrl}/question-images/${questionId}.webp`);
+  const response = await fetch(`${baseUrl}${authorizedImageUrl}`, {
+    headers: { cookie }
+  });
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("content-type"), "image/webp");
-  assert.equal(response.headers.get("cache-control"), "public, max-age=300");
+  assert.equal(response.headers.get("cache-control"), "private, no-store");
   assert.deepEqual(Buffer.from(await response.arrayBuffer()), optimized.buffer);
+
+  const tamperedResponse = await fetch(
+    `${baseUrl}${authorizedImageUrl.replace(questionId, "Q-STORAGE-999")}`,
+    { headers: { cookie } }
+  );
+  assert.equal(tamperedResponse.status, 403);
 });
 
 after(async () => {

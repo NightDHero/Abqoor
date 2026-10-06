@@ -4,6 +4,7 @@ import { extname } from "node:path";
 import {
   backupQuestionImageObject,
   commitStagedQuestionImageObject,
+  getAuthorizedQuestionImageUrl,
   getQuestionImageUrl,
   getSourcePdfStorageKey,
   isPngBuffer,
@@ -996,6 +997,7 @@ export const getAdminQuestionBank = async (input: {
     questions: result.questions.map((question) => ({
       ...question,
       imageExists: Boolean(question.imageStorageKey) || questionImageExists(question.id),
+      questionImageUrl: getAuthorizedQuestionImageUrl(question.id),
       questionNumber: Number(question.id.replace(/^Q-/, ""))
     }))
   };

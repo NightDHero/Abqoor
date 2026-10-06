@@ -15,7 +15,6 @@ const reviewItemSelect = `
     review_items.spaced_repetition_state,
     review_items.ai_schedule_metadata,
     questions.question_image_url,
-    questions.correct_answer,
     questions.subject,
     questions.subject_id,
     questions.topic,

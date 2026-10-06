@@ -6,8 +6,10 @@ export const initializeSqliteSchema = (db: Database.Database) => {
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       email TEXT NOT NULL UNIQUE,
+      email_verified_at TEXT,
       password_hash TEXT NOT NULL,
       phone_number TEXT,
+      phone_verified_at TEXT,
       session_version INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -84,6 +86,76 @@ export const initializeSqliteSchema = (db: Database.Database) => {
 
     CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at
     ON password_reset_tokens(expires_at);
+
+    CREATE TABLE IF NOT EXISTS email_verification_codes (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      code_hash TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+      used_at TEXT,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_email_verification_codes_email
+    ON email_verification_codes(email);
+
+    CREATE INDEX IF NOT EXISTS idx_email_verification_codes_expires_at
+    ON email_verification_codes(expires_at);
+
+    CREATE TABLE IF NOT EXISTS auth_external_identities (
+      provider TEXT NOT NULL,
+      provider_subject TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      email TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (provider, provider_subject),
+      UNIQUE (provider, user_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_auth_external_identities_user_id
+    ON auth_external_identities(user_id);
+
+    CREATE TABLE IF NOT EXISTS phone_verification_requests (
+      id TEXT PRIMARY KEY,
+      phone_number TEXT NOT NULL,
+      purpose TEXT NOT NULL CHECK (purpose IN ('registration', 'link')),
+      user_id TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_phone_verification_requests_destination
+    ON phone_verification_requests(phone_number, purpose, created_at);
+
+    CREATE TABLE IF NOT EXISTS auth_sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      revoked_at TEXT,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id
+    ON auth_sessions(user_id);
+
+    CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at
+    ON auth_sessions(expires_at);
+
+    CREATE TABLE IF NOT EXISTS security_bootstrap_state (
+      bootstrap_key TEXT PRIMARY KEY,
+      consumed_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS admin_security_lock (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      nonce INTEGER NOT NULL DEFAULT 0
+    );
+
+    INSERT OR IGNORE INTO admin_security_lock (id, nonce) VALUES (1, 0);
 
     CREATE TABLE IF NOT EXISTS admin_accounts (
       user_id TEXT PRIMARY KEY,
@@ -260,6 +332,7 @@ export const initializeSqliteSchema = (db: Database.Database) => {
       status TEXT NOT NULL CHECK (status IN ('pending', 'active', 'completed')),
       started_at TEXT,
       completed_at TEXT,
+      deadline_at TEXT,
       PRIMARY KEY (exam_id, section_number),
       FOREIGN KEY (exam_id) REFERENCES official_exams(id) ON DELETE CASCADE
     );

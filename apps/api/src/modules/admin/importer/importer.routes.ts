@@ -18,6 +18,8 @@ import {
   questionImportUploadDirectory
 } from "../../media/media.service.js";
 import { adminImportRateLimit } from "../../security/security.middleware.js";
+import { writeSecurityEvent } from "../../security/security-audit.service.js";
+import { asyncHandler } from "../../security/async-handler.js";
 import {
   AdminImportError,
   analyzeQuestionImport,
@@ -37,7 +39,11 @@ import type {
 
 export const importerRouter = Router();
 
-const importerUploadFileSizeLimitBytes = 120 * 1024 * 1024;
+const importerUploadFileSizeLimitBytes = 80 * 1024 * 1024;
+const importerAggregateSizeLimitBytes = 250 * 1024 * 1024;
+const importerExcelSizeLimitBytes = 10 * 1024 * 1024;
+const importerImageSizeLimitBytes = 15 * 1024 * 1024;
+const importerMaxImages = 500;
 ensureQuestionImportUploadDirectory();
 
 const upload = multer({
@@ -50,7 +56,10 @@ const upload = multer({
   }),
   limits: {
     fields: 20,
-    files: 2002,
+    fieldNameSize: 100,
+    fieldSize: 16 * 1024,
+    files: importerMaxImages + 2,
+    parts: importerMaxImages + 22,
     fileSize: importerUploadFileSizeLimitBytes
   }
 });
@@ -59,7 +68,7 @@ const analyzeFields = upload.fields([
   { name: "excel", maxCount: 1 },
   { name: "excelFile", maxCount: 1 },
   { name: "pdf", maxCount: 1 },
-  { name: "images", maxCount: 2000 }
+  { name: "images", maxCount: importerMaxImages }
 ]);
 
 const readFileHeader = (path: string, byteCount: number) => {
@@ -102,6 +111,22 @@ const cleanupUploadedFiles = (request: Request) => {
   }
 };
 
+const validateUploadedFileLimits = (request: Request) => {
+  const files = uploadedFiles(request);
+  const totalSize = files.reduce((total, file) => total + file.size, 0);
+  if (totalSize > importerAggregateSizeLimitBytes) {
+    throw new AdminImportError("إجمالي الملفات يتجاوز الحد المسموح وهو 250MB.", 413);
+  }
+  for (const file of files) {
+    if ((file.fieldname === "excel" || file.fieldname === "excelFile") && file.size > importerExcelSizeLimitBytes) {
+      throw new AdminImportError("حجم ملف Excel يتجاوز الحد المسموح وهو 10MB.", 413);
+    }
+    if (file.fieldname === "images" && file.size > importerImageSizeLimitBytes) {
+      throw new AdminImportError("إحدى الصور تتجاوز الحد المسموح وهو 15MB.", 413);
+    }
+  }
+};
+
 const getField = (
   files: Record<string, Express.Multer.File[]> | undefined,
   name: string
@@ -127,7 +152,7 @@ const handleRouteError = (error: unknown, response: Response) => {
   if (error instanceof multer.MulterError) {
     const message =
       error.code === "LIMIT_FILE_SIZE"
-        ? "حجم الملف يتجاوز الحد الأقصى المسموح وهو 120MB."
+        ? "حجم الملف يتجاوز الحد الأقصى المسموح وهو 80MB."
         : `تعذر قبول الملفات المرفوعة: ${error.message}`;
     response.status(400).json({ message });
     return;
@@ -159,6 +184,7 @@ importerRouter.post("/analyze", adminImportRateLimit, acceptAnalyzeUpload, async
     const files = request.files as
       | Record<string, Express.Multer.File[]>
       | undefined;
+    validateUploadedFileLimits(request);
     const excel = getField(files, "excel") ?? getField(files, "excelFile");
     const pdf = getField(files, "pdf");
     const images = files?.images ?? [];
@@ -173,6 +199,9 @@ importerRouter.post("/analyze", adminImportRateLimit, acceptAnalyzeUpload, async
     if (!questionRange) {
       throw new AdminImportError("نطاق أسئلة Excel مطلوب.");
     }
+    if (questionRange.to - questionRange.from + 1 > importerMaxImages) {
+      throw new AdminImportError(`لا يمكن استيراد أكثر من ${importerMaxImages} سؤالاً في العملية الواحدة.`);
+    }
     const detail = await analyzeQuestionImport({
       createdBy: request.user?.email ?? "unknown",
       excel: toUploadedFile(excel),
@@ -185,7 +214,18 @@ importerRouter.post("/analyze", adminImportRateLimit, acceptAnalyzeUpload, async
     });
 
     response.status(200).json(detail);
+    writeSecurityEvent(request, "admin.import", {
+      actorUserId: request.user?.id,
+      detail: { action: "analyze" },
+      outcome: "success",
+      targetId: detail.job.id
+    });
   } catch (error) {
+    writeSecurityEvent(request, "admin.import", {
+      actorUserId: request.user?.id,
+      detail: { action: "analyze" },
+      outcome: "failure"
+    });
     handleRouteError(error, response);
   } finally {
     cleanupUploadedFiles(request);
@@ -213,9 +253,9 @@ importerRouter.get("/questions", async (request, response) => {
   }
 });
 
-importerRouter.get("/jobs", async (_request, response) => {
+importerRouter.get("/jobs", asyncHandler(async (_request, response) => {
   response.status(200).json(await getImportHistory());
-});
+}));
 
 importerRouter.get("/jobs/:id", async (request, response) => {
   try {
@@ -233,6 +273,12 @@ importerRouter.post("/jobs/:id/confirm", adminImportRateLimit, async (request, r
       (request.body ?? {}) as ConfirmImportRequest
     );
     response.status(202).json(detail);
+    writeSecurityEvent(request, "admin.import", {
+      actorUserId: request.user?.id,
+      detail: { action: "confirm" },
+      outcome: "success",
+      targetId: jobId
+    });
   } catch (error) {
     handleRouteError(error, response);
   }

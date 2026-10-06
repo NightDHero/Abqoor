@@ -7,13 +7,14 @@ import {
   flagOfficialExamQuestion,
   getOfficialExam,
   getOfficialExamStructure,
+  OfficialExamError,
   startOfficialExam
 } from "./exam-mode.service.js";
 
 export const examRouter = Router();
 
 const handleExamError = (error: unknown, response: Response) => {
-  if (error instanceof ExamError) {
+  if (error instanceof ExamError || error instanceof OfficialExamError) {
     response.status(error.statusCode).json({ message: error.message });
     return;
   }
