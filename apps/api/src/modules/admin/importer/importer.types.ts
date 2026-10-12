@@ -6,6 +6,7 @@ import type {
 } from "../../questions/question.types.js";
 
 export type ImportMode = "preview" | "commit";
+export type QuestionImportType = "general" | "aqsam";
 export type ImportJobStatus =
   | "analyzing"
   | "ready"
@@ -148,6 +149,9 @@ export type ImportJob = {
   confirmedAt: string | null;
   completedAt: string | null;
   rolledBackAt: string | null;
+  importType: QuestionImportType;
+  bankId: string | null;
+  bankName: string | null;
 };
 
 export type ImportJobItem = {
@@ -164,6 +168,7 @@ export type ImportJobItem = {
   topicId: string;
   subtopic: string | null;
   subtopicId: string | null;
+  metadata: Record<string, unknown>;
   difficulty: number;
   pageNumber: number | null;
   sourceImageName: string | null;
@@ -194,6 +199,8 @@ export type ParsedWorkbookQuestion = {
   topicId: string;
   subtopic: string | null;
   subtopicId: string | null;
+  difficulty: number;
+  metadata: Record<string, unknown>;
   issues: ImportValidationIssue[];
 };
 
@@ -217,6 +224,9 @@ export type AnalyzeImportRequest = {
   pdf?: UploadedImportFile;
   pdfPageRange?: PageRange;
   images?: UploadedImportFile[];
+  importType: QuestionImportType;
+  bankKey?: string;
+  bankName?: string;
 };
 
 export type ConfirmImportRequest = {

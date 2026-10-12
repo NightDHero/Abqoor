@@ -14,6 +14,9 @@ process.env.NODE_ENV = "test";
 
 const { createApp } = await import("../src/app.js");
 const { closeDatabase, db } = await import("../src/database/client.js");
+const { updateUserPasswordAndInvalidateSessions } = await import(
+  "../src/modules/auth/auth.repository.js"
+);
 const { ensureSeedAdminAccount } = await import(
   "../src/modules/admin/admin.service.js"
 );
@@ -183,6 +186,72 @@ test("manages administrator accounts without exposing password data", async () =
     }
   );
   assert.equal(finalRemovalResponse.status, 409);
+});
+
+test("temporary administrator passwords require a change before admin access", async () => {
+  const email = "temporary-admin@example.com";
+  const temporaryPassword = ["temporary", "credential"].join("-");
+  const replacementPassword = ["replacement", "credential", "secure"].join("-");
+  await ensureSeedAdminAccount({ email, password });
+
+  const stored = await db.prepare<string, { id: string }>(
+    "SELECT id FROM users WHERE email = ?"
+  ).get(email);
+  assert.ok(stored);
+  await updateUserPasswordAndInvalidateSessions(
+    stored.id,
+    await bcrypt.hash(temporaryPassword, 12),
+    true
+  );
+
+  const temporaryLogin = await login(email, temporaryPassword);
+  assert.equal(temporaryLogin.response.status, 200);
+  const temporaryPayload = await readJson<{
+    user: { isAdmin: boolean; mustChangePassword: boolean };
+  }>(temporaryLogin.response);
+  assert.equal(temporaryPayload.user.isAdmin, true);
+  assert.equal(temporaryPayload.user.mustChangePassword, true);
+  assert.equal(JSON.stringify(temporaryPayload).includes("passwordHash"), false);
+
+  const blockedAdminRequest = await fetch(`${baseUrl}/admin/accounts`, {
+    headers: { cookie: temporaryLogin.cookie }
+  });
+  assert.equal(blockedAdminRequest.status, 403);
+  assert.equal(
+    (await readJson<{ code: string }>(blockedAdminRequest)).code,
+    "PASSWORD_CHANGE_REQUIRED"
+  );
+
+  const changeResponse = await fetch(`${baseUrl}/auth/change-password`, {
+    body: JSON.stringify({
+      currentPassword: temporaryPassword,
+      newPassword: replacementPassword,
+      newPasswordConfirmation: replacementPassword
+    }),
+    headers: {
+      cookie: temporaryLogin.cookie,
+      "content-type": "application/json"
+    },
+    method: "POST"
+  });
+  assert.equal(changeResponse.status, 200);
+
+  const invalidatedSession = await fetch(`${baseUrl}/admin/accounts`, {
+    headers: { cookie: temporaryLogin.cookie }
+  });
+  assert.equal(invalidatedSession.status, 401);
+
+  const permanentLogin = await login(email, replacementPassword);
+  const permanentPayload = await readJson<{
+    user: { isAdmin: boolean; mustChangePassword: boolean };
+  }>(permanentLogin.response);
+  assert.equal(permanentPayload.user.mustChangePassword, false);
+  assert.equal(
+    (await fetch(`${baseUrl}/admin/accounts`, {
+      headers: { cookie: permanentLogin.cookie }
+    })).status,
+    200
+  );
 });
 
 test("seed administrator setup is idempotent and keeps login usable", async () => {

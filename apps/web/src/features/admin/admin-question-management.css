@@ -317,6 +317,63 @@
   gap: 16px;
 }
 
+.admin-import-mode-selector,
+.admin-bank-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-import-mode-selector { grid-column: 1 / -1; }
+
+.admin-import-mode-selector label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  align-items: start;
+  border: 1px solid var(--abqoor-border);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.admin-import-mode-selector small {
+  grid-column: 2;
+  color: var(--abqoor-muted);
+}
+
+.admin-bank-identity-fields {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-bank-mode-switch { width: min(100%, 520px); }
+
+.admin-workspace .admin-bank-mode-switch button.selected,
+.admin-workspace .admin-aqsam-bank-grid button.selected {
+  border-color: var(--brand-cyan);
+  background: color-mix(in srgb, var(--brand-cyan) 18%, var(--abqoor-glass));
+}
+
+.admin-aqsam-bank-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.admin-workspace .admin-aqsam-bank-grid button {
+  display: grid;
+  gap: 5px;
+  justify-items: start;
+  text-align: start;
+}
+
+.admin-aqsam-bank-grid span {
+  color: var(--abqoor-muted);
+  font-size: 0.78rem;
+}
+
 .admin-form-actions {
   display: flex;
   align-items: end;
@@ -789,6 +846,8 @@
 @media (max-width: 620px) {
   .admin-workspace-header { align-items: flex-start; flex-direction: column; }
   .admin-form-grid,
+  .admin-import-mode-selector,
+  .admin-bank-identity-fields,
   .admin-overview-grid,
   .admin-overview-grid.compact,
   .admin-overview-entry-grid,

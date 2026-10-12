@@ -25,5 +25,13 @@ export const sendTransactionalEmail = async (message: EmailMessage) => {
     method: "POST"
   });
 
+  if (!response.ok) {
+    console.error("Transactional email provider rejected delivery", {
+      provider: "resend",
+      requestId: response.headers.get("x-request-id") ?? undefined,
+      status: response.status
+    });
+  }
+
   return response.ok;
 };

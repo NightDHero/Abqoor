@@ -171,6 +171,24 @@ export const loginUser = async (identifierInput: string, password: string) => {
   return user;
 };
 
+export const changeAuthenticatedPassword = async (input: {
+  currentPassword: string;
+  newPassword: string;
+  newPasswordConfirmation: string;
+  userId: string;
+}) => {
+  if (input.newPassword !== input.newPasswordConfirmation) {
+    throw new AuthError("كلمة المرور الجديدة وتأكيدها غير متطابقين.");
+  }
+  validatePassword(input.newPassword);
+  const user = await findUserById(input.userId);
+  if (!user || !(await bcrypt.compare(input.currentPassword, user.password_hash))) {
+    throw new AuthError("كلمة المرور الحالية غير صحيحة.", 401);
+  }
+  const passwordHash = await bcrypt.hash(input.newPassword, 12);
+  return updateUserPasswordAndInvalidateSessions(user.id, passwordHash, false);
+};
+
 export type VerifiedGoogleIdentity = {
   email: string;
   subject: string;

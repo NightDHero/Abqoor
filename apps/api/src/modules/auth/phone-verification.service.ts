@@ -34,7 +34,14 @@ const twilioRequest = async (path: string, body: URLSearchParams) => {
       method: "POST"
     }
   );
-  if (!response.ok) return null;
+  if (!response.ok) {
+    console.error("SMS verification provider rejected request", {
+      provider: "twilio-verify",
+      requestId: response.headers.get("twilio-request-id") ?? undefined,
+      status: response.status
+    });
+    return null;
+  }
   return await response.json() as { status?: string };
 };
 

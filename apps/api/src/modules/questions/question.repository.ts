@@ -28,6 +28,10 @@ const insertQuestionStatement = db.prepare(`
     source,
     version,
     import_job_id,
+    question_scope,
+    bank_id,
+    bank_question_number,
+    import_metadata_json,
     created_at,
     updated_at
   )
@@ -49,6 +53,10 @@ const insertQuestionStatement = db.prepare(`
     @source,
     @version,
     @importJobId,
+    @questionScope,
+    @bankId,
+    @bankQuestionNumber,
+    @importMetadataJson,
     @createdAt,
     @updatedAt
   )
@@ -73,6 +81,10 @@ const upsertQuestionStatement = db.prepare(`
     source,
     version,
     import_job_id,
+    question_scope,
+    bank_id,
+    bank_question_number,
+    import_metadata_json,
     created_at,
     updated_at
   )
@@ -94,6 +106,10 @@ const upsertQuestionStatement = db.prepare(`
     @source,
     @version,
     @importJobId,
+    @questionScope,
+    @bankId,
+    @bankQuestionNumber,
+    @importMetadataJson,
     @createdAt,
     @updatedAt
   )
@@ -114,6 +130,10 @@ const upsertQuestionStatement = db.prepare(`
     source = excluded.source,
     version = excluded.version,
     import_job_id = excluded.import_job_id,
+    question_scope = excluded.question_scope,
+    bank_id = excluded.bank_id,
+    bank_question_number = excluded.bank_question_number,
+    import_metadata_json = excluded.import_metadata_json,
     updated_at = excluded.updated_at
 `);
 
@@ -140,6 +160,10 @@ const restoreQuestionStatement = db.prepare(`
     version,
     explanation_video_url,
     import_job_id,
+    question_scope,
+    bank_id,
+    bank_question_number,
+    import_metadata_json,
     created_at,
     updated_at
   )
@@ -165,6 +189,10 @@ const restoreQuestionStatement = db.prepare(`
     @version,
     @explanation_video_url,
     @import_job_id,
+    @question_scope,
+    @bank_id,
+    @bank_question_number,
+    @import_metadata_json,
     @created_at,
     @updated_at
   )
@@ -189,6 +217,10 @@ const restoreQuestionStatement = db.prepare(`
     version = excluded.version,
     explanation_video_url = excluded.explanation_video_url,
     import_job_id = excluded.import_job_id,
+    question_scope = excluded.question_scope,
+    bank_id = excluded.bank_id,
+    bank_question_number = excluded.bank_question_number,
+    import_metadata_json = excluded.import_metadata_json,
     created_at = excluded.created_at,
     updated_at = excluded.updated_at
 `);
@@ -271,6 +303,12 @@ export const insertQuestion = async (question: QuestionWriteInput) => {
     difficultyScore: question.difficultyScore ?? question.difficulty,
     imageStorageKey: question.imageStorageKey ?? null,
     importJobId: question.importJobId ?? null,
+    questionScope: question.questionScope ?? "general",
+    bankId: question.bankId ?? null,
+    bankQuestionNumber: question.bankQuestionNumber ?? null,
+    importMetadataJson: question.importMetadata
+      ? JSON.stringify(question.importMetadata)
+      : null,
     sourcePage: question.sourcePage ?? null,
     sourcePdfId: question.sourcePdfId ?? null,
     subjectId: question.subjectId ?? null,
@@ -293,6 +331,12 @@ export const upsertQuestion = async (question: QuestionWriteInput) => {
     difficultyScore: question.difficultyScore ?? question.difficulty,
     imageStorageKey: question.imageStorageKey ?? null,
     importJobId: question.importJobId ?? null,
+    questionScope: question.questionScope ?? "general",
+    bankId: question.bankId ?? null,
+    bankQuestionNumber: question.bankQuestionNumber ?? null,
+    importMetadataJson: question.importMetadata
+      ? JSON.stringify(question.importMetadata)
+      : null,
     sourcePage: question.sourcePage ?? null,
     sourcePdfId: question.sourcePdfId ?? null,
     subjectId: question.subjectId ?? null,

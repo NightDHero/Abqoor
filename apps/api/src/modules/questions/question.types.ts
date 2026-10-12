@@ -30,6 +30,10 @@ export type QuestionRecord = {
   version: number;
   explanation_video_url: string | null;
   import_job_id: string | null;
+  question_scope: "general" | "aqsam";
+  bank_id: string | null;
+  bank_question_number: number | null;
+  import_metadata_json: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -56,6 +60,10 @@ export type Question = {
   version: number;
   explanationVideoUrl?: string;
   importJobId?: string;
+  questionScope: "general" | "aqsam";
+  bankId?: string;
+  bankQuestionNumber?: number;
+  importMetadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 };
@@ -65,6 +73,7 @@ export type QuestionForStudent = Omit<
   | "correctAnswer"
   | "imageStorageKey"
   | "importJobId"
+  | "importMetadata"
   | "sourcePdfId"
   | "sourcePage"
 >;
@@ -87,6 +96,10 @@ export type QuestionWriteInput = {
   source: QuestionSource;
   version: number;
   importJobId?: string;
+  questionScope?: "general" | "aqsam";
+  bankId?: string;
+  bankQuestionNumber?: number;
+  importMetadata?: Record<string, unknown>;
 };
 
 export type QuestionFilters = {
@@ -121,6 +134,12 @@ export const toQuestion = (record: QuestionRecord): Question => ({
   version: record.version,
   explanationVideoUrl: record.explanation_video_url ?? undefined,
   importJobId: record.import_job_id ?? undefined,
+  questionScope: record.question_scope,
+  bankId: record.bank_id ?? undefined,
+  bankQuestionNumber: record.bank_question_number ?? undefined,
+  importMetadata: record.import_metadata_json
+    ? JSON.parse(record.import_metadata_json) as Record<string, unknown>
+    : undefined,
   createdAt: record.created_at,
   updatedAt: record.updated_at
 });
@@ -132,6 +151,7 @@ export const toQuestionForStudent = (
     correctAnswer: _correctAnswer,
     imageStorageKey: _imageStorageKey,
     importJobId: _importJobId,
+    importMetadata: _importMetadata,
     sourcePdfId: _sourcePdfId,
     sourcePage: _sourcePage,
     ...studentQuestion

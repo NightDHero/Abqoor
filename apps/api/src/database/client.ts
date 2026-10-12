@@ -14,6 +14,7 @@ import * as correctedWeekdayAssignments from "./postgres-migrations/007_correct_
 import * as securityHardening from "./postgres-migrations/008_security_hardening.js";
 import * as authIdentityVerification from "./postgres-migrations/009_auth_identity_verification.js";
 import * as verifiedContactIdentities from "./postgres-migrations/010_verified_contact_identities.js";
+import * as questionBanksAndPasswordChange from "./postgres-migrations/011_question_banks_and_password_change.js";
 import { initializeSqliteSchema } from "./sqlite-schema.js";
 
 const { Pool, types } = pg;
@@ -58,7 +59,8 @@ const postgresMigrations: PostgresMigration[] = [
   correctedWeekdayAssignments,
   securityHardening,
   authIdentityVerification,
-  verifiedContactIdentities
+  verifiedContactIdentities,
+  questionBanksAndPasswordChange
 ];
 const transactionClientStorage = new AsyncLocalStorage<pg.PoolClient>();
 

@@ -359,6 +359,22 @@ test("expired reset tokens cannot change a password", async () => {
   );
 });
 
+test("verification endpoints report unavailable providers instead of fake delivery", async () => {
+  const emailResponse = await fetch(`${baseUrl}/auth/register/code`, {
+    body: JSON.stringify({ email: "provider-unavailable@example.com" }),
+    headers: { "content-type": "application/json" },
+    method: "POST"
+  });
+  assert.equal(emailResponse.status, 503);
+
+  const phoneResponse = await fetch(`${baseUrl}/auth/register/phone-code`, {
+    body: JSON.stringify({ phoneNumber: "+966500000039" }),
+    headers: { "content-type": "application/json" },
+    method: "POST"
+  });
+  assert.equal(phoneResponse.status, 503);
+});
+
 after(async () => {
   await new Promise<void>((resolve, reject) =>
     server.close((error) => (error ? reject(error) : resolve()))

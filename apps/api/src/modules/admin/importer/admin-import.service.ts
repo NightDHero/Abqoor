@@ -64,6 +64,10 @@ import {
 } from "../../source-pdfs/source-pdf.repository.js";
 import { objectStorage } from "../../storage/object-storage.service.js";
 import { toQuestionId } from "./question-format.mapper.js";
+import {
+  ensureQuestionBank,
+  listAqsamBanks
+} from "./question-bank.repository.js";
 import type {
   AnalyzeImportRequest,
   ConfirmImportRequest,
@@ -176,7 +180,24 @@ const assertAnalysisInput = (request: AnalyzeImportRequest) => {
     }
   }
 
+  if (request.importType === "aqsam") {
+    if (!request.bankName?.trim() || !request.bankKey?.trim()) {
+      throw new AdminImportError("اسم بنك الأقسام ومعرّفه مطلوبان.");
+    }
+    if (request.bankName.trim().length > 120 || request.bankKey.trim().length > 120) {
+      throw new AdminImportError("اسم بنك الأقسام أو معرّفه أطول من الحد المسموح.");
+    }
+  }
+
 };
+
+const questionIdForImport = (
+  importType: AnalyzeImportRequest["importType"],
+  bankId: string | null,
+  questionNumber: number
+) => importType === "aqsam" && bankId
+  ? `AQ-${bankId.replace(/^bank-/, "")}-${String(questionNumber).padStart(4, "0")}`
+  : toQuestionId(questionNumber);
 
 const withProgress = (detail: ImportJobDetail): ImportJobDetail => {
   const progress = activeProgress.get(detail.job.id);
@@ -197,7 +218,8 @@ export const getImportJobDetail = async (jobId: string) => {
 const analyzePdfMedia = async (
   jobId: string,
   request: AnalyzeImportRequest,
-  issues: ImportValidationIssue[]
+  issues: ImportValidationIssue[],
+  toImportQuestionId: (questionNumber: number) => string
 ) => {
   const pdf = request.pdf as NonNullable<AnalyzeImportRequest["pdf"]>;
   const pageCount = await getPdfPageCount(pdf.buffer);
@@ -251,7 +273,7 @@ const analyzePdfMedia = async (
     const mapping = new Map<number, { pageNumber: number; sourceImageName: string }>();
 
     for (const page of pages) {
-      const questionId = toQuestionId(page.questionNumber);
+      const questionId = toImportQuestionId(page.questionNumber);
       let optimizedImage: Awaited<ReturnType<typeof optimizeQuestionImage>>;
       try {
         const image = await renderPdfPageToPng(pdf.buffer, page.pageIndex);
@@ -298,7 +320,8 @@ const analyzePdfMedia = async (
 const analyzeImageMedia = async (
   jobId: string,
   request: AnalyzeImportRequest,
-  issues: ImportValidationIssue[]
+  issues: ImportValidationIssue[],
+  toImportQuestionId: (questionNumber: number) => string
 ) => {
   const expectedCount = request.questionRange.to - request.questionRange.from + 1;
   const uploadedCount = request.images?.length ?? 0;
@@ -320,7 +343,7 @@ const analyzeImageMedia = async (
       const optimizedImage = await optimizeQuestionImage(imageBuffer);
       await stageQuestionImageObject(
         jobId,
-        toQuestionId(image.questionNumber),
+        toImportQuestionId(image.questionNumber),
         optimizedImage.buffer
       );
     } catch {
@@ -350,6 +373,23 @@ export const analyzeQuestionImport = async (
 ): Promise<ImportJobDetail> => {
   assertAnalysisInput(request);
 
+  const workbook = await readAdminWorkbook(
+    request.excel.buffer,
+    request.questionRange
+  );
+  const firstSubject = workbook.questions[0]?.subject;
+  const bank = request.importType === "aqsam"
+    ? await ensureQuestionBank({
+        bankKey: request.bankKey as string,
+        bankType: "aqsam",
+        createdBy: request.createdBy,
+        name: request.bankName as string,
+        subjectId: firstSubject ? legacySubjectToSubject[firstSubject] : null
+      })
+    : null;
+  const toImportQuestionId = (questionNumber: number) =>
+    questionIdForImport(request.importType, bank?.id ?? null, questionNumber);
+
   const sourceType = request.pdf ? "pdf" : "images";
   const mediaFilename = request.pdf?.originalname ?? `${request.images?.length ?? 0} صور PNG`;
   const job = await createImportJob({
@@ -358,18 +398,16 @@ export const analyzeQuestionImport = async (
     mediaFilename,
     sourceType,
     startQuestionNumber: request.questionRange.from,
-    status: "analyzing"
+    status: "analyzing",
+    importType: request.importType,
+    bankId: bank?.id ?? null
   });
 
   try {
-    const workbook = await readAdminWorkbook(
-      request.excel.buffer,
-      request.questionRange
-    );
     const issues = [...workbook.issues];
     const media = request.pdf
-      ? await analyzePdfMedia(job.id, request, issues)
-      : await analyzeImageMedia(job.id, request, issues);
+      ? await analyzePdfMedia(job.id, request, issues, toImportQuestionId)
+      : await analyzeImageMedia(job.id, request, issues, toImportQuestionId);
     const workbookNumbers = new Set(
       workbook.questions.map((question) => question.questionNumber)
     );
@@ -404,7 +442,7 @@ export const analyzeQuestionImport = async (
       items.push({
         importJobId: job.id,
         questionNumber: question.questionNumber,
-        questionId: toQuestionId(question.questionNumber),
+        questionId: toImportQuestionId(question.questionNumber),
         sheetName: question.sheetName,
         excelRowNumber: question.rowNumber,
         questionText: question.questionText,
@@ -415,7 +453,8 @@ export const analyzeQuestionImport = async (
         topicId: question.topicId,
         subtopic: question.subtopic,
         subtopicId: question.subtopicId,
-        difficulty: 1,
+        difficulty: question.difficulty,
+        metadata: question.metadata,
         pageNumber: mediaMatch?.pageNumber ?? null,
         sourceImageName: mediaMatch?.sourceImageName ?? null,
         imageStatus: mediaMatch ? "matched" : "missing",
@@ -424,7 +463,7 @@ export const analyzeQuestionImport = async (
           : "valid",
         errors: itemIssues,
         isDuplicate: Boolean(
-          await findQuestionById(toQuestionId(question.questionNumber))
+          await findQuestionById(toImportQuestionId(question.questionNumber))
         ),
         duplicateAction: null,
         outcome: "pending",
@@ -665,9 +704,15 @@ const commitImport = async (
           subtopicId: update.item.subtopicId ?? undefined,
           difficulty: update.item.difficulty,
           difficultyScore: update.item.difficulty,
+          importMetadata: update.item.metadata,
           source: job.sourceType === "pdf" ? "pdf" : "manual",
           version: (update.existing?.version ?? 0) + 1,
-          importJobId: jobId
+          importJobId: jobId,
+          questionScope: job.importType,
+          bankId: job.bankId ?? undefined,
+          bankQuestionNumber: job.importType === "aqsam"
+            ? update.item.questionNumber
+            : undefined
         });
 
         const applied = await findQuestionById(update.item.questionId);
@@ -868,7 +913,10 @@ const normalizeTopicCountKey = (
   return `${subjectId}:${topicId ?? topicLabel}`;
 };
 
-const toQuestionCountOverview = async () => {
+const toQuestionCountOverview = async (
+  mode: "general" | "aqsam",
+  bankId?: string
+) => {
   const topicMaps = new Map<
     LearningSubject,
     Map<string, MutableAdminQuestionTopicCount>
@@ -901,7 +949,7 @@ const toQuestionCountOverview = async () => {
     topicMaps.set(subjectId, topics);
   }
 
-  for (const row of await listAdminQuestionTopicCounts()) {
+  for (const row of await listAdminQuestionTopicCounts(mode, bankId)) {
     const subjectId = row.subject_id ?? legacySubjectToSubject[row.subject];
     const topics = topicMaps.get(subjectId);
 
@@ -978,12 +1026,15 @@ const toQuestionCountOverview = async () => {
 };
 
 export const getAdminQuestionBank = async (input: {
+  bankId?: string;
+  mode?: "general" | "aqsam";
   query?: string;
   page: number;
   pageSize: number;
   sort: "asc" | "desc";
 }) => {
-  const result = (await listAdminQuestions(input)) as {
+  const mode = input.mode ?? "general";
+  const result = (await listAdminQuestions({ ...input, mode })) as {
     page: number;
     pageSize: number;
     total: number;
@@ -993,12 +1044,24 @@ export const getAdminQuestionBank = async (input: {
   };
   return {
     ...result,
-    questionCounts: await toQuestionCountOverview(),
+    banks: mode === "aqsam"
+      ? (await listAqsamBanks()).map((bank) => ({
+          id: bank.id,
+          key: bank.bank_key,
+          name: bank.name,
+          questionCount: bank.question_count,
+          subjectId: bank.subject_id
+        }))
+      : [],
+    mode,
+    questionCounts: await toQuestionCountOverview(mode, input.bankId),
     questions: result.questions.map((question) => ({
       ...question,
       imageExists: Boolean(question.imageStorageKey) || questionImageExists(question.id),
       questionImageUrl: getAuthorizedQuestionImageUrl(question.id),
-      questionNumber: Number(question.id.replace(/^Q-/, ""))
+      questionNumber: typeof question.bankQuestionNumber === "number"
+        ? question.bankQuestionNumber
+        : Number(question.id.replace(/^Q-/, ""))
     }))
   };
 };

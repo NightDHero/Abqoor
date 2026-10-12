@@ -46,6 +46,9 @@ type ImportJobRecord = {
   confirmed_at: string | null;
   completed_at: string | null;
   rolled_back_at: string | null;
+  import_type: "general" | "aqsam";
+  bank_id: string | null;
+  bank_name: string | null;
 };
 
 type ImportJobItemRecord = {
@@ -62,6 +65,7 @@ type ImportJobItemRecord = {
   topic_id: string;
   subtopic: string | null;
   subtopic_id: string | null;
+  metadata_json: string | null;
   difficulty: number;
   page_number: number | null;
   source_image_name: string | null;
@@ -132,7 +136,10 @@ const toImportJob = (record: ImportJobRecord): ImportJob => ({
   errorMessage: record.error_message,
   confirmedAt: record.confirmed_at,
   completedAt: record.completed_at,
-  rolledBackAt: record.rolled_back_at
+  rolledBackAt: record.rolled_back_at,
+  importType: record.import_type,
+  bankId: record.bank_id,
+  bankName: record.bank_name
 });
 
 const toQuestionSnapshot = (value: string | null) =>
@@ -152,6 +159,7 @@ const toImportJobItem = (record: ImportJobItemRecord): ImportJobItem => ({
   topicId: record.topic_id,
   subtopic: record.subtopic,
   subtopicId: record.subtopic_id,
+  metadata: parseJson<Record<string, unknown>>(record.metadata_json ?? "{}", {}),
   difficulty: record.difficulty,
   pageNumber: record.page_number,
   sourceImageName: record.source_image_name,
@@ -175,7 +183,8 @@ const createImportJobStatement = db.prepare(`
     success_count, failure_count, new_count, duplicate_count, created_count,
     replaced_count, skipped_count, processed_count, error_count,
     sheet_summary_json, media_summary_json, issues_json, error_message,
-    confirmed_at, completed_at, rolled_back_at
+    confirmed_at, completed_at, rolled_back_at,
+    import_type, bank_id
   )
   VALUES (
     @id, @sourceType, @status, @startQuestionNumber, @createdAt, @updatedAt,
@@ -183,22 +192,30 @@ const createImportJobStatement = db.prepare(`
     @successCount, @failureCount, @newCount, @duplicateCount, @createdCount,
     @replacedCount, @skippedCount, @processedCount, @errorCount,
     @sheetSummaryJson, @mediaSummaryJson, @issuesJson, @errorMessage,
-    @confirmedAt, @completedAt, @rolledBackAt
+    @confirmedAt, @completedAt, @rolledBackAt,
+    @importType, @bankId
   )
 `);
 
 const findImportJobStatement = db.prepare<string, ImportJobRecord>(
-  "SELECT * FROM import_jobs WHERE id = ?"
+  `SELECT import_jobs.*, question_banks.name AS bank_name
+   FROM import_jobs
+   LEFT JOIN question_banks ON question_banks.id = import_jobs.bank_id
+   WHERE import_jobs.id = ?`
 );
 
 const listImportJobsStatement = db.prepare<[], ImportJobRecord>(`
-  SELECT * FROM import_jobs ORDER BY created_at DESC
+  SELECT import_jobs.*, question_banks.name AS bank_name
+  FROM import_jobs
+  LEFT JOIN question_banks ON question_banks.id = import_jobs.bank_id
+  ORDER BY import_jobs.created_at DESC
 `);
 
 const insertImportItemStatement = db.prepare(`
   INSERT INTO import_job_items (
     import_job_id, question_number, question_id, sheet_name, excel_row_number,
     question_text, options_json, correct_answer, subject, topic, topic_id, subtopic, subtopic_id,
+    metadata_json,
     difficulty, page_number, source_image_name, image_status, validation_status,
     errors_json, is_duplicate, duplicate_action, outcome, previous_question_json,
     applied_question_json, previous_image_existed, created_at, updated_at
@@ -206,6 +223,7 @@ const insertImportItemStatement = db.prepare(`
   VALUES (
     @importJobId, @questionNumber, @questionId, @sheetName, @excelRowNumber,
     @questionText, @optionsJson, @correctAnswer, @subject, @topic, @topicId, @subtopic, @subtopicId,
+    @metadataJson,
     @difficulty, @pageNumber, @sourceImageName, @imageStatus, @validationStatus,
     @errorsJson, @isDuplicate, @duplicateAction, @outcome, @previousQuestionJson,
     @appliedQuestionJson, @previousImageExisted, @createdAt, @updatedAt
@@ -300,6 +318,8 @@ export const createImportJob = async (input: {
   excelFilename?: string;
   mediaFilename?: string;
   sourcePdfId?: string | null;
+  importType?: "general" | "aqsam";
+  bankId?: string | null;
 }) => {
   const now = new Date().toISOString();
   const record = {
@@ -330,7 +350,9 @@ export const createImportJob = async (input: {
     errorMessage: null,
     confirmedAt: null,
     completedAt: null,
-    rolledBackAt: null
+    rolledBackAt: null,
+    importType: input.importType ?? "general",
+    bankId: input.bankId ?? null
   };
 
   await createImportJobStatement.run(record);
@@ -364,6 +386,7 @@ export const insertImportItems = async (items: ImportJobItem[]) => {
         ...item,
         subtopic: item.subtopic ?? null,
         subtopicId: item.subtopicId ?? null,
+        metadataJson: JSON.stringify(item.metadata),
         optionsJson: JSON.stringify(item.options),
         errorsJson: JSON.stringify(item.errors),
         isDuplicate: item.isDuplicate ? 1 : 0,
@@ -470,8 +493,14 @@ export const recoverInterruptedImportJobs = async () => {
 export const runImportTransaction = <T>(operation: () => T | Promise<T>) =>
   db.transaction(operation);
 
-export const listAdminQuestionTopicCounts = async () => {
-  return await db.prepare<[], AdminQuestionTopicCountRecord>(`
+export const listAdminQuestionTopicCounts = async (
+  questionScope: "general" | "aqsam" = "general",
+  bankId?: string
+) => {
+  return await db.prepare<
+    { bankId: string | null; questionScope: "general" | "aqsam" },
+    AdminQuestionTopicCountRecord
+  >(`
     SELECT
       subject,
       subject_id,
@@ -479,14 +508,18 @@ export const listAdminQuestionTopicCounts = async () => {
       topic_id,
       subtopic,
       subtopic_id,
-      COUNT(*) AS question_count
+      CAST(COUNT(*) AS INTEGER) AS question_count
     FROM questions
+    WHERE question_scope = @questionScope
+      AND (@bankId IS NULL OR bank_id = @bankId)
     GROUP BY subject, subject_id, topic, topic_id, subtopic, subtopic_id
     ORDER BY subject_id ASC, topic_id ASC, subtopic_id ASC
-`).all();
+`).all({ bankId: bankId ?? null, questionScope });
 };
 
 export const listAdminQuestions = async (input: {
+  bankId?: string;
+  mode: "general" | "aqsam";
   query?: string;
   page: number;
   pageSize: number;
@@ -495,8 +528,18 @@ export const listAdminQuestions = async (input: {
   const normalizedQuery = input.query?.trim() ?? "";
   const numericQuery = /^Q-?(\d+)$/i.exec(normalizedQuery)?.[1] ??
     (/^\d+$/.test(normalizedQuery) ? normalizedQuery : null);
-  const where = numericQuery ? "WHERE questions.id = @questionId" : "";
+  const conditions = ["questions.question_scope = @mode"];
+  if (input.bankId) conditions.push("questions.bank_id = @bankId");
+  if (numericQuery) {
+    conditions.push(
+      "questions.bank_question_number = @questionNumber OR questions.id = @questionId"
+    );
+  }
+  const where = `WHERE ${conditions.map((condition) => `(${condition})`).join(" AND ")}`;
   const params = {
+    bankId: input.bankId ?? null,
+    mode: input.mode,
+    questionNumber: numericQuery ? Number(numericQuery) : null,
     questionId: numericQuery ? `Q-${String(Number(numericQuery)).padStart(3, "0")}` : null,
     limit: input.pageSize,
     offset: (input.page - 1) * input.pageSize
@@ -505,6 +548,10 @@ export const listAdminQuestions = async (input: {
   const rows = await db.prepare(`
     SELECT
       questions.id,
+      questions.bank_question_number AS bankQuestionNumber,
+      questions.question_scope AS questionScope,
+      questions.bank_id AS bankId,
+      question_banks.name AS bankName,
       questions.question_image_url AS questionImageUrl,
       questions.image_storage_key AS imageStorageKey,
       questions.correct_answer AS correctAnswer,
@@ -519,12 +566,13 @@ export const listAdminQuestions = async (input: {
       import_jobs.created_by AS importedBy
     FROM questions
     LEFT JOIN import_jobs ON import_jobs.id = questions.import_job_id
+    LEFT JOIN question_banks ON question_banks.id = questions.bank_id
     ${where}
-    ORDER BY CAST(SUBSTR(questions.id, 3) AS INTEGER) ${order}
+    ORDER BY COALESCE(questions.bank_question_number, CAST(SUBSTR(questions.id, 3) AS INTEGER)) ${order}
     LIMIT @limit OFFSET @offset
   `).all(params);
   const count = await db.prepare(`
-    SELECT COUNT(*) AS count FROM questions ${where}
+    SELECT CAST(COUNT(*) AS INTEGER) AS count FROM questions ${where}
   `).get(params) as { count: number };
 
   return {

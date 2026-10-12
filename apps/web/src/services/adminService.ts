@@ -39,11 +39,17 @@ export const adminService = {
     pdfPageFrom?: string;
     pdfPageTo?: string;
     images?: File[];
+    importType: "general" | "aqsam";
+    bankName?: string;
+    bankKey?: string;
   }) => {
     const formData = new FormData();
     formData.append("excel", input.excel);
     formData.append("questionFrom", input.questionFrom);
     formData.append("questionTo", input.questionTo);
+    formData.append("importType", input.importType);
+    if (input.bankName) formData.append("bankName", input.bankName);
+    if (input.bankKey) formData.append("bankKey", input.bankKey);
     if (input.pdf) {
       formData.append("pdf", input.pdf);
     }
@@ -95,12 +101,16 @@ export const adminService = {
     pageSize?: number;
     query?: string;
     sort?: "asc" | "desc";
+    mode?: "general" | "aqsam";
+    bankId?: string;
   }) => {
     const params = new URLSearchParams({
       page: String(input.page),
       pageSize: String(input.pageSize ?? 50),
       sort: input.sort ?? "asc"
     });
+    params.set("mode", input.mode ?? "general");
+    if (input.bankId) params.set("bankId", input.bankId);
     if (input.query?.trim()) {
       params.set("query", input.query.trim());
     }

@@ -60,6 +60,14 @@ export const authService = {
       body: JSON.stringify(input),
       method: "POST"
     }),
+  changePassword: (input: {
+    currentPassword: string;
+    newPassword: string;
+    newPasswordConfirmation: string;
+  }) => apiRequest<{ message: string }>("/auth/change-password", {
+    body: JSON.stringify(input),
+    method: "POST"
+  }),
   requestPhoneVerification: (phoneNumber: string) =>
     apiRequest<{ message: string }>("/auth/phone/code", {
       body: JSON.stringify({ phoneNumber }),

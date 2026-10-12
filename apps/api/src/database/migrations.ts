@@ -633,6 +633,53 @@ const migrateAdminImportSystem = (db: Database.Database) => {
   `);
 };
 
+const migrateQuestionBanksAndPasswordChange = (db: Database.Database) => {
+  addColumnIfMissing(
+    db,
+    "users",
+    "must_change_password",
+    "INTEGER NOT NULL DEFAULT 0 CHECK (must_change_password IN (0, 1))"
+  );
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS question_banks (
+      id TEXT PRIMARY KEY,
+      bank_type TEXT NOT NULL CHECK (bank_type IN ('general', 'aqsam')),
+      bank_key TEXT NOT NULL,
+      name TEXT NOT NULL,
+      subject_id TEXT CHECK (subject_id IS NULL OR subject_id IN ('math', 'arabic')),
+      created_by TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(bank_type, bank_key)
+    );
+  `);
+  addColumnIfMissing(
+    db,
+    "questions",
+    "question_scope",
+    "TEXT NOT NULL DEFAULT 'general' CHECK (question_scope IN ('general', 'aqsam'))"
+  );
+  addColumnIfMissing(db, "questions", "bank_id", "TEXT");
+  addColumnIfMissing(db, "questions", "bank_question_number", "INTEGER");
+  addColumnIfMissing(db, "questions", "import_metadata_json", "TEXT");
+  addColumnIfMissing(
+    db,
+    "import_jobs",
+    "import_type",
+    "TEXT NOT NULL DEFAULT 'general' CHECK (import_type IN ('general', 'aqsam'))"
+  );
+  addColumnIfMissing(db, "import_jobs", "bank_id", "TEXT");
+  addColumnIfMissing(db, "import_job_items", "metadata_json", "TEXT");
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_questions_scope ON questions(question_scope);
+    CREATE INDEX IF NOT EXISTS idx_questions_bank_id ON questions(bank_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_questions_bank_number
+      ON questions(bank_id, bank_question_number)
+      WHERE bank_id IS NOT NULL AND bank_question_number IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_import_jobs_bank_id ON import_jobs(bank_id);
+  `);
+};
+
 export const runDatabaseMigrations = (db: Database.Database) => {
   migrateStudentProfileIdentity(db);
   migrateStudentStudyPlan(db);
@@ -648,4 +695,5 @@ export const runDatabaseMigrations = (db: Database.Database) => {
   migrateSecurityHardening(db);
   migrateAuthIdentityVerification(db);
   migrateVerifiedContactIdentities(db);
+  migrateQuestionBanksAndPasswordChange(db);
 };

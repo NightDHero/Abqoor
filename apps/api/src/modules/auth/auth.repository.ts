@@ -33,6 +33,7 @@ const createUserStatement = db.prepare(`
 const updateUserPasswordHashStatement = db.prepare(`
   UPDATE users
   SET password_hash = @passwordHash,
+      must_change_password = 0,
       updated_at = @updatedAt
   WHERE id = @id
 `);
@@ -40,6 +41,7 @@ const updateUserPasswordHashStatement = db.prepare(`
 const updateUserPasswordAndSessionStatement = db.prepare(`
   UPDATE users
   SET password_hash = @passwordHash,
+      must_change_password = @mustChangePassword,
       session_version = session_version + 1,
       updated_at = @updatedAt
   WHERE id = @id
@@ -137,10 +139,12 @@ export const updateUserPasswordHash = async (
 
 export const updateUserPasswordAndInvalidateSessions = async (
   userId: string,
-  passwordHash: string
+  passwordHash: string,
+  mustChangePassword = false
 ) => {
   await updateUserPasswordAndSessionStatement.run({
     id: userId,
+    mustChangePassword: mustChangePassword ? 1 : 0,
     passwordHash,
     updatedAt: new Date().toISOString()
   });

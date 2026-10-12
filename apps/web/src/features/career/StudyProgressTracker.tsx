@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from "react";
+import { SystemIcon } from "../../components/ui/SystemIcon";
 import { HttpError } from "../../services/http";
 import { sessionService } from "../../services/sessionService";
 import type {
@@ -370,6 +371,33 @@ function TodayPlanAction({ progress }: { progress: StudyProgressResponse }) {
   );
 }
 
+function LearningResourceActions() {
+  return (
+    <div className="study-progress-resource-actions" aria-label="موارد التعلم">
+      <button
+        aria-disabled="true"
+        className="study-progress-resource-action study-progress-resource-action-foundation"
+        disabled
+        title="مسار التأسيس غير متاح حالياً"
+        type="button"
+      >
+        <SystemIcon name="book" />
+        <span>مشاهدة التأسيس</span>
+      </button>
+      <button
+        aria-disabled="true"
+        className="study-progress-resource-action study-progress-resource-action-explanation"
+        disabled
+        title="مسار الشرح غير متاح حالياً"
+        type="button"
+      >
+        <SystemIcon name="play" />
+        <span>مشاهدة الشرح</span>
+      </button>
+    </div>
+  );
+}
+
 function PastUnfinishedPlans({ progress }: { progress: StudyProgressResponse }) {
   const days = progress.pastUnfinishedDays ?? [];
 
@@ -728,6 +756,7 @@ export function StudyProgressTracker({
             >
               <div className="study-progress-plan-action-row">
                 <TodayPlanAction progress={progress} />
+                <LearningResourceActions />
               </div>
               <PastUnfinishedPlans progress={progress} />
             </section>

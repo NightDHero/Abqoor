@@ -11,6 +11,7 @@ import { AdminQuestionBankPage } from "./features/admin/AdminQuestionBankPage";
 import { AdminValidationPage } from "./features/admin/AdminValidationPage";
 import { AuthPage } from "./features/auth/AuthPage";
 import { PasswordRecoveryPage } from "./features/auth/PasswordRecoveryPage";
+import { ForcedPasswordChangePage } from "./features/auth/ForcedPasswordChangePage";
 import { ExamEntryDialog } from "./features/exam/ExamEntryDialog";
 import { useAuth } from "./hooks/useAuth";
 import { useRouter } from "./hooks/useRouter";
@@ -49,24 +50,30 @@ export default function App() {
   };
 
   if (path === "/login") {
+    if (!auth.isLoading && auth.user) {
+      return <RedirectTo path={auth.user.mustChangePassword ? "/change-password" : auth.user.profileCompleted ? "/career" : "/setup-profile"} />;
+    }
     return (
       <AuthPage
         mode="login"
         onAuthenticated={(user) => {
           auth.setUser(user);
-          navigateTo(user.profileCompleted ? "/career" : "/setup-profile");
+          navigateTo(user.mustChangePassword ? "/change-password" : user.profileCompleted ? "/career" : "/setup-profile");
         }}
       />
     );
   }
 
   if (path === "/register") {
+    if (!auth.isLoading && auth.user) {
+      return <RedirectTo path={auth.user.mustChangePassword ? "/change-password" : auth.user.profileCompleted ? "/career" : "/setup-profile"} />;
+    }
     return (
       <AuthPage
         mode="register"
         onAuthenticated={(user) => {
           auth.setUser(user);
-          navigateTo(user.profileCompleted ? "/career" : "/setup-profile");
+          navigateTo(user.mustChangePassword ? "/change-password" : user.profileCompleted ? "/career" : "/setup-profile");
         }}
       />
     );
@@ -80,14 +87,26 @@ export default function App() {
     return <PasswordRecoveryPage mode="reset" />;
   }
 
+  if (path === "/change-password") {
+    return (
+      <ProtectedRoute isLoading={auth.isLoading} user={auth.user}>
+        {auth.user?.mustChangePassword
+          ? <ForcedPasswordChangePage />
+          : <RedirectTo path={auth.user?.profileCompleted ? "/career" : "/setup-profile"} />}
+      </ProtectedRoute>
+    );
+  }
+
   if (path === "/") {
-    return <LandingPage user={auth.user} isLoadingUser={auth.isLoading} />;
+    return <LandingPage user={auth.user} />;
   }
 
   if (path === "/setup-profile") {
     return (
       <ProtectedRoute isLoading={auth.isLoading} user={auth.user}>
-        {auth.user?.profileCompleted ? (
+        {auth.user?.mustChangePassword ? (
+          <RedirectTo path="/change-password" />
+        ) : auth.user?.profileCompleted ? (
           <RedirectTo path="/career" />
         ) : auth.user ? (
           <SetupProfilePage
@@ -101,7 +120,9 @@ export default function App() {
 
   const renderProtectedPage = (children: ReactNode) => (
     <ProtectedRoute isLoading={auth.isLoading} user={auth.user}>
-      {auth.user && !auth.user.profileCompleted ? (
+      {auth.user?.mustChangePassword ? (
+        <RedirectTo path="/change-password" />
+      ) : auth.user && !auth.user.profileCompleted ? (
         <RedirectTo path="/setup-profile" />
       ) : (
         <AppShell
@@ -116,7 +137,9 @@ export default function App() {
 
   const renderProtectedExamPage = (children: ReactNode) => (
     <ProtectedRoute isLoading={auth.isLoading} user={auth.user}>
-      {auth.user && !auth.user.profileCompleted ? (
+      {auth.user?.mustChangePassword ? (
+        <RedirectTo path="/change-password" />
+      ) : auth.user && !auth.user.profileCompleted ? (
         <RedirectTo path="/setup-profile" />
       ) : (
         children

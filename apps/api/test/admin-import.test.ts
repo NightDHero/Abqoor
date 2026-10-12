@@ -97,6 +97,56 @@ const validQuantitativeSheets = () => [{
   ]
 }];
 
+const quantitativeWideHeader = [
+  "المقارنة ١",
+  "المقارنة ٢",
+  "أ",
+  "ب",
+  "ج",
+  "د",
+  "السؤال",
+  "رقم السؤال",
+  "النموذج",
+  "الصورة",
+  "هل صعوبة الدقة في السؤال",
+  "فئة إضافية",
+  "الإجابة",
+  "صورة مقارنة ١",
+  "صورة مقارنة ٢",
+  "صورة مقارنة ٣",
+  "الوزن",
+  "الفصل"
+];
+
+const quantitativeWideRow = (questionNumber: number) => [
+  `القيمة الأولى ${questionNumber}`,
+  `القيمة الثانية ${questionNumber}`,
+  "١",
+  "٢",
+  "٣",
+  "٤",
+  `سؤال كمي ${questionNumber}`,
+  questionNumber,
+  "نموذج تجريبي",
+  "لا",
+  3,
+  "الحساب",
+  "ج",
+  "",
+  "",
+  "",
+  2,
+  "العمليات الأساسية"
+];
+
+const validWideQuantitativeSheets = (questionNumbers: number[]) => [{
+  sheet: "كمي نموذج تجريبي",
+  data: [
+    quantitativeWideHeader,
+    ...questionNumbers.map(quantitativeWideRow)
+  ]
+}];
+
 const selectedVerbalSheets = (questionNumbers: number[]) => {
   const sheets = validSheets();
   sheets[0] = {
@@ -155,7 +205,10 @@ const sheetXml = (rows: unknown[][]) =>
     .join("") +
   `</sheetData></worksheet>`;
 
-const createWorkbookBuffer = (sheets = validSheets()) => {
+const createWorkbookBuffer = (
+  sheets = validSheets(),
+  commentsBySheet: Record<number, Record<string, string>> = {}
+) => {
   const contentTypes = [
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`,
     `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">`,
@@ -199,6 +252,24 @@ const createWorkbookBuffer = (sheets = validSheets()) => {
   };
   sheets.forEach((sheet, index) => {
     files[`xl/worksheets/sheet${index + 1}.xml`] = strToU8(sheetXml(sheet.data));
+    const comments = commentsBySheet[index + 1];
+    if (comments) {
+      files[`xl/worksheets/_rels/sheet${index + 1}.xml.rels`] = strToU8(
+        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+        `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+        `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments" Target="../comments${index + 1}.xml"/>` +
+        `</Relationships>`
+      );
+      files[`xl/comments${index + 1}.xml`] = strToU8(
+        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+        `<comments xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+        `<authors><author>Abqoor</author></authors><commentList>` +
+        Object.entries(comments).map(([reference, value]) =>
+          `<comment ref="${escapeXml(reference)}" authorId="0"><text><t>${escapeXml(value)}</t></text></comment>`
+        ).join("") +
+        `</commentList></comments>`
+      );
+    }
   });
   return Buffer.from(zipSync(files));
 };
@@ -369,6 +440,111 @@ test("derives the quantitative topic from the workbook without a manual type", (
   assert.equal(analysis.questions[0]?.subject, "quantitative");
   assert.equal(analysis.questions[0]?.topicId, "arithmetic");
   assert.equal(analysis.questions[0]?.subtopicId, null);
+});
+
+test("maps the documented A-R quantitative workbook and cell-note fallback", () => {
+  const sheets = validWideQuantitativeSheets([10, 11]);
+  if (sheets[0]?.data[1]) sheets[0].data[1][6] = "";
+  sheets[0].comments = new Map([["G2", "سؤال من ملاحظة الخلية"]]);
+
+  const analysis = excelAdapter.analyzeWorkbookSheets(
+    sheets,
+    { from: 10, to: 10 }
+  );
+
+  assert.equal(analysis.issues.length, 0);
+  assert.equal(analysis.questions.length, 1);
+  assert.equal(analysis.questions[0]?.questionText, "سؤال من ملاحظة الخلية");
+  assert.equal(analysis.questions[0]?.correctAnswer, "C");
+  assert.equal(analysis.questions[0]?.topic, "الحساب");
+  assert.equal(analysis.questions[0]?.subtopic, "العمليات الأساسية");
+  assert.equal(analysis.questions[0]?.difficulty, 3);
+  assert.deepEqual(analysis.questions[0]?.metadata, {
+    additionalCategory: "الحساب",
+    chapter: "العمليات الأساسية",
+    comparisonImages: [],
+    comparisonOperands: ["القيمة الأولى 10", "القيمة الثانية 10"],
+    imageIndicator: "لا",
+    model: "نموذج تجريبي",
+    precisionDifficulty: "3",
+    weight: "2"
+  });
+});
+
+test("extracts question text from an OOXML legacy cell note", async () => {
+  const sheets = validWideQuantitativeSheets([12]);
+  if (sheets[0]?.data[1]) sheets[0].data[1][6] = "";
+  const workbook = createWorkbookBuffer(sheets, {
+    1: { G2: "نص السؤال من ملاحظة Excel" }
+  });
+
+  const comments = excelAdapter.extractWorkbookComments(workbook);
+  assert.equal(comments.get("كمي نموذج تجريبي")?.get("G2"), "نص السؤال من ملاحظة Excel");
+
+  const analysis = await excelAdapter.readAdminWorkbook(workbook, { from: 12, to: 12 });
+  assert.equal(analysis.issues.length, 0);
+  assert.equal(analysis.questions[0]?.questionText, "نص السؤال من ملاحظة Excel");
+});
+
+test("accepts a valid 48-question Aqsam workbook without a fixed bank size", () => {
+  const questionNumbers = Array.from({ length: 48 }, (_, index) => index + 1);
+  const analysis = excelAdapter.analyzeWorkbookSheets(
+    validWideQuantitativeSheets(questionNumbers),
+    { from: 1, to: 48 }
+  );
+
+  assert.equal(analysis.issues.length, 0);
+  assert.equal(analysis.questions.length, 48);
+  assert.equal(analysis.sheetSummary[0]?.questionCount, 48);
+});
+
+test("keeps Aqsam banks idempotent and separate from general questions", async () => {
+  const bankKey = "quantitative-trial-bank";
+  const request = {
+    createdBy: "admin@example.com",
+    questionRange: { from: 1, to: 1 },
+    importType: "aqsam" as const,
+    bankKey,
+    bankName: "بنك كمي تجريبي",
+    excel: {
+      buffer: createWorkbookBuffer(validWideQuantitativeSheets([1])),
+      mimetype: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      originalname: "quantitative-aqsam.xlsx"
+    },
+    images: [{ buffer: png, mimetype: "image/png", originalname: "1.png" }]
+  };
+
+  const first = await importService.analyzeQuestionImport(request);
+  await importService.confirmQuestionImport(first.job.id, {});
+  const completed = await waitForTerminalJob(first.job.id);
+  assert.equal(completed.job.status, "completed");
+
+  const retry = await importService.analyzeQuestionImport(request);
+  assert.equal(retry.job.bankId, first.job.bankId);
+  assert.equal(retry.items[0]?.isDuplicate, true);
+
+  const aqsam = await importService.getAdminQuestionBank({
+    bankId: first.job.bankId ?? undefined,
+    mode: "aqsam",
+    page: 1,
+    pageSize: 10,
+    sort: "asc"
+  });
+  const general = await importService.getAdminQuestionBank({
+    mode: "general",
+    page: 1,
+    pageSize: 10,
+    query: completed.items[0]?.questionId,
+    sort: "asc"
+  });
+
+  assert.equal(aqsam.questions.length, 1);
+  assert.equal(aqsam.banks.filter((bank) => bank.key === bankKey).length, 1);
+  assert.equal(aqsam.banks.find((bank) => bank.key === bankKey)?.questionCount, 1);
+  assert.equal(general.questions.length, 0);
+
+  await importService.cancelQuestionImport(retry.job.id);
+  await importService.rollbackQuestionImport(first.job.id);
 });
 
 test("creates a quantitative import without manual classification fields", async () => {

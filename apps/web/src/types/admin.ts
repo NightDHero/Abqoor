@@ -77,6 +77,9 @@ export type ImportJob = {
   confirmedAt: string | null;
   completedAt: string | null;
   rolledBackAt: string | null;
+  importType: "general" | "aqsam";
+  bankId: string | null;
+  bankName: string | null;
 };
 
 export type ImportJobItem = {
@@ -93,6 +96,7 @@ export type ImportJobItem = {
   topicId: string;
   subtopic: string | null;
   subtopicId: string | null;
+  metadata: Record<string, unknown>;
   difficulty: number;
   pageNumber: number | null;
   sourceImageName: string | null;
@@ -142,6 +146,10 @@ export type AdminQuestion = {
   importedAt: string | null;
   importedBy: string | null;
   imageExists: boolean;
+  questionScope: "general" | "aqsam";
+  bankId: string | null;
+  bankName: string | null;
+  bankQuestionNumber: number | null;
 };
 
 export type AdminQuestionSubtopicCount = {
@@ -165,6 +173,14 @@ export type AdminQuestionSubjectCount = {
 };
 
 export type AdminQuestionBankResponse = {
+  mode: "general" | "aqsam";
+  banks: Array<{
+    id: string;
+    key: string;
+    name: string;
+    questionCount: number;
+    subjectId: "arabic" | "math" | null;
+  }>;
   page: number;
   pageSize: number;
   total: number;

@@ -15,6 +15,9 @@ const duplicateOptions: Array<{ label: string; value: DuplicateAction }> = [
 ];
 
 export function AdminImportPage() {
+  const [importType, setImportType] = useState<"general" | "aqsam">("general");
+  const [bankName, setBankName] = useState("");
+  const [bankKey, setBankKey] = useState("");
   const [excel, setExcel] = useState<File | null>(null);
   const [pdf, setPdf] = useState<File | null>(null);
   const [images, setImages] = useState<File[]>([]);
@@ -80,6 +83,10 @@ export function AdminImportPage() {
       setError("اختر ملف Excel أولاً.");
       return;
     }
+    if (importType === "aqsam" && (!bankName.trim() || !bankKey.trim())) {
+      setError("أدخل اسم بنك الأقسام ومعرّفه قبل التحليل.");
+      return;
+    }
     if (mediaType === "pdf" && !pdf) {
       setError("اختر ملف PDF.");
       return;
@@ -116,6 +123,9 @@ export function AdminImportPage() {
         pdfPageFrom: mediaType === "pdf" ? pdfPageFrom : undefined,
         pdfPageTo: mediaType === "pdf" ? pdfPageTo : undefined,
         images: mediaType === "images" ? images : undefined,
+        importType,
+        bankName: importType === "aqsam" ? bankName : undefined,
+        bankKey: importType === "aqsam" ? bankKey : undefined,
       });
       setDetail(response);
       setMessage(
@@ -199,6 +209,60 @@ export function AdminImportPage() {
         </header>
 
         <div className="admin-form-grid">
+          <fieldset className="admin-import-mode-selector">
+            <legend>نوع الرفع</legend>
+            <label>
+              <input
+                checked={importType === "general"}
+                name="importType"
+                type="radio"
+                onChange={() => {
+                  setImportType("general");
+                  resetResult();
+                }}
+              />
+              <strong>رفع الأسئلة العامة</strong>
+              <small>للبنك الكمي أو اللفظي العام، دون ربط ببنك أقسام.</small>
+            </label>
+            <label>
+              <input
+                checked={importType === "aqsam"}
+                name="importType"
+                type="radio"
+                onChange={() => {
+                  setImportType("aqsam");
+                  resetResult();
+                }}
+              />
+              <strong>رفع أسئلة الأقسام</strong>
+              <small>يحفظ هوية البنك ويجمع أسئلته معاً.</small>
+            </label>
+          </fieldset>
+          {importType === "aqsam" ? (
+            <div className="admin-bank-identity-fields">
+              <label>
+                اسم بنك الأقسام
+                <input
+                  maxLength={120}
+                  placeholder="مثال: بنك الأقسام الكمي الأول"
+                  required
+                  value={bankName}
+                  onChange={(event) => setBankName(event.target.value)}
+                />
+              </label>
+              <label>
+                معرّف البنك
+                <input
+                  dir="ltr"
+                  maxLength={120}
+                  placeholder="quant-01"
+                  required
+                  value={bankKey}
+                  onChange={(event) => setBankKey(event.target.value)}
+                />
+              </label>
+            </div>
+          ) : null}
           <div className="admin-import-source-note">
             <strong>التصنيف من Excel</strong>
             <span>يحدد اسم ورقة العمل القسم والموضوع تلقائياً، ولا تتم الكتابة فوق بيانات الملف.</span>
@@ -264,6 +328,7 @@ export function AdminImportPage() {
               <div>
                 <h2>٢. نتيجة التحليل</h2>
                 <p>رفع #{job.id.slice(0, 8)} · {importStatusLabels[job.status]}</p>
+                <p>{job.importType === "aqsam" ? `أسئلة الأقسام · ${job.bankName ?? "البنك"}` : "الأسئلة العامة"}</p>
               </div>
               <b className="admin-status" data-status={job.status}>{importStatusLabels[job.status]}</b>
             </header>

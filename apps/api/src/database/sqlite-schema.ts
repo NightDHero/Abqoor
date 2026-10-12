@@ -10,6 +10,7 @@ export const initializeSqliteSchema = (db: Database.Database) => {
       password_hash TEXT NOT NULL,
       phone_number TEXT,
       phone_verified_at TEXT,
+      must_change_password INTEGER NOT NULL DEFAULT 0 CHECK (must_change_password IN (0, 1)),
       session_version INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -179,6 +180,18 @@ export const initializeSqliteSchema = (db: Database.Database) => {
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS question_banks (
+      id TEXT PRIMARY KEY,
+      bank_type TEXT NOT NULL CHECK (bank_type IN ('general', 'aqsam')),
+      bank_key TEXT NOT NULL,
+      name TEXT NOT NULL,
+      subject_id TEXT CHECK (subject_id IS NULL OR subject_id IN ('math', 'arabic')),
+      created_by TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(bank_type, bank_key)
+    );
+
     CREATE TABLE IF NOT EXISTS questions (
       id TEXT PRIMARY KEY,
       question_image_url TEXT NOT NULL,
@@ -201,9 +214,14 @@ export const initializeSqliteSchema = (db: Database.Database) => {
       version INTEGER NOT NULL,
       explanation_video_url TEXT,
       import_job_id TEXT,
+      question_scope TEXT NOT NULL DEFAULT 'general' CHECK (question_scope IN ('general', 'aqsam')),
+      bank_id TEXT,
+      bank_question_number INTEGER,
+      import_metadata_json TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
-      FOREIGN KEY (source_pdf_id) REFERENCES source_pdfs(id) ON DELETE SET NULL
+      FOREIGN KEY (source_pdf_id) REFERENCES source_pdfs(id) ON DELETE SET NULL,
+      FOREIGN KEY (bank_id) REFERENCES question_banks(id)
     );
 
     CREATE INDEX IF NOT EXISTS idx_questions_subject ON questions(subject);
@@ -241,7 +259,10 @@ export const initializeSqliteSchema = (db: Database.Database) => {
       confirmed_at TEXT,
       completed_at TEXT,
       rolled_back_at TEXT,
-      FOREIGN KEY (source_pdf_id) REFERENCES source_pdfs(id) ON DELETE SET NULL
+      import_type TEXT NOT NULL DEFAULT 'general' CHECK (import_type IN ('general', 'aqsam')),
+      bank_id TEXT,
+      FOREIGN KEY (source_pdf_id) REFERENCES source_pdfs(id) ON DELETE SET NULL,
+      FOREIGN KEY (bank_id) REFERENCES question_banks(id)
     );
 
     CREATE TABLE IF NOT EXISTS import_job_items (
@@ -258,6 +279,7 @@ export const initializeSqliteSchema = (db: Database.Database) => {
       topic_id TEXT NOT NULL,
       subtopic TEXT,
       subtopic_id TEXT,
+      metadata_json TEXT,
       difficulty INTEGER NOT NULL,
       page_number INTEGER,
       source_image_name TEXT,

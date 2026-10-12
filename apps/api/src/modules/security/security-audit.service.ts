@@ -9,6 +9,7 @@ export type SecurityEventType =
   | "auth.phone_verification_requested"
   | "auth.logout"
   | "auth.password_reset"
+  | "auth.password_changed"
   | "auth.password_reset_requested"
   | "auth.registration"
   | "authorization.denied"

@@ -1,5 +1,7 @@
 import readXlsxFile from "read-excel-file/node";
 import { unzipSync } from "fflate";
+import { XMLParser } from "fast-xml-parser";
+import { posix } from "node:path";
 import {
   topicTaxonomy,
   type LegacyQuestionSubject,
@@ -25,7 +27,11 @@ export const requiredVerbalWorkbookSheets = [
 export const requiredQuantitativeWorkbookSheets = ["الورقة1"] as const;
 export const requiredWorkbookSheets = requiredVerbalWorkbookSheets;
 
-type RawWorkbookSheet = { sheet: string; data: unknown[][] };
+type RawWorkbookSheet = {
+  sheet: string;
+  data: unknown[][];
+  comments?: Map<string, string>;
+};
 type SheetDefinition = {
   acceptedNames: readonly string[];
   answerIndex: number;
@@ -36,6 +42,9 @@ type SheetDefinition = {
   subtopic: string | null;
   subtopicId: string | null;
   subject: LegacyQuestionSubject;
+  questionNumberIndex: number;
+  questionTextIndex: number;
+  format: "compact" | "quantitative-wide";
 };
 
 const standardHeaders = ["رقم السؤال", "السؤال", "أ", "ب", "ج", "د", "الاجابة"] as const;
@@ -45,31 +54,36 @@ const sentenceCompletionHeaders = [
 const quantitativeHeaders = [
   "رقم السؤال", "السؤال", "أ", "ب", "ج", "د", "الصورة", "الإجابة"
 ] as const;
+const quantitativeWideHeaders = [
+  "المقارنة ١", "المقارنة ٢", "أ", "ب", "ج", "د", "السؤال", "رقم السؤال",
+  "النموذج", "الصورة", "هل صعوبة الدقة في السؤال", "فئة إضافية", "الإجابة",
+  "صورة مقارنة ١", "صورة مقارنة ٢", "صورة مقارنة ٣", "الوزن", "الفصل"
+] as const;
 
 const verbalSheetDefinitions: Record<string, SheetDefinition | null> = {
   "بنك التناظر عام": {
     acceptedNames: ["بنك التناظر عام"], headers: standardHeaders,
     optionIndexes: [2, 3, 4, 5], answerIndex: 6,
     topic: "التناظر اللفظي", topicId: "verbal-analogy", subtopic: null, subtopicId: null,
-    subject: "verbal"
+    subject: "verbal", questionNumberIndex: 0, questionTextIndex: 1, format: "compact"
   },
   "اكمال الجمل عام": {
     acceptedNames: ["اكمال الجمل عام"], headers: sentenceCompletionHeaders,
     optionIndexes: [3, 4, 5, 6], answerIndex: 7,
     topic: "إكمال الجمل", topicId: "sentence-completion", subtopic: null, subtopicId: null,
-    subject: "verbal"
+    subject: "verbal", questionNumberIndex: 0, questionTextIndex: 1, format: "compact"
   },
   "الخطأ السياقي عام": {
     acceptedNames: ["الخطأ السياقي عام"], headers: standardHeaders,
     optionIndexes: [2, 3, 4, 5], answerIndex: 6,
     topic: "الخطأ السياقي", topicId: "contextual-error", subtopic: null, subtopicId: null,
-    subject: "verbal"
+    subject: "verbal", questionNumberIndex: 0, questionTextIndex: 1, format: "compact"
   },
   "المفردة الشاذة عام": {
     acceptedNames: ["المفردة الشاذة عام"], headers: standardHeaders,
     optionIndexes: [2, 3, 4, 5], answerIndex: 6,
     topic: "المفردة الشاذة", topicId: "odd-word", subtopic: null, subtopicId: null,
-    subject: "verbal"
+    subject: "verbal", questionNumberIndex: 0, questionTextIndex: 1, format: "compact"
   },
   "استيعاب المقروء عام": null
 };
@@ -83,7 +97,27 @@ const createQuantitativeSheetDefinition = (
   subtopic: null,
   subtopicId: null,
   topic: topic.displayNameAr,
-  topicId: topic.slug
+  topicId: topic.slug,
+  questionNumberIndex: 0,
+  questionTextIndex: 1,
+  format: "compact"
+});
+
+const createWideQuantitativeDefinition = (
+  topic: TopicDefinition
+): SheetDefinition => ({
+  acceptedNames: [],
+  answerIndex: 12,
+  headers: quantitativeWideHeaders,
+  optionIndexes: [2, 3, 4, 5],
+  topic: topic.displayNameAr,
+  topicId: topic.slug,
+  subtopic: null,
+  subtopicId: null,
+  subject: "quantitative",
+  questionNumberIndex: 7,
+  questionTextIndex: 6,
+  format: "quantitative-wide"
 });
 
 const text = (value: unknown) => String(value ?? "").trim();
@@ -99,6 +133,93 @@ const maxWorkbookEntries = 2_000;
 const maxWorkbookUnpackedBytes = 100 * 1024 * 1024;
 const maxWorkbookEntryBytes = 50 * 1024 * 1024;
 const maxWorkbookCompressionRatio = 500;
+const xmlParser = new XMLParser({ ignoreAttributes: false });
+const xmlDecoder = new TextDecoder();
+
+const asArray = <T>(value: T | T[] | undefined): T[] =>
+  value === undefined ? [] : Array.isArray(value) ? value : [value];
+
+const collectXmlText = (value: unknown): string => {
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (!value || typeof value !== "object") return "";
+  return Object.entries(value as Record<string, unknown>)
+    .filter(([key]) => !key.startsWith("@_"))
+    .map(([, child]) => Array.isArray(child)
+      ? child.map(collectXmlText).join("")
+      : collectXmlText(child))
+    .join("");
+};
+
+const relationshipMap = (xml: unknown) => {
+  if (!xml || typeof xml !== "object") return new Map<string, string>();
+  const relationships = (xml as {
+    Relationships?: { Relationship?: unknown };
+  }).Relationships?.Relationship;
+  return new Map(
+    asArray(relationships as Record<string, unknown> | Record<string, unknown>[] | undefined)
+      .map((relationship) => [
+        String(relationship["@_Id"] ?? ""),
+        String(relationship["@_Target"] ?? "")
+      ] as const)
+      .filter(([id, target]) => id && target)
+  );
+};
+
+export const extractWorkbookComments = (excelBuffer: Buffer) => {
+  const archive = unzipSync(new Uint8Array(excelBuffer));
+  const readXml = (path: string) => archive[path]
+    ? xmlParser.parse(xmlDecoder.decode(archive[path])) as unknown
+    : null;
+  const workbook = readXml("xl/workbook.xml") as {
+    workbook?: { sheets?: { sheet?: unknown } };
+  } | null;
+  const workbookRelationships = relationshipMap(
+    readXml("xl/_rels/workbook.xml.rels")
+  );
+  const result = new Map<string, Map<string, string>>();
+
+  for (const sheet of asArray(
+    workbook?.workbook?.sheets?.sheet as Record<string, unknown> | Record<string, unknown>[] | undefined
+  )) {
+    const name = String(sheet["@_name"] ?? "");
+    const relationshipId = String(sheet["@_r:id"] ?? "");
+    const target = workbookRelationships.get(relationshipId);
+    if (!name || !target) continue;
+    const sheetPath = target.startsWith("/")
+      ? target.slice(1)
+      : posix.normalize(posix.join("xl", target));
+    const relationshipPath = posix.join(
+      posix.dirname(sheetPath),
+      "_rels",
+      `${posix.basename(sheetPath)}.rels`
+    );
+    const sheetRelationships = relationshipMap(readXml(relationshipPath));
+    const comments = new Map<string, string>();
+
+    for (const commentTarget of sheetRelationships.values()) {
+      if (!commentTarget.toLowerCase().includes("comment")) continue;
+      const commentPath = commentTarget.startsWith("/")
+        ? commentTarget.slice(1)
+        : posix.normalize(posix.join(posix.dirname(sheetPath), commentTarget));
+      const document = readXml(commentPath) as Record<string, unknown> | null;
+      if (!document) continue;
+      const root = (document.comments ?? document.ThreadedComments) as
+        | { commentList?: { comment?: unknown }; threadedComment?: unknown }
+        | undefined;
+      const nodes = root?.commentList?.comment ?? root?.threadedComment;
+      for (const comment of asArray(
+        nodes as Record<string, unknown> | Record<string, unknown>[] | undefined
+      )) {
+        const reference = String(comment["@_ref"] ?? "");
+        const content = collectXmlText(comment.text ?? comment["#text"] ?? "").trim();
+        if (reference && content) comments.set(reference, content);
+      }
+    }
+    if (comments.size > 0) result.set(name, comments);
+  }
+
+  return result;
+};
 
 export const assertSafeWorkbookArchive = (excelBuffer: Buffer) => {
   let entryCount = 0;
@@ -152,6 +273,12 @@ const potentialQuestionNumber = (value: unknown) => {
 const normalizedSheetName = (value: string) =>
   value.trim().replace(/\s+/g, " ").toLowerCase();
 
+const normalizedHeader = (value: unknown) => text(value).replace(/\s+/g, " ");
+const isWideQuantitativeSheet = (sheet: RawWorkbookSheet) =>
+  quantitativeWideHeaders.every(
+    (header, index) => normalizedHeader(sheet.data[0]?.[index]) === header
+  );
+
 const verbalTopicSheetNames: Record<string, readonly string[]> = {
   "verbal-analogy": ["بنك التناظر عام"],
   "sentence-completion": ["اكمال الجمل عام", "إكمال الجمل عام"],
@@ -160,9 +287,13 @@ const verbalTopicSheetNames: Record<string, readonly string[]> = {
   "reading-comprehension": ["استيعاب المقروء عام", "استعياب المقروء عام"]
 };
 
-const hasSelectedQuestion = (sheet: RawWorkbookSheet, range?: PageRange) =>
+const hasSelectedQuestion = (
+  sheet: RawWorkbookSheet,
+  definition: SheetDefinition | null,
+  range?: PageRange
+) =>
   sheet.data.slice(1).some((row) => {
-    const number = parseQuestionNumber(row[0]);
+    const number = parseQuestionNumber(row[definition?.questionNumberIndex ?? 0]);
     return number !== null && (!range || inRange(number, range));
   });
 
@@ -202,6 +333,14 @@ const findQuantitativeTopic = (sheetName: string) => {
 
 const getSheetPlans = (sheets: RawWorkbookSheet[], questionRange?: PageRange) => {
   const recognized = sheets.flatMap((sheet) => {
+    if (isWideQuantitativeSheet(sheet)) {
+      const topic = topicTaxonomy.find((candidate) => candidate.slug === "arithmetic");
+      return topic ? [{
+        canonicalName: sheet.sheet,
+        definition: createWideQuantitativeDefinition(topic),
+        sheet
+      }] : [];
+    }
     const verbal = findVerbalDefinition(sheet.sheet);
     if (verbal) return [{ ...verbal, sheet }];
 
@@ -216,7 +355,7 @@ const getSheetPlans = (sheets: RawWorkbookSheet[], questionRange?: PageRange) =>
     return [];
   });
   const selected = recognized.filter((plan) =>
-    hasSelectedQuestion(plan.sheet, questionRange)
+    hasSelectedQuestion(plan.sheet, plan.definition, questionRange)
   );
   return selected.length > 0 ? selected : recognized;
 };
@@ -266,8 +405,8 @@ export const analyzeWorkbookSheets = (
       const row = data[rowIndex] ?? [];
       if (isEmptyRow(row)) continue;
       const rowNumber = rowIndex + 1;
-      const questionNumber = parseQuestionNumber(row[0]);
-      const possibleNumber = potentialQuestionNumber(row[0]);
+      const questionNumber = parseQuestionNumber(row[definition.questionNumberIndex]);
+      const possibleNumber = potentialQuestionNumber(row[definition.questionNumberIndex]);
       if (questionNumber === null) {
         if (possibleNumber !== null && questionRange && inRange(possibleNumber, questionRange)) {
           issues.push(issue("invalid_question_number", `رقم السؤال في الصف ${rowNumber} غير صالح.`, {
@@ -279,9 +418,33 @@ export const analyzeWorkbookSheets = (
       if (questionRange && !inRange(questionNumber, questionRange)) continue;
 
       const rowIssues: ImportValidationIssue[] = [];
-      const questionText = text(row[1]);
+      const questionCell = `${String.fromCharCode(65 + definition.questionTextIndex)}${rowNumber}`;
+      const questionText = text(row[definition.questionTextIndex]) ||
+        text(sheet.comments?.get(questionCell));
       const options = definition.optionIndexes.map((index) => text(row[index])) as [string, string, string, string];
       const correctAnswer = parseCorrectAnswer(row[definition.answerIndex]);
+      const wideMetadata = definition.format === "quantitative-wide"
+        ? {
+            additionalCategory: text(row[11]) || null,
+            chapter: text(row[17]) || null,
+            comparisonImages: [text(row[13]), text(row[14]), text(row[15])].filter(Boolean),
+            comparisonOperands: [text(row[0]), text(row[1])].filter(Boolean),
+            imageIndicator: text(row[9]) || null,
+            model: text(row[8]) || null,
+            precisionDifficulty: text(row[10]) || null,
+            weight: text(row[16]) || null
+          }
+        : {};
+      const categoryTopic = definition.format === "quantitative-wide"
+        ? topicTaxonomy.find((candidate) =>
+            candidate.subject === "math" &&
+            normalizedHeader(candidate.displayNameAr) === normalizedHeader(row[11])
+          )
+        : null;
+      const difficultyValue = Number(row[10]);
+      const difficulty = Number.isInteger(difficultyValue) && difficultyValue >= 1 && difficultyValue <= 10
+        ? difficultyValue
+        : 1;
       if (!questionText) {
         rowIssues.push(issue("missing_question_text", `نص السؤال ${questionNumber} مفقود.`, {
           questionNumber, rowNumber, sheetName
@@ -322,8 +485,14 @@ export const analyzeWorkbookSheets = (
       const parsed: ParsedWorkbookQuestion = {
         questionNumber, sheetName, rowNumber, questionText, options, correctAnswer,
         subject: definition.subject,
-        topic: definition.topic, topicId: definition.topicId,
-        subtopic: definition.subtopic, subtopicId: definition.subtopicId,
+        topic: categoryTopic?.displayNameAr ?? definition.topic,
+        topicId: categoryTopic?.slug ?? definition.topicId,
+        subtopic: definition.format === "quantitative-wide"
+          ? text(row[17]) || null
+          : definition.subtopic,
+        subtopicId: definition.subtopicId,
+        difficulty,
+        metadata: wideMetadata,
         issues: rowIssues
       };
       seenQuestions.set(questionNumber, parsed);
@@ -358,6 +527,8 @@ export const readAdminWorkbook = async (
 ) => {
   assertSafeWorkbookArchive(excelBuffer);
   const sheets = (await readXlsxFile(excelBuffer)) as RawWorkbookSheet[];
+  const comments = extractWorkbookComments(excelBuffer);
+  for (const sheet of sheets) sheet.comments = comments.get(sheet.sheet);
   return analyzeWorkbookSheets(
     sheets,
     questionRange

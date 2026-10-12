@@ -194,6 +194,14 @@ importerRouter.post("/analyze", adminImportRateLimit, acceptAnalyzeUpload, async
     }
 
     const body = request.body as Record<string, unknown>;
+    if (
+      body.importType !== undefined &&
+      body.importType !== "general" &&
+      body.importType !== "aqsam"
+    ) {
+      throw new AdminImportError("نوع رفع الأسئلة غير صالح.");
+    }
+    const importType = body.importType === "aqsam" ? "aqsam" : "general";
     const questionRange = toRange(body.questionFrom, body.questionTo);
     const pdfPageRange = toRange(body.pdfPageFrom, body.pdfPageTo);
     if (!questionRange) {
@@ -210,7 +218,10 @@ importerRouter.post("/analyze", adminImportRateLimit, acceptAnalyzeUpload, async
       pdfPageRange,
       images: images.map((image) =>
         toUploadedFile(image, { headerOnly: true })
-      )
+      ),
+      importType,
+      bankName: typeof body.bankName === "string" ? body.bankName : undefined,
+      bankKey: typeof body.bankKey === "string" ? body.bankKey : undefined
     });
 
     response.status(200).json(detail);
@@ -244,9 +255,12 @@ importerRouter.get("/questions", async (request, response) => {
     const sort = request.query.sort === "desc" ? "desc" : "asc";
     const query =
       typeof request.query.query === "string" ? request.query.query : undefined;
+    const mode = request.query.mode === "aqsam" ? "aqsam" : "general";
+    const bankId =
+      typeof request.query.bankId === "string" ? request.query.bankId : undefined;
 
     response.status(200).json(
-      await getAdminQuestionBank({ page, pageSize, query, sort })
+      await getAdminQuestionBank({ bankId, mode, page, pageSize, query, sort })
     );
   } catch (error) {
     handleRouteError(error, response);

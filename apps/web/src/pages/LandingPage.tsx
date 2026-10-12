@@ -18,24 +18,22 @@ import { navigateTo } from "../utils/router";
 
 type HomeSectionId = (typeof homeContent.navSections)[number]["id"];
 
-export function LandingPage({
-  isLoadingUser,
-  user
-}: {
-  isLoadingUser: boolean;
-  user: User | null;
-}) {
+export const getLandingProgramDestination = (user: User | null) => user
+  ? user.mustChangePassword
+    ? "/change-password"
+    : user.profileCompleted
+      ? "/career"
+      : "/setup-profile"
+  : "/register";
+
+export function LandingPage({ user }: { user: User | null }) {
   const pageRef = useRef<HTMLElement>(null);
   const [activeSectionId, setActiveSectionId] = useState<HomeSectionId>(
     homeContent.navSections[0].id
   );
   const [scrollProgress, setScrollProgress] = useState(0);
 
-  const programDestination = user
-    ? user.profileCompleted
-      ? "/career"
-      : "/setup-profile"
-    : "/register";
+  const programDestination = getLandingProgramDestination(user);
 
   useEffect(() => {
     const page = pageRef.current;
@@ -199,7 +197,6 @@ export function LandingPage({
           <div className="home-hero-actions">
             <button
               className="home-primary-action"
-              disabled={isLoadingUser}
               type="button"
               onClick={() => navigateTo(programDestination)}
             >
@@ -207,7 +204,6 @@ export function LandingPage({
             </button>
             <button
               className="home-secondary-action"
-              disabled={isLoadingUser}
               type="button"
               onClick={() => navigateTo(user ? programDestination : "/register")}
             >
@@ -288,7 +284,6 @@ export function LandingPage({
           <p>{homeContent.advice.text}</p>
           <button
             className="home-primary-action"
-            disabled={isLoadingUser}
             type="button"
             onClick={() => navigateTo(user ? programDestination : "/register")}
           >

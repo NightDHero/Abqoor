@@ -10,6 +10,8 @@ import { answerLabel, formatAdminDate } from "./adminUtils";
 import { AdminShell } from "./AdminShell";
 
 const emptyResult: AdminQuestionBankResponse = {
+  banks: [],
+  mode: "general",
   page: 1,
   pageSize: 50,
   questionCounts: { subjects: [] },
@@ -26,6 +28,8 @@ const sectionLabel = (subject: string) =>
   subject === "quantitative" ? "الكمي" : "اللفظي";
 
 export function AdminQuestionBankPage() {
+  const [mode, setMode] = useState<"general" | "aqsam">("general");
+  const [bankId, setBankId] = useState("");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<"asc" | "desc">("asc");
@@ -39,13 +43,20 @@ export function AdminQuestionBankPage() {
       setIsLoading(true);
       setError("");
       void adminService
-        .getQuestionBank({ page, pageSize: 50, query, sort })
+        .getQuestionBank({
+          bankId: bankId || undefined,
+          mode,
+          page,
+          pageSize: 50,
+          query,
+          sort
+        })
         .then(setResult)
         .catch(() => setError("تعذر تحميل بنك الأسئلة."))
         .finally(() => setIsLoading(false));
     }, 180);
     return () => window.clearTimeout(timer);
-  }, [page, query, sort]);
+  }, [bankId, mode, page, query, sort]);
 
   const pageCount = Math.max(1, Math.ceil(result.total / result.pageSize));
 
@@ -55,6 +66,66 @@ export function AdminQuestionBankPage() {
       description="بحث سريع برقم السؤال مع تحميل صفحة واحدة فقط في كل مرة."
       title="بنك الأسئلة"
     >
+      <div className="admin-bank-mode-switch" role="group" aria-label="نوع بنك الأسئلة">
+        <button
+          aria-pressed={mode === "general"}
+          className={mode === "general" ? "selected" : "secondary"}
+          type="button"
+          onClick={() => {
+            setMode("general");
+            setBankId("");
+            setPage(1);
+          }}
+        >
+          الأسئلة العامة
+        </button>
+        <button
+          aria-pressed={mode === "aqsam"}
+          className={mode === "aqsam" ? "selected" : "secondary"}
+          type="button"
+          onClick={() => {
+            setMode("aqsam");
+            setBankId("");
+            setPage(1);
+          }}
+        >
+          أسئلة الأقسام
+        </button>
+      </div>
+
+      {mode === "aqsam" ? (
+        <section className="admin-panel admin-aqsam-banks" aria-label="بنوك الأقسام">
+          <header className="admin-panel-heading">
+            <div>
+              <h2>بنوك الأقسام</h2>
+              <p>كل بنك يحتفظ بهويته وأسئلته وعدده الفعلي.</p>
+            </div>
+          </header>
+          {result.banks.length > 0 ? (
+            <div className="admin-aqsam-bank-grid">
+              {result.banks.map((bank) => (
+                <button
+                  aria-pressed={bankId === bank.id}
+                  className={bankId === bank.id ? "selected" : "secondary"}
+                  key={bank.id}
+                  type="button"
+                  onClick={() => {
+                    setBankId((current) => current === bank.id ? "" : bank.id);
+                    setPage(1);
+                  }}
+                >
+                  <strong>{bank.name}</strong>
+                  <span dir="ltr">{bank.key}</span>
+                  <b>{bank.questionCount.toLocaleString("ar-SA")} سؤال</b>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="admin-empty">لا توجد بنوك أقسام مرفوعة بعد.</p>
+          )}
+        </section>
+      ) : null}
+
       {result.questionCounts.subjects.length > 0 ? (
         <section
           aria-label="توزيع بنك الأسئلة"
@@ -158,7 +229,7 @@ export function AdminQuestionBankPage() {
       <section className="admin-panel">
         <div className="admin-bank-toolbar">
           <label>
-            البحث برقم السؤال
+            البحث برقم السؤال {mode === "aqsam" ? "داخل بنوك الأقسام" : "العام"}
             <input
               dir="ltr"
               inputMode="numeric"
@@ -194,11 +265,12 @@ export function AdminQuestionBankPage() {
         {result.questions.length > 0 ? (
           <div className="admin-table-wrap">
             <table className="admin-table">
-              <thead><tr><th>رقم السؤال</th><th>الصورة</th><th>التصنيف</th><th>الإجابة</th><th>الرفع</th></tr></thead>
+              <thead><tr><th>رقم السؤال</th>{mode === "aqsam" ? <th>البنك</th> : null}<th>الصورة</th><th>التصنيف</th><th>الإجابة</th><th>الرفع</th></tr></thead>
               <tbody>
                 {result.questions.map((question) => (
                   <tr key={question.id}>
                     <td><strong dir="ltr">{question.id}</strong></td>
+                    {mode === "aqsam" ? <td><strong>{question.bankName ?? "غير محدد"}</strong></td> : null}
                     <td>{question.imageExists ? <img alt={`السؤال ${question.questionNumber}`} loading="lazy" src={`${env.apiUrl}${question.questionImageUrl}`} /> : <span className="admin-missing">مفقودة</span>}</td>
                     <td>
                       <dl className="admin-question-classification">

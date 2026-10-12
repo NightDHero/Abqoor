@@ -8,6 +8,7 @@ export type User = {
   profileCompleted: boolean;
   username: string | null;
   isAdmin: boolean;
+  mustChangePassword: boolean;
 };
 
 export type AuthMode = "login" | "register";

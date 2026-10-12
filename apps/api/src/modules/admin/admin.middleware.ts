@@ -22,6 +22,14 @@ export const requireAdmin = (
         return;
       }
 
+      if (user.mustChangePassword) {
+        response.status(403).json({
+          code: "PASSWORD_CHANGE_REQUIRED",
+          message: "يجب تغيير كلمة المرور المؤقتة قبل استخدام لوحة الإدارة."
+        });
+        return;
+      }
+
       next();
     })().catch(() => {
       response.status(500).json({ message: "Admin request failed." });

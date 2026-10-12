@@ -5,6 +5,7 @@ export type UserRecord = {
   password_hash: string;
   phone_number: string | null;
   phone_verified_at: string | null;
+  must_change_password: number;
   session_version: number;
   created_at: string;
   updated_at: string;
@@ -20,6 +21,7 @@ export type PublicUser = {
   profileCompleted: boolean;
   username: string | null;
   isAdmin: boolean;
+  mustChangePassword: boolean;
 };
 
 export type AuthTokenPayload = {
@@ -44,5 +46,6 @@ export const toPublicUser = (
   createdAt: user.created_at,
   profileCompleted,
   username,
-  isAdmin
+  isAdmin,
+  mustChangePassword: user.must_change_password === 1
 });

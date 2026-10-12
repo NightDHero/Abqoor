@@ -16,6 +16,7 @@ import { requireAuth } from "./auth.middleware.js";
 import {
   AuthError,
   addPhoneNumber,
+  changeAuthenticatedPassword,
   createSessionToken,
   loginWithGoogle,
   linkGoogleIdentity,
@@ -127,8 +128,8 @@ authRouter.post(
         detail: { delivery: "failed" },
         outcome: "failure"
       });
-      response.status(202).json({
-        message: "إذا كان البريد صالحاً لإنشاء حساب، فستصلك رسالة برمز التحقق."
+      response.status(503).json({
+        message: "تعذر إرسال رمز التحقق حالياً. حاول مرة أخرى لاحقاً."
       });
     }
   }
@@ -152,15 +153,18 @@ authRouter.post(
         detail: { delivery: result.delivered ? "sent" : "not_sent" },
         outcome: "success"
       });
+      response.status(202).json({
+        message: "إذا كان الرقم صالحاً للاستخدام، فستصلك رسالة برمز التحقق."
+      });
     } catch {
       writeSecurityEvent(request, "auth.phone_verification_requested", {
         detail: { delivery: "failed" },
         outcome: "failure"
       });
+      response.status(503).json({
+        message: "تعذر إرسال رمز التحقق حالياً. حاول مرة أخرى لاحقاً."
+      });
     }
-    response.status(202).json({
-      message: "إذا كان الرقم صالحاً للاستخدام، فستصلك رسالة برمز التحقق."
-    });
   }
 );
 
@@ -302,6 +306,42 @@ authRouter.post("/login", authRateLimit, async (request, response) => {
     handleAuthError(error, response);
   }
 });
+
+authRouter.post(
+  "/change-password",
+  requireAuth,
+  accountChangeRateLimit,
+  asyncHandler(async (request, response) => {
+    const { currentPassword, newPassword, newPasswordConfirmation } = request.body as {
+      currentPassword?: unknown;
+      newPassword?: unknown;
+      newPasswordConfirmation?: unknown;
+    };
+    if (
+      typeof currentPassword !== "string" ||
+      typeof newPassword !== "string" ||
+      typeof newPasswordConfirmation !== "string" ||
+      !request.user
+    ) {
+      throw new AuthError("بيانات تغيير كلمة المرور مطلوبة.");
+    }
+    await changeAuthenticatedPassword({
+      currentPassword,
+      newPassword,
+      newPasswordConfirmation,
+      userId: request.user.id
+    });
+    response.clearCookie(env.sessionCookieName, {
+      ...sessionCookieOptions,
+      maxAge: undefined
+    });
+    writeSecurityEvent(request, "auth.password_changed", {
+      actorUserId: request.user.id,
+      outcome: "success"
+    });
+    response.status(200).json({ message: "تم تغيير كلمة المرور. سجّل الدخول مجدداً." });
+  })
+);
 
 authRouter.post("/google", authRateLimit, async (request, response) => {
   try {
