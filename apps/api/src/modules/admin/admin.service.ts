@@ -274,12 +274,12 @@ export const ensureSeedAdminAccount = async (input: {
   if (!emailPattern.test(email)) {
     throw new AdminAccountError("البريد الإلكتروني غير صالح.");
   }
-  validatePassword(input.password);
   const existingUser = await findUserByEmail(email);
   const existingPasswordHash = existingUser?.password_hash ?? null;
   const passwordMatches = existingPasswordHash
     ? await bcrypt.compare(input.password, existingPasswordHash)
     : false;
+  if (!passwordMatches) validatePassword(input.password);
   const passwordHash = passwordMatches && existingPasswordHash
     ? existingPasswordHash
     : await bcrypt.hash(input.password, 12);

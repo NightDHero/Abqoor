@@ -14,9 +14,11 @@ process.env.NODE_ENV = "test";
 
 const { createApp } = await import("../src/app.js");
 const { closeDatabase, db } = await import("../src/database/client.js");
-const { updateUserPasswordAndInvalidateSessions } = await import(
-  "../src/modules/auth/auth.repository.js"
-);
+const {
+  createUser,
+  findUserByEmail,
+  updateUserPasswordAndInvalidateSessions
+} = await import("../src/modules/auth/auth.repository.js");
 const { ensureSeedAdminAccount } = await import(
   "../src/modules/admin/admin.service.js"
 );
@@ -333,6 +335,35 @@ test("seed administrator setup is idempotent and keeps login usable", async () =
   );
   assert.equal(loginPayload.user.isAdmin, true);
   assert.equal(JSON.stringify(loginPayload).includes("password"), false);
+});
+
+test("startup seeding preserves a matching legacy password but rejects weak new passwords", async () => {
+  const legacyPassword = "legacy123";
+  const legacyPasswordHash = await bcrypt.hash(legacyPassword, 12);
+  const legacyUser = await createUser("legacy-admin@example.com", legacyPasswordHash);
+
+  const seededUser = await ensureSeedAdminAccount({
+    email: legacyUser.email,
+    password: legacyPassword
+  });
+  assert.equal(seededUser.id, legacyUser.id);
+
+  const storedLegacyUser = await findUserByEmail(legacyUser.email);
+  assert.equal(storedLegacyUser?.password_hash, legacyPasswordHash);
+  assert.equal(
+    await bcrypt.compare(legacyPassword, storedLegacyUser?.password_hash ?? ""),
+    true
+  );
+  assert.equal((await login(legacyUser.email, legacyPassword)).response.status, 200);
+
+  await assert.rejects(
+    ensureSeedAdminAccount({
+      email: "weak-new-admin@example.com",
+      password: legacyPassword
+    }),
+    /كلمة المرور يجب أن تكون قوية/
+  );
+  assert.equal(await findUserByEmail("weak-new-admin@example.com"), null);
 });
 
 after(async () => {
