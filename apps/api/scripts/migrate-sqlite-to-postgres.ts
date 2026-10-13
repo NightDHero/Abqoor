@@ -4,6 +4,10 @@ import pg from "pg";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import * as initialPostgresSchema from "../src/database/postgres-migrations/001_initial_schema.js";
+import {
+  parsePostgresSslMode,
+  resolvePostgresConnectionConfig
+} from "../src/database/postgres-tls.js";
 
 const { Pool, types } = pg;
 
@@ -30,6 +34,15 @@ if (!databaseUrl) {
   console.error("DATABASE_URL is required to migrate data to PostgreSQL.");
   process.exit(1);
 }
+
+const legacySslDisabled = process.env.DATABASE_SSL?.trim().toLowerCase() === "false";
+const postgresConnection = resolvePostgresConnectionConfig({
+  caCertificate: process.env.DATABASE_CA_CERT?.replace(/\\n/g, "\n"),
+  connectionString: databaseUrl,
+  defaultMode: legacySslDisabled ? "disable" : "verify-full",
+  enforceTls: process.env.NODE_ENV === "production",
+  explicitMode: parsePostgresSslMode(process.env.DATABASE_SSL_MODE)
+});
 
 const tables: TableMigration[] = [
   { name: "users", conflictColumns: ["id"] },
@@ -60,12 +73,9 @@ const source = new Database(sqlitePath, { readonly: true, fileMustExist: true })
 source.pragma("foreign_keys = ON");
 
 const pool = new Pool({
-  connectionString: databaseUrl,
+  connectionString: postgresConnection.connectionString,
   max: 1,
-  ssl:
-    process.env.DATABASE_SSL?.toLowerCase() === "false"
-      ? undefined
-      : { rejectUnauthorized: false }
+  ssl: postgresConnection.ssl
 });
 
 const tableExists = (tableName: string) => {

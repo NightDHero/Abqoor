@@ -18,7 +18,7 @@ NODE_ENV=production
 DATABASE_DRIVER=postgres
 DATABASE_URL=postgresql://...
 DATABASE_POOL_MAX=3
-DATABASE_SSL=true
+DATABASE_SSL_MODE=verify-full
 STORAGE_DRIVER=r2
 R2_ACCOUNT_ID=...
 R2_BUCKET=...
@@ -32,6 +32,13 @@ FRONTEND_ORIGIN=https://abqoor-web.vercel.app
 ```
 
 Use the Supabase dashboard connection string that is compatible with Render's network environment. Supavisor session mode is the recommended starting point for a persistent Node backend. Do not expose `DATABASE_URL` to the frontend.
+
+For a Render-hosted PostgreSQL database in the same region, prefer its internal
+URL and set `DATABASE_SSL_MODE=require` when TLS is required. Render's internal
+certificate is self-signed, so `verify-full` requires a trusted CA that the
+internal endpoint does not provide. External or other publicly trusted database
+endpoints should use `DATABASE_SSL_MODE=verify-full`; provide
+`DATABASE_CA_CERT` for a private trusted CA. Production rejects `disable`.
 
 Vercel frontend:
 

@@ -14,9 +14,11 @@ process.env.NODE_ENV = "test";
 process.env.STORAGE_DRIVER = "local";
 
 const { createApp } = await import("../src/app.js");
-const { closeDatabase, createPostgresSslConfig } = await import(
-  "../src/database/client.js"
-);
+const { closeDatabase } = await import("../src/database/client.js");
+const {
+  createPostgresSslConfig,
+  resolvePostgresConnectionConfig
+} = await import("../src/database/postgres-tls.js");
 const { createFixedWindowRateLimit } = await import(
   "../src/modules/security/security.middleware.js"
 );
@@ -38,12 +40,59 @@ test("sets baseline security headers without blocking API responses", async () =
   assert.match(response.headers.get("x-request-id") ?? "", /^[A-Za-z0-9._-]+$/);
 });
 
-test("uses certificate verification for PostgreSQL TLS", () => {
-  assert.deepEqual(createPostgresSslConfig(true, "test-ca"), {
+test("builds intentional PostgreSQL TLS modes", () => {
+  assert.deepEqual(createPostgresSslConfig("verify-full", "test-ca"), {
     ca: "test-ca",
     rejectUnauthorized: true
   });
-  assert.equal(createPostgresSslConfig(false, "test-ca"), undefined);
+  assert.deepEqual(createPostgresSslConfig("require"), {
+    rejectUnauthorized: false
+  });
+  assert.equal(createPostgresSslConfig("disable"), undefined);
+  assert.throws(
+    () => createPostgresSslConfig("require", "unused-ca"),
+    /verify-full/
+  );
+});
+
+test("normalizes PostgreSQL URL TLS parameters without allowing overrides", () => {
+  const requiredTls = resolvePostgresConnectionConfig({
+    connectionString: "postgresql://user:password@example.com/database?sslmode=require&uselibpqcompat=true&application_name=abqoor",
+    defaultMode: "verify-full",
+    enforceTls: true
+  });
+  const normalizedUrl = new URL(requiredTls.connectionString);
+  assert.equal(requiredTls.mode, "require");
+  assert.deepEqual(requiredTls.ssl, { rejectUnauthorized: false });
+  assert.equal(normalizedUrl.searchParams.has("sslmode"), false);
+  assert.equal(normalizedUrl.searchParams.has("uselibpqcompat"), false);
+  assert.equal(normalizedUrl.searchParams.get("application_name"), "abqoor");
+
+  assert.throws(
+    () => resolvePostgresConnectionConfig({
+      connectionString: "postgresql://user:password@example.com/database?sslmode=require",
+      defaultMode: "verify-full",
+      enforceTls: true,
+      explicitMode: "verify-full"
+    }),
+    /conflicts/
+  );
+  assert.throws(
+    () => resolvePostgresConnectionConfig({
+      connectionString: "postgresql://user:password@example.com/database?sslrootcert=root.crt",
+      defaultMode: "verify-full",
+      enforceTls: true
+    }),
+    /DATABASE_CA_CERT/
+  );
+  assert.throws(
+    () => resolvePostgresConnectionConfig({
+      connectionString: "postgresql://user:password@example.com/database",
+      defaultMode: "disable",
+      enforceTls: true
+    }),
+    /cannot be disabled/
+  );
 });
 
 test("rate limiter storage is bounded and expired entries recover", async () => {

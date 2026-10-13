@@ -1,4 +1,8 @@
 import "dotenv/config";
+import {
+  parsePostgresSslMode,
+  resolvePostgresConnectionConfig
+} from "../database/postgres-tls.js";
 
 const toPort = (value: string | undefined, fallback: number) => {
   const parsed = Number(value);
@@ -164,6 +168,18 @@ const databaseCaCertificate = toOptionalString(process.env.DATABASE_CA_CERT)?.re
   /\\n/g,
   "\n"
 );
+const explicitDatabaseSslMode = parsePostgresSslMode(
+  process.env.DATABASE_SSL_MODE
+);
+const postgresConnection = databaseDriver === "postgres" && databaseUrl
+  ? resolvePostgresConnectionConfig({
+      caCertificate: databaseCaCertificate,
+      connectionString: databaseUrl,
+      defaultMode: databaseSsl ? "verify-full" : "disable",
+      enforceTls: nodeEnv === "production",
+      explicitMode: explicitDatabaseSslMode
+    })
+  : undefined;
 const storageDriver = toStorageDriver(
   process.env.STORAGE_DRIVER,
   nodeEnv === "production" ? "r2" : "local"
@@ -263,8 +279,9 @@ export const env = {
     driver: databaseDriver,
     path: databasePath,
     poolMax: databasePoolMax,
-    ssl: databaseSsl,
-    url: databaseUrl
+    ssl: postgresConnection?.ssl,
+    sslMode: postgresConnection?.mode ?? "disable",
+    url: postgresConnection?.connectionString ?? databaseUrl
   },
   databasePath,
   jwtSecret,

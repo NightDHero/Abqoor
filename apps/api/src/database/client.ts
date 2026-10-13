@@ -139,22 +139,12 @@ const getPostgresPool = () => {
     postgresPool = new Pool({
       connectionString: env.database.url,
       max: env.database.poolMax,
-      ssl: createPostgresSslConfig(
-        env.database.ssl,
-        env.database.caCertificate
-      )
+      ssl: env.database.ssl
     });
   }
 
   return postgresPool;
 };
-
-export const createPostgresSslConfig = (
-  enabled: boolean,
-  caCertificate?: string
-) => enabled
-  ? { ca: caCertificate, rejectUnauthorized: true as const }
-  : undefined;
 
 const initializeSqliteDatabase = () => {
   if (sqliteDatabase) {

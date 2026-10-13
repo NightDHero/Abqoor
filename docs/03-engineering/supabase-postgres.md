@@ -17,7 +17,7 @@ NODE_ENV=production
 DATABASE_DRIVER=postgres
 DATABASE_URL=postgresql://...
 DATABASE_POOL_MAX=3
-DATABASE_SSL=true
+DATABASE_SSL_MODE=verify-full
 FRONTEND_ORIGIN=https://abqoor-web.vercel.app
 JWT_SECRET=<at least 32 chars>
 SESSION_COOKIE_NAME=abqoor_session
@@ -31,6 +31,17 @@ QUESTION_IMAGE_WEBP_QUALITY=88
 ```
 
 `DATABASE_PATH` is not required in production.
+
+Use `DATABASE_SSL_MODE=verify-full` for Supabase or another endpoint with a
+publicly trusted certificate. Set `DATABASE_CA_CERT` when the provider requires
+a private CA bundle. `DATABASE_SSL_MODE=require` is reserved for an explicitly
+chosen TLS endpoint with a self-signed certificate, such as Render's internal
+PostgreSQL TLS connection. It keeps encryption enabled but cannot authenticate
+the certificate chain.
+
+Do not put `sslcert`, `sslkey`, or `sslrootcert` in `DATABASE_URL`. Abqoor owns
+the `pg` TLS object centrally so URL parameters cannot replace the configured
+verification policy.
 
 ## Vercel Variables
 
