@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
+import tls from "node:tls";
 import express from "express";
+import pg from "pg";
 import { issueTestRegistrationCode } from "./helpers/auth.js";
 
 const testDirectory = mkdtempSync(join(tmpdir(), "abqoor-security-test-"));
@@ -68,6 +70,15 @@ test("normalizes PostgreSQL URL TLS parameters without allowing overrides", () =
   assert.equal(normalizedUrl.searchParams.has("uselibpqcompat"), false);
   assert.equal(normalizedUrl.searchParams.get("application_name"), "abqoor");
 
+  const client = new pg.Client({
+    connectionString: requiredTls.connectionString,
+    ssl: requiredTls.ssl
+  });
+  const clientSsl = (client as unknown as {
+    connectionParameters: { ssl: unknown };
+  }).connectionParameters.ssl;
+  assert.deepEqual(clientSsl, { rejectUnauthorized: false });
+
   assert.throws(
     () => resolvePostgresConnectionConfig({
       connectionString: "postgresql://user:password@example.com/database?sslmode=require",
@@ -93,6 +104,67 @@ test("normalizes PostgreSQL URL TLS parameters without allowing overrides", () =
     }),
     /cannot be disabled/
   );
+});
+
+test("require mode encrypts a self-signed TLS connection without trusting its certificate", async () => {
+  const certificate = readFileSync(
+    new URL("./fixtures/postgres-self-signed-cert.pem", import.meta.url),
+    "utf8"
+  );
+  const privateKey = readFileSync(
+    new URL("./fixtures/postgres-self-signed-key.pem", import.meta.url),
+    "utf8"
+  );
+  const tlsServer = tls.createServer({ cert: certificate, key: privateKey }, (socket) => {
+    socket.end();
+  });
+  await new Promise<void>((resolve) => tlsServer.listen(0, "127.0.0.1", resolve));
+  const tlsAddress = tlsServer.address();
+  assert.ok(tlsAddress && typeof tlsAddress === "object");
+
+  const connect = (ssl: tls.ConnectionOptions) =>
+    new Promise<{ authorizationError: Error | null; authorized: boolean; encrypted: boolean }>(
+      (resolve, reject) => {
+        const socket = tls.connect({
+          ...ssl,
+          host: "127.0.0.1",
+          port: tlsAddress.port,
+          servername: "localhost"
+        });
+        socket.once("secureConnect", () => {
+          resolve({
+            authorizationError: socket.authorizationError,
+            authorized: socket.authorized,
+            encrypted: socket.encrypted
+          });
+          socket.end();
+        });
+        socket.once("error", reject);
+      }
+    );
+
+  try {
+    const verifyFull = createPostgresSslConfig("verify-full");
+    assert.ok(verifyFull);
+    await assert.rejects(
+      connect(verifyFull),
+      /self-signed certificate/
+    );
+
+    const requireTls = createPostgresSslConfig("require");
+    assert.ok(requireTls);
+    const result = await connect(requireTls);
+    assert.equal(result.encrypted, true);
+    assert.equal(result.authorized, false);
+    assert.match(
+      String(result.authorizationError),
+      /DEPTH_ZERO_SELF_SIGNED_CERT|self-signed certificate/i
+    );
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      tlsServer.close((error) => (error ? reject(error) : resolve()))
+    );
+  }
 });
 
 test("rate limiter storage is bounded and expired entries recover", async () => {
