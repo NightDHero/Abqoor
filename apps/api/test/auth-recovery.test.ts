@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import bcrypt from "bcryptjs";
-import { issueTestPhoneVerificationCode, issueTestRegistrationCode } from "./helpers/auth.js";
+import { issueTestRegistrationCode } from "./helpers/auth.js";
 
 const testDirectory = mkdtempSync(join(tmpdir(), "abqoor-auth-recovery-test-"));
 process.env.DATABASE_PATH = join(testDirectory, "test.sqlite");
@@ -39,19 +39,15 @@ assert.ok(address && typeof address === "object");
 const baseUrl = `http://127.0.0.1:${address.port}`;
 
 const email = "recovery@example.com";
-const phoneNumber = "+966500000031";
 const password = "strong student password";
 
 const register = async () => {
   const verificationCode = await issueTestRegistrationCode(email);
-  const phoneVerificationCode = await issueTestPhoneVerificationCode(phoneNumber);
   const response = await fetch(`${baseUrl}/auth/register`, {
     body: JSON.stringify({
       email,
       password,
       passwordConfirmation: password,
-      phoneNumber,
-      phoneVerificationCode,
       verificationCode
     }),
     headers: { "content-type": "application/json" },
@@ -66,9 +62,7 @@ test("registration enforces confirmation and the shared strong-password policy",
     body: JSON.stringify({
       email: "unverified@example.com",
       password,
-      passwordConfirmation: password,
-      phoneNumber: "+966500000030",
-      phoneVerificationCode: "000000"
+      passwordConfirmation: password
     }),
     headers: { "content-type": "application/json" },
     method: "POST"
@@ -80,8 +74,6 @@ test("registration enforces confirmation and the shared strong-password policy",
       email: "weak@example.com",
       password: "12345678",
       passwordConfirmation: "12345678",
-      phoneNumber: "+966500000032",
-      phoneVerificationCode: "000000",
       verificationCode: "000000"
     }),
     headers: { "content-type": "application/json" },
@@ -94,8 +86,6 @@ test("registration enforces confirmation and the shared strong-password policy",
       email: "mismatch@example.com",
       password,
       passwordConfirmation: `${password}!`,
-      phoneNumber: "+966500000033",
-      phoneVerificationCode: "000000",
       verificationCode: "000000"
     }),
     headers: { "content-type": "application/json" },
@@ -106,14 +96,12 @@ test("registration enforces confirmation and the shared strong-password policy",
   await register();
   const stored = await db.prepare<
     string,
-    { email_verified_at: string; password_hash: string; phone_number: string; phone_verified_at: string }
-  >("SELECT email_verified_at, password_hash, phone_number, phone_verified_at FROM users WHERE email = ?").get(email);
+    { email_verified_at: string; password_hash: string }
+  >("SELECT email_verified_at, password_hash FROM users WHERE email = ?").get(email);
   assert.ok(stored);
   assert.notEqual(stored.password_hash, password);
   assert.equal(await bcrypt.compare(password, stored.password_hash), true);
-  assert.equal(stored.phone_number, phoneNumber);
   assert.ok(stored.email_verified_at);
-  assert.ok(stored.phone_verified_at);
   const verification = await db.prepare<
     string,
     { code_hash: string; used_at: string | null }
@@ -123,17 +111,15 @@ test("registration enforces confirmation and the shared strong-password policy",
   assert.ok(verification.used_at);
 });
 
-test("password login accepts either the verified email or the stored phone number", async () => {
-  for (const identifier of [email, "0500000031"]) {
-    const response = await fetch(`${baseUrl}/auth/login`, {
-      body: JSON.stringify({ identifier, password }),
-      headers: { "content-type": "application/json" },
-      method: "POST"
-    });
-    assert.equal(response.status, 200);
-    const payload = await response.json() as { user: { email: string } };
-    assert.equal(payload.user.email, email);
-  }
+test("password login accepts the verified email", async () => {
+  const response = await fetch(`${baseUrl}/auth/login`, {
+    body: JSON.stringify({ identifier: email, password }),
+    headers: { "content-type": "application/json" },
+    method: "POST"
+  });
+  assert.equal(response.status, 200);
+  const payload = await response.json() as { user: { email: string } };
+  assert.equal(payload.user.email, email);
 });
 
 test("Google identities use ordinary users and remain idempotently linked", async () => {
@@ -179,75 +165,16 @@ test("Google cannot silently take over a matching password account", async () =>
   assert.equal((await loginWithGoogle("link-credential", verifiedIdentity)).id, account.id);
 });
 
-test("persists only SMS-verified phone additions across re-authentication", async () => {
-  const accountEmail = "phone-persistence@example.com";
-  const accountPassword = "persistent phone password";
-  const initialPhone = "+966500000034";
-  const changedPhone = "+966500000035";
-  await registerUser(accountEmail, accountPassword);
-
-  const login = async () => {
-    const response = await fetch(`${baseUrl}/auth/login`, {
-      body: JSON.stringify({ email: accountEmail, password: accountPassword }),
-      headers: { "content-type": "application/json" },
-      method: "POST"
-    });
-    assert.equal(response.status, 200);
-    return response.headers.get("set-cookie")?.split(";")[0] ?? "";
-  };
-
-  let cookie = await login();
-  for (const expectedPhone of [initialPhone, changedPhone]) {
-    const code = await issueTestPhoneVerificationCode(expectedPhone);
-    const response = await fetch(`${baseUrl}/auth/phone`, {
-      body: JSON.stringify({
-        code,
-        phoneNumber: expectedPhone
-      }),
-      headers: { cookie, "content-type": "application/json" },
-      method: "PATCH"
-    });
-    assert.equal(response.status, 200);
-    const payload = (await response.json()) as {
-      user: { phoneNumber: string; phoneVerified: boolean };
-    };
-    assert.equal(payload.user.phoneNumber, expectedPhone);
-    assert.equal(payload.user.phoneVerified, true);
-    assert.equal(JSON.stringify(payload).includes("password"), false);
-
-    const reload = await fetch(`${baseUrl}/auth/me`, { headers: { cookie } });
-    assert.equal(reload.status, 200);
-    assert.equal(((await reload.json()) as { user: { phoneNumber: string } }).user.phoneNumber, expectedPhone);
-
-    await fetch(`${baseUrl}/auth/logout`, {
-      headers: { cookie },
-      method: "POST"
-    });
-    cookie = await login();
-    const reauthenticated = await fetch(`${baseUrl}/auth/me`, { headers: { cookie } });
-    assert.equal(reauthenticated.status, 200);
-    assert.equal(((await reauthenticated.json()) as { user: { phoneNumber: string } }).user.phoneNumber, expectedPhone);
-  }
-
-  const stored = await db.prepare<string, { password_hash: string; phone_number: string }>(
-    "SELECT password_hash, phone_number FROM users WHERE email = ?"
-  ).get(accountEmail);
-  assert.ok(stored);
-  assert.equal(stored.phone_number, changedPhone);
-  assert.notEqual(stored.password_hash, accountPassword);
-  assert.equal(await bcrypt.compare(accountPassword, stored.password_hash), true);
-});
-
 test("forgot-password responses are generic and requests are rate limited", async () => {
-  const request = (inputEmail: string, inputPhone: string) =>
+  const request = (inputEmail: string) =>
     fetch(`${baseUrl}/auth/forgot-password`, {
-      body: JSON.stringify({ email: inputEmail, phoneNumber: inputPhone }),
+      body: JSON.stringify({ email: inputEmail }),
       headers: { "content-type": "application/json" },
       method: "POST"
     });
 
-  const existing = await request(email, phoneNumber);
-  const missing = await request("missing@example.com", "+966500000099");
+  const existing = await request(email);
+  const missing = await request("missing@example.com");
   assert.equal(existing.status, 202);
   assert.equal(missing.status, 202);
   assert.deepEqual(await existing.json(), await missing.json());
@@ -255,7 +182,7 @@ test("forgot-password responses are generic and requests are rate limited", asyn
   const statuses: number[] = [];
   for (let index = 0; index < 6; index += 1) {
     statuses.push(
-      (await request("ratelimit@example.com", "+966500000098")).status
+      (await request("ratelimit@example.com")).status
     );
   }
   assert.deepEqual(statuses.slice(0, 5), [202, 202, 202, 202, 202]);
@@ -275,7 +202,7 @@ test("reset tokens are hashed, expiring, single-use, and invalidate old sessions
   });
 
   let resetUrl = "";
-  const delivered = await requestPasswordReset(email, phoneNumber, async (message) => {
+  const delivered = await requestPasswordReset(email, async (message) => {
     resetUrl = message.resetUrl;
     return true;
   });
@@ -359,20 +286,24 @@ test("expired reset tokens cannot change a password", async () => {
   );
 });
 
-test("verification endpoints report unavailable providers instead of fake delivery", async () => {
+test("malformed reset tokens cannot change a password", async () => {
+  await assert.rejects(
+    resetPassword({
+      password: "malformed token password",
+      passwordConfirmation: "malformed token password",
+      token: "not-a-valid-reset-token"
+    }),
+    /غير صالح/
+  );
+});
+
+test("email verification reports an unavailable provider instead of fake delivery", async () => {
   const emailResponse = await fetch(`${baseUrl}/auth/register/code`, {
     body: JSON.stringify({ email: "provider-unavailable@example.com" }),
     headers: { "content-type": "application/json" },
     method: "POST"
   });
   assert.equal(emailResponse.status, 503);
-
-  const phoneResponse = await fetch(`${baseUrl}/auth/register/phone-code`, {
-    body: JSON.stringify({ phoneNumber: "+966500000039" }),
-    headers: { "content-type": "application/json" },
-    method: "POST"
-  });
-  assert.equal(phoneResponse.status, 503);
 });
 
 after(async () => {

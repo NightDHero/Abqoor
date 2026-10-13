@@ -12,8 +12,6 @@ import {
   validateLoginIdentifier,
   validatePasswordConfirmation,
   validatePasswordInput,
-  validatePhoneNumber,
-  validatePhoneVerificationCode,
   validateVerificationCode
 } from "./authFormValidation";
 
@@ -63,15 +61,10 @@ export function AuthPage({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
-  const [phoneVerificationCode, setPhoneVerificationCode] = useState("");
   const [isCodeSent, setIsCodeSent] = useState(false);
-  const [isPhoneCodeSent, setIsPhoneCodeSent] = useState(false);
   const [isSendingCode, setIsSendingCode] = useState(false);
-  const [isSendingPhoneCode, setIsSendingPhoneCode] = useState(false);
   const [emailResendCooldown, setEmailResendCooldown] = useState(0);
-  const [phoneResendCooldown, setPhoneResendCooldown] = useState(0);
   const [pendingGoogleCredential, setPendingGoogleCredential] = useState("");
   const [googleLinkPassword, setGoogleLinkPassword] = useState("");
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -84,11 +77,8 @@ export function AuthPage({
     setError("");
     setIsSubmitting(false);
     setVerificationCode("");
-    setPhoneVerificationCode("");
     setIsCodeSent(false);
-    setIsPhoneCodeSent(false);
     setEmailResendCooldown(0);
-    setPhoneResendCooldown(0);
     setPendingGoogleCredential("");
     setGoogleLinkPassword("");
     setTouched({});
@@ -96,13 +86,12 @@ export function AuthPage({
   }, [mode]);
 
   useEffect(() => {
-    if (emailResendCooldown <= 0 && phoneResendCooldown <= 0) return;
+    if (emailResendCooldown <= 0) return;
     const timer = window.setInterval(() => {
       setEmailResendCooldown((current) => Math.max(0, current - 1));
-      setPhoneResendCooldown((current) => Math.max(0, current - 1));
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [emailResendCooldown > 0, phoneResendCooldown > 0]);
+  }, [emailResendCooldown > 0]);
 
   const fieldErrors = {
     email: mode === "register"
@@ -112,16 +101,12 @@ export function AuthPage({
     passwordConfirmation: mode === "register"
       ? validatePasswordConfirmation(password, passwordConfirmation)
       : "",
-    phoneNumber: mode === "register" ? validatePhoneNumber(phoneNumber) : "",
     verificationCode: mode === "register"
       ? validateVerificationCode(verificationCode)
-      : "",
-    phoneVerificationCode: mode === "register"
-      ? validatePhoneVerificationCode(phoneVerificationCode)
       : ""
   };
   const isFormValid = canSubmitAuthForm(fieldErrors, mode === "register"
-    ? { emailCodeSent: isCodeSent, phoneCodeSent: isPhoneCodeSent }
+    ? { emailCodeSent: isCodeSent }
     : {});
   const showFieldError = (field: keyof typeof fieldErrors) =>
     Boolean(fieldErrors[field]) && (submitAttempted || touched[field]);
@@ -140,23 +125,6 @@ export function AuthPage({
       setError(caughtError instanceof HttpError ? caughtError.message : "تعذر إرسال رمز التحقق.");
     } finally {
       setIsSendingCode(false);
-    }
-  };
-
-  const handleRequestPhoneCode = async () => {
-    setTouched((current) => ({ ...current, phoneNumber: true }));
-    if (fieldErrors.phoneNumber || phoneResendCooldown > 0) return;
-    setError("");
-    setIsSendingPhoneCode(true);
-    try {
-      await authService.requestRegistrationPhoneCode(phoneNumber);
-      setPhoneVerificationCode("");
-      setIsPhoneCodeSent(true);
-      setPhoneResendCooldown(resendCooldownSeconds);
-    } catch (caughtError) {
-      setError(caughtError instanceof HttpError ? caughtError.message : "تعذر إرسال رمز تحقق الجوال.");
-    } finally {
-      setIsSendingPhoneCode(false);
     }
   };
 
@@ -181,8 +149,6 @@ export function AuthPage({
         identifier: mode === "login" ? email : undefined,
         password,
         passwordConfirmation: mode === "register" ? passwordConfirmation : undefined,
-        phoneNumber: mode === "register" ? phoneNumber : undefined,
-        phoneVerificationCode: mode === "register" ? phoneVerificationCode : undefined,
         verificationCode: mode === "register" ? verificationCode : undefined
       });
       onAuthenticated(response.user);
@@ -319,13 +285,13 @@ export function AuthPage({
             ))}
           </div>
           <label className="form-field">
-            {mode === "register" ? "البريد الإلكتروني" : "البريد الإلكتروني أو رقم الجوال"}
+            البريد الإلكتروني
             <input
               aria-invalid={showFieldError("email")}
-              autoComplete={mode === "register" ? "email" : "username"}
+              autoComplete="email"
               dir="ltr"
               required
-              type={mode === "register" ? "email" : "text"}
+              type="email"
               value={email}
               onBlur={() => setTouched((current) => ({ ...current, email: true }))}
               onChange={(event) => {
@@ -339,29 +305,6 @@ export function AuthPage({
             />
             {showFieldError("email") ? <small className="field-error">{fieldErrors.email}</small> : null}
           </label>
-          {mode === "register" ? (
-            <label className="form-field">
-              رقم الجوال
-              <input
-                autoComplete="tel"
-                dir="ltr"
-                inputMode="tel"
-                placeholder="05xxxxxxxx"
-                required
-                type="tel"
-                value={phoneNumber}
-                aria-invalid={showFieldError("phoneNumber")}
-                onBlur={() => setTouched((current) => ({ ...current, phoneNumber: true }))}
-                onChange={(event) => {
-                  setPhoneNumber(event.target.value);
-                  setIsPhoneCodeSent(false);
-                  setPhoneVerificationCode("");
-                  setPhoneResendCooldown(0);
-                }}
-              />
-              {showFieldError("phoneNumber") ? <small className="field-error">{fieldErrors.phoneNumber}</small> : null}
-            </label>
-          ) : null}
           <label className="form-field">
             كلمة المرور
             <input
@@ -439,45 +382,6 @@ export function AuthPage({
                 </label>
               ) : (
                 <small className="auth-verification-hint">سنرسل رمزاً من ٦ أرقام للتأكد من ملكية البريد.</small>
-              )}
-            </div>
-          ) : null}
-          {mode === "register" ? (
-            <div className="auth-verification-block">
-              <div className="auth-verification-copy">
-                <strong>تحقق من رقم الجوال</strong>
-                <span>يصبح الرقم وسيلة دخول موثوقة بعد إثبات ملكيته.</span>
-              </div>
-              <button
-                className="secondary"
-                disabled={isSendingPhoneCode || phoneResendCooldown > 0 || Boolean(fieldErrors.phoneNumber)}
-                type="button"
-                onClick={() => void handleRequestPhoneCode()}
-              >
-                {isSendingPhoneCode
-                  ? "جاري الإرسال..."
-                  : phoneResendCooldown > 0
-                    ? `إعادة الإرسال بعد ${phoneResendCooldown} ث`
-                    : isPhoneCodeSent ? "إعادة إرسال الرمز" : "إرسال رمز تحقق الجوال"}
-              </button>
-              {isPhoneCodeSent ? (
-                <label className="form-field">
-                  رمز تحقق الجوال
-                  <input
-                    aria-invalid={showFieldError("phoneVerificationCode")}
-                    autoComplete="one-time-code"
-                    dir="ltr"
-                    inputMode="numeric"
-                    maxLength={10}
-                    required
-                    value={phoneVerificationCode}
-                    onBlur={() => setTouched((current) => ({ ...current, phoneVerificationCode: true }))}
-                    onChange={(event) => setPhoneVerificationCode(event.target.value.replace(/\D/g, "").slice(0, 10))}
-                  />
-                  {showFieldError("phoneVerificationCode") ? <small className="field-error">{fieldErrors.phoneVerificationCode}</small> : null}
-                </label>
-              ) : (
-                <small className="auth-verification-hint">ستصلك رسالة نصية من خدمة التحقق الآمنة.</small>
               )}
             </div>
           ) : null}

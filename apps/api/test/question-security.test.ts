@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
-import { issueTestPhoneVerificationCode, issueTestRegistrationCode } from "./helpers/auth.js";
+import { issueTestRegistrationCode } from "./helpers/auth.js";
 
 const testDirectory = mkdtempSync(join(tmpdir(), "abqoor-question-security-test-"));
 process.env.DATABASE_PATH = join(testDirectory, "test.sqlite");
@@ -45,14 +45,11 @@ await saveQuestion({
 const password = "correct horse battery";
 const registerAndCompleteProfile = async () => {
   const verificationCode = await issueTestRegistrationCode("question-student@example.com");
-  const phoneVerificationCode = await issueTestPhoneVerificationCode("+966500000081");
   const registration = await fetch(`${baseUrl}/auth/register`, {
     body: JSON.stringify({
       email: "question-student@example.com",
       password,
       passwordConfirmation: password,
-      phoneNumber: "+966500000081",
-      phoneVerificationCode,
       verificationCode
     }),
     headers: { "content-type": "application/json" },

@@ -14,13 +14,8 @@ import { weakerSectionOptions } from "../features/profile/profileOptions";
 import { formatPlanDate } from "../features/profile/studyPlan";
 import { useStudyPlanPreview } from "../features/profile/useStudyPlanPreview";
 import { bankService } from "../services/bankService";
-import { authService } from "../services/authService";
 import { HttpError } from "../services/http";
 import { profileService } from "../services/profileService";
-import {
-  validatePhoneNumber,
-  validatePhoneVerificationCode
-} from "../features/auth/authFormValidation";
 import type { ThemePreference } from "../theme/theme";
 import type { User } from "../types/auth";
 import type { BankConfig, WeakerSection } from "../types/profile";
@@ -59,14 +54,6 @@ export function ProfilePage({
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [phoneVerificationCode, setPhoneVerificationCode] = useState("");
-  const [isPhoneCodeSent, setIsPhoneCodeSent] = useState(false);
-  const [isSendingPhoneCode, setIsSendingPhoneCode] = useState(false);
-  const [phoneResendCooldown, setPhoneResendCooldown] = useState(0);
-  const [phoneTouched, setPhoneTouched] = useState(false);
-  const [phoneCodeTouched, setPhoneCodeTouched] = useState(false);
-  const [isEditingPhone, setIsEditingPhone] = useState(!user.phoneNumber);
   const studyPlanPreview = useStudyPlanPreview({
     bankCount: form.studyPlanBankCount,
     quantitativeStudyDays: form.quantitativeStudyDays,
@@ -96,14 +83,6 @@ export function ProfilePage({
     return () => { isMounted = false; };
   }, []);
 
-  useEffect(() => {
-    if (phoneResendCooldown <= 0) return;
-    const timer = window.setInterval(() => {
-      setPhoneResendCooldown((current) => Math.max(0, current - 1));
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [phoneResendCooldown > 0]);
-
   const updateForm = (nextValues: Partial<ProfileFormState>) => {
     setError("");
     setMessage("");
@@ -128,55 +107,6 @@ export function ProfilePage({
     } catch (caughtError) {
       setError(caughtError instanceof HttpError ? caughtError.message : "تعذر حفظ الملف الدراسي.");
     } finally { setIsSaving(false); }
-  };
-
-  const phoneNumberError = validatePhoneNumber(phoneNumber);
-  const phoneCodeError = validatePhoneVerificationCode(phoneVerificationCode);
-
-  const handlePhoneCodeRequest = async () => {
-    setPhoneTouched(true);
-    if (phoneNumberError || phoneResendCooldown > 0) return;
-    setError("");
-    setMessage("");
-    setIsSendingPhoneCode(true);
-    try {
-      await authService.requestPhoneVerification(phoneNumber);
-      setPhoneVerificationCode("");
-      setPhoneCodeTouched(false);
-      setIsPhoneCodeSent(true);
-      setPhoneResendCooldown(60);
-      setMessage("أرسلنا رمز تحقق إلى رقم الجوال.");
-    } catch (caughtError) {
-      setError(caughtError instanceof HttpError ? caughtError.message : "تعذر إرسال رمز تحقق الجوال.");
-    } finally {
-      setIsSendingPhoneCode(false);
-    }
-  };
-
-  const handlePhoneSubmit = async () => {
-    setPhoneTouched(true);
-    setPhoneCodeTouched(true);
-    if (phoneNumberError || phoneCodeError || !isPhoneCodeSent) return;
-    setError("");
-    setMessage("");
-    setIsSaving(true);
-    try {
-      const response = await authService.addPhoneNumber({
-        code: phoneVerificationCode,
-        phoneNumber
-      });
-      onProfileSaved(response.user);
-      setPhoneNumber("");
-      setPhoneVerificationCode("");
-      setIsPhoneCodeSent(false);
-      setPhoneResendCooldown(0);
-      setIsEditingPhone(false);
-      setMessage(user.phoneNumber ? "تم تحديث رقم الجوال." : "تمت إضافة رقم الجوال إلى الحساب.");
-    } catch (caughtError) {
-      setError(caughtError instanceof HttpError ? caughtError.message : "تعذر إضافة رقم الجوال.");
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   const examDateLabel = form.hasExamDate && form.examDate
@@ -213,40 +143,8 @@ export function ProfilePage({
           <div className="profile-field-grid">
             <label className="form-field profile-username-field">اسم المستخدم<input aria-invalid={Boolean(validateUsername(form.username))} autoComplete="username" dir="auto" maxLength={20} minLength={3} type="text" value={form.username} onChange={(event) => updateForm({ username: event.target.value })} /><small>من ٣ إلى ٢٠ حرفاً شاملاً المسافات</small></label>
             <div><span>البريد الإلكتروني</span><strong dir="ltr">{user.email}</strong><small>{user.emailVerified ? "موثق" : "غير موثق"}</small></div>
-            <div><span>رقم الجوال</span><strong dir="ltr">{user.phoneNumber ?? "غير مضاف"}</strong><small>{user.phoneVerified ? "موثق" : "غير موثق"}</small></div>
             <div><span>كلمة المرور</span><strong>تدار من نظام تسجيل الدخول</strong></div>
           </div>
-          {user.phoneNumber && !isEditingPhone ? (
-            <button className="secondary profile-change-phone" type="button" onClick={() => {
-              setPhoneNumber(user.phoneNumber ?? "");
-              setIsEditingPhone(true);
-            }}>تغيير رقم الجوال</button>
-          ) : null}
-          {isEditingPhone ? (
-            <div className="profile-missing-phone">
-              <p>{user.phoneNumber ? "أدخل الرقم الجديد ثم أثبت ملكيته برمز التحقق." : "أضف رقم الجوال وتحقق منه لتتمكن من استخدامه للدخول والاستعادة."}</p>
-              <label className="form-field">رقم الجوال<input aria-invalid={phoneTouched && Boolean(phoneNumberError)} autoComplete="tel" dir="ltr" type="tel" value={phoneNumber} onBlur={() => setPhoneTouched(true)} onChange={(event) => {
-                setPhoneNumber(event.target.value);
-                setIsPhoneCodeSent(false);
-                setPhoneVerificationCode("");
-                setPhoneResendCooldown(0);
-              }} />{phoneTouched && phoneNumberError ? <small className="field-error">{phoneNumberError}</small> : null}</label>
-              <button className="secondary" disabled={isSendingPhoneCode || phoneResendCooldown > 0 || Boolean(phoneNumberError)} type="button" onClick={() => void handlePhoneCodeRequest()}>
-                {isSendingPhoneCode ? "جاري الإرسال..." : phoneResendCooldown > 0 ? `إعادة الإرسال بعد ${phoneResendCooldown} ث` : isPhoneCodeSent ? "إعادة إرسال الرمز" : "إرسال رمز التحقق"}
-              </button>
-              {isPhoneCodeSent ? <label className="form-field">رمز التحقق<input aria-invalid={phoneCodeTouched && Boolean(phoneCodeError)} autoComplete="one-time-code" dir="ltr" inputMode="numeric" maxLength={10} value={phoneVerificationCode} onBlur={() => setPhoneCodeTouched(true)} onChange={(event) => setPhoneVerificationCode(event.target.value.replace(/\D/g, "").slice(0, 10))} />{phoneCodeTouched && phoneCodeError ? <small className="field-error">{phoneCodeError}</small> : null}</label> : null}
-              <div className="action-row">
-                <button disabled={isSaving || !isPhoneCodeSent || Boolean(phoneNumberError) || Boolean(phoneCodeError)} type="button" onClick={() => void handlePhoneSubmit()}>{user.phoneNumber ? "حفظ الرقم الموثق" : "إضافة الرقم الموثق"}</button>
-                {user.phoneNumber ? <button className="secondary" type="button" onClick={() => {
-                  setPhoneNumber("");
-                  setPhoneVerificationCode("");
-                  setIsPhoneCodeSent(false);
-                  setPhoneResendCooldown(0);
-                  setIsEditingPhone(false);
-                }}>إلغاء</button> : null}
-              </div>
-            </div>
-          ) : null}
         </section>
 
         <section className="profile-section profile-appearance-section" aria-labelledby="appearance-section">

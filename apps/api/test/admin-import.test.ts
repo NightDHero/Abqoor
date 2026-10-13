@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { strToU8, zipSync } from "fflate";
-import { issueTestPhoneVerificationCode, issueTestRegistrationCode } from "./helpers/auth.js";
+import { issueTestRegistrationCode } from "./helpers/auth.js";
 
 const testDirectory = mkdtempSync(join(tmpdir(), "abqoor-admin-import-test-"));
 process.env.DATABASE_PATH = join(testDirectory, "test.sqlite");
@@ -1059,8 +1059,6 @@ test("allows configured admins and rejects ordinary authenticated users", async 
   const register = async (email: string) => {
     const password = "correct horse battery";
     const verificationCode = await issueTestRegistrationCode(email);
-    const phoneNumber = email === "admin@example.com" ? "+966500000021" : "+966500000022";
-    const phoneVerificationCode = await issueTestPhoneVerificationCode(phoneNumber);
     const response = await fetch(`${baseUrl}/auth/register`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -1068,8 +1066,6 @@ test("allows configured admins and rejects ordinary authenticated users", async 
         email,
         password,
         passwordConfirmation: password,
-        phoneNumber,
-        phoneVerificationCode,
         verificationCode
       })
     });

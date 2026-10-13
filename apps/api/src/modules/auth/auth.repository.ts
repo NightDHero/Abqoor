@@ -11,22 +11,14 @@ const findUserByIdStatement = db.prepare<string, UserRecord>(
   "SELECT * FROM users WHERE id = ?"
 );
 
-const findUserByPhoneStatement = db.prepare<string, UserRecord>(
-  "SELECT * FROM users WHERE phone_number = ?"
-);
-
-const findVerifiedUserByPhoneStatement = db.prepare<string, UserRecord>(
-  "SELECT * FROM users WHERE phone_number = ? AND phone_verified_at IS NOT NULL"
-);
-
 const createUserStatement = db.prepare(`
   INSERT INTO users (
-    id, email, email_verified_at, password_hash, phone_number,
-    phone_verified_at, session_version, created_at, updated_at
+    id, email, email_verified_at, password_hash,
+    session_version, created_at, updated_at
   )
   VALUES (
-    @id, @email, @emailVerifiedAt, @passwordHash, @phoneNumber,
-    @phoneVerifiedAt, 0, @createdAt, @updatedAt
+    @id, @email, @emailVerifiedAt, @passwordHash,
+    0, @createdAt, @updatedAt
   )
 `);
 
@@ -47,14 +39,6 @@ const updateUserPasswordAndSessionStatement = db.prepare(`
   WHERE id = @id
 `);
 
-const updateUserPhoneStatement = db.prepare(`
-  UPDATE users
-  SET phone_number = @phoneNumber,
-      phone_verified_at = @phoneVerifiedAt,
-      updated_at = @updatedAt
-  WHERE id = @id
-`);
-
 export const findUserByEmail = async (email: string) => {
   return (await findUserByEmailStatement.get(email.toLowerCase())) ?? null;
 };
@@ -63,21 +47,11 @@ export const findUserById = async (id: string) => {
   return (await findUserByIdStatement.get(id)) ?? null;
 };
 
-export const findUserByPhone = async (phoneNumber: string) => {
-  return (await findUserByPhoneStatement.get(phoneNumber)) ?? null;
-};
-
-export const findVerifiedUserByPhone = async (phoneNumber: string) => {
-  return (await findVerifiedUserByPhoneStatement.get(phoneNumber)) ?? null;
-};
-
 export const createUser = async (
   email: string,
   passwordHash: string,
-  phoneNumber: string | null = null,
   verification: {
     emailVerifiedAt?: string | null;
-    phoneVerifiedAt?: string | null;
   } = {}
 ) => {
   const now = new Date().toISOString();
@@ -86,8 +60,6 @@ export const createUser = async (
     email: email.toLowerCase(),
     emailVerifiedAt: verification.emailVerifiedAt ?? now,
     passwordHash,
-    phoneNumber,
-    phoneVerifiedAt: verification.phoneVerifiedAt ?? null,
     createdAt: now,
     updatedAt: now
   };
@@ -100,23 +72,6 @@ export const createUser = async (
   }
 
   return createdUser;
-};
-
-export const updateUserPhoneNumber = async (
-  userId: string,
-  phoneNumber: string,
-  phoneVerifiedAt = new Date().toISOString()
-) => {
-  await updateUserPhoneStatement.run({
-    id: userId,
-    phoneNumber,
-    phoneVerifiedAt,
-    updatedAt: new Date().toISOString()
-  });
-
-  const updatedUser = await findUserById(userId);
-  if (!updatedUser) throw new Error("User phone update failed.");
-  return updatedUser;
 };
 
 export const updateUserPasswordHash = async (

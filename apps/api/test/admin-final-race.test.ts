@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
-import { issueTestPhoneVerificationCode, issueTestRegistrationCode } from "./helpers/auth.js";
+import { issueTestRegistrationCode } from "./helpers/auth.js";
 
 const testDirectory = mkdtempSync(join(tmpdir(), "abqoor-admin-race-test-"));
 process.env.DATABASE_PATH = join(testDirectory, "test.sqlite");
@@ -44,15 +44,12 @@ test("concurrent removal requests cannot remove the final administrator", async 
   });
   const firstCookie = await login(first.email);
   const verificationCode = await issueTestRegistrationCode("race-second@example.com");
-  const phoneVerificationCode = await issueTestPhoneVerificationCode("+966500000092");
 
   const registration = await fetch(`${baseUrl}/auth/register`, {
     body: JSON.stringify({
       email: "race-second@example.com",
       password,
       passwordConfirmation: password,
-      phoneNumber: "+966500000092",
-      phoneVerificationCode,
       verificationCode
     }),
     headers: { "content-type": "application/json" },

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import express from "express";
-import { issueTestPhoneVerificationCode, issueTestRegistrationCode } from "./helpers/auth.js";
+import { issueTestRegistrationCode } from "./helpers/auth.js";
 
 const testDirectory = mkdtempSync(join(tmpdir(), "abqoor-security-test-"));
 process.env.DATABASE_PATH = join(testDirectory, "test.sqlite");
@@ -127,13 +127,10 @@ test("a successful login clears inherited failure counters", async () => {
     password: "correct horse battery"
   };
   const verificationCode = await issueTestRegistrationCode(credentials.email);
-  const phoneVerificationCode = await issueTestPhoneVerificationCode("+966500000098");
   const registration = await fetch(`${baseUrl}/auth/register`, {
     body: JSON.stringify({
       ...credentials,
       passwordConfirmation: credentials.password,
-      phoneNumber: "+966500000098",
-      phoneVerificationCode,
       verificationCode
     }),
     headers: { "content-type": "application/json" },
@@ -201,14 +198,11 @@ test("rotating account identifiers cannot bypass the client limit", async () => 
 
 test("logout revokes the server-side session and sensitive responses are not cached", async () => {
   const verificationCode = await issueTestRegistrationCode("logout-security@example.com");
-  const phoneVerificationCode = await issueTestPhoneVerificationCode("+966500000099");
   const registration = await fetch(`${baseUrl}/auth/register`, {
     body: JSON.stringify({
       email: "logout-security@example.com",
       password: "correct horse battery",
       passwordConfirmation: "correct horse battery",
-      phoneNumber: "+966500000099",
-      phoneVerificationCode,
       verificationCode
     }),
     headers: { "content-type": "application/json" },

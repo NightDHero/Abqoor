@@ -6,8 +6,6 @@ import {
   validateLoginIdentifier,
   validatePasswordConfirmation,
   validatePasswordInput,
-  validatePhoneNumber,
-  validatePhoneVerificationCode,
   validateVerificationCode
 } from "../src/features/auth/authFormValidation.js";
 import { validateUsername } from "../src/features/profile/profileFormState.js";
@@ -24,31 +22,22 @@ test("authentication fields update between invalid and valid states", () => {
   assert.notEqual(validateEmailAddress("student@"), "");
   assert.equal(validateEmailAddress("student@example.com"), "");
   assert.notEqual(validateLoginIdentifier("123"), "");
-  assert.equal(validateLoginIdentifier("0500000001"), "");
-  assert.notEqual(validatePhoneNumber("0500"), "");
-  assert.equal(validatePhoneNumber("+966500000001"), "");
+  assert.notEqual(validateLoginIdentifier("0500000001"), "");
+  assert.equal(validateLoginIdentifier("student@example.com"), "");
   assert.notEqual(validatePasswordInput("short"), "");
   assert.equal(validatePasswordInput("correct horse battery"), "");
   assert.notEqual(validatePasswordConfirmation("password value", "different"), "");
   assert.equal(validatePasswordConfirmation("password value", "password value"), "");
   assert.notEqual(validateVerificationCode("123"), "");
   assert.equal(validateVerificationCode("123456"), "");
-  assert.notEqual(validatePhoneVerificationCode("12"), "");
-  assert.equal(validatePhoneVerificationCode("246810"), "");
 });
 
 test("submit and Enter guards reject every invalid or unverified form state", () => {
   assert.equal(canSubmitAuthForm({ email: "invalid", password: "" }), false);
   assert.equal(canSubmitAuthForm({ email: "", password: "" }, {
-    emailCodeSent: false,
-    phoneCodeSent: true
+    emailCodeSent: false
   }), false);
   assert.equal(canSubmitAuthForm({ email: "", password: "" }, {
-    emailCodeSent: true,
-    phoneCodeSent: false
-  }), false);
-  assert.equal(canSubmitAuthForm({ email: "", password: "" }, {
-    emailCodeSent: true,
-    phoneCodeSent: true
+    emailCodeSent: true
   }), true);
 });

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 import { after, test } from "node:test";
 
 const testDirectory = mkdtempSync(join(tmpdir(), "abqoor-auth-verification-test-"));
@@ -9,28 +10,14 @@ process.env.DATABASE_PATH = join(testDirectory, "test.sqlite");
 process.env.ADMIN_EMAILS = "";
 process.env.JWT_SECRET = "auth-verification-test-secret";
 process.env.NODE_ENV = "test";
-process.env.TWILIO_ACCOUNT_SID = "test-account";
-process.env.TWILIO_AUTH_TOKEN = "test-token";
-process.env.TWILIO_VERIFY_SERVICE_SID = "test-service";
 
 const { closeDatabase, db } = await import("../src/database/client.js");
-const {
-  AuthError,
-  loginUser,
-  normalizePhoneNumber,
-  registerUser
-} = await import("../src/modules/auth/auth.service.js");
+const { AuthError } = await import("../src/modules/auth/auth.service.js");
 const { findUserByEmail } = await import("../src/modules/auth/auth.repository.js");
 const {
   requestRegistrationCode,
   verifyRegistrationCode
 } = await import("../src/modules/auth/email-verification.service.js");
-const {
-  checkTwilioPhoneVerification,
-  requestPhoneVerification,
-  startTwilioPhoneVerification,
-  verifyPhoneCode
-} = await import("../src/modules/auth/phone-verification.service.js");
 
 const issueEmailCode = async (email: string) => {
   let code = "";
@@ -79,7 +66,7 @@ test("email verification rejects expired codes and excessive attempts", async ()
   );
 });
 
-test("email and phone verification resend cooldowns suppress duplicate delivery", async () => {
+test("email verification resend cooldown suppresses duplicate delivery", async () => {
   let emailDeliveries = 0;
   const email = "cooldown@example.com";
   const deliver = async () => {
@@ -89,77 +76,61 @@ test("email and phone verification resend cooldowns suppress duplicate delivery"
   assert.equal((await requestRegistrationCode(email, deliver)).reason, "sent");
   assert.equal((await requestRegistrationCode(email, deliver)).reason, "cooldown");
   assert.equal(emailDeliveries, 1);
+});
 
-  let smsDeliveries = 0;
-  const phoneNumber = "+966500000041";
-  const start = async () => {
-    smsDeliveries += 1;
-    return true;
+test("production environment validation does not require Twilio", () => {
+  const childEnvironment = {
+    ...process.env,
+    DATABASE_DRIVER: "postgres",
+    DATABASE_URL: "postgresql://example:example@localhost:5432/abqoor",
+    FRONTEND_ORIGIN: "https://abqoor-web.vercel.app",
+    GOOGLE_CLIENT_ID: "test.apps.googleusercontent.com",
+    JWT_SECRET: "production-test-secret-that-is-long-enough",
+    NODE_ENV: "production",
+    PASSWORD_RESET_URL_BASE: "https://abqoor-web.vercel.app",
+    RESEND_API_KEY: "re_test",
+    SESSION_COOKIE_SAMESITE: "none",
+    STORAGE_DRIVER: "local",
+    TRANSACTIONAL_EMAIL_FROM: "Abqoor <noreply@example.com>"
   };
-  assert.equal((await requestPhoneVerification({ phoneNumber, purpose: "registration" }, start)).reason, "sent");
-  assert.equal((await requestPhoneVerification({ phoneNumber, purpose: "registration" }, start)).reason, "cooldown");
-  assert.equal(smsDeliveries, 1);
+  delete childEnvironment.TWILIO_ACCOUNT_SID;
+  delete childEnvironment.TWILIO_AUTH_TOKEN;
+  delete childEnvironment.TWILIO_VERIFY_SERVICE_SID;
+
+  const configUrl = new URL("../src/config/env.ts", import.meta.url).href;
+  const result = spawnSync(
+    process.execPath,
+    ["--import", "tsx", "--eval", `import(${JSON.stringify(configUrl)})`],
+    { encoding: "utf8", env: childEnvironment }
+  );
+
+  assert.equal(result.status, 0, result.stderr);
 });
 
-test("Saudi phone formats normalize to one identity and only verified phones authenticate", async () => {
-  assert.equal(normalizePhoneNumber("050 000 0042"), "+966500000042");
-  assert.equal(normalizePhoneNumber("+966500000042"), "+966500000042");
-  assert.equal(normalizePhoneNumber("00966500000042"), "+966500000042");
-  assert.throws(() => normalizePhoneNumber("123"), /غير صالح/);
-
-  const password = "verified phone password";
-  await registerUser("unverified-phone@example.com", password, "+966500000043");
-  await assert.rejects(loginUser("0500000043", password), /غير صحيحة/);
-
-  const verified = await registerUser(
-    "verified-phone@example.com",
-    password,
-    "+966500000044",
-    { phoneVerified: true }
+test("production password reset links require HTTPS", () => {
+  const childEnvironment = {
+    ...process.env,
+    DATABASE_DRIVER: "postgres",
+    DATABASE_URL: "postgresql://example:example@localhost:5432/abqoor",
+    FRONTEND_ORIGIN: "https://abqoor-web.vercel.app",
+    GOOGLE_CLIENT_ID: "test.apps.googleusercontent.com",
+    JWT_SECRET: "production-test-secret-that-is-long-enough",
+    NODE_ENV: "production",
+    PASSWORD_RESET_URL_BASE: "http://abqoor-web.vercel.app",
+    RESEND_API_KEY: "re_test",
+    SESSION_COOKIE_SAMESITE: "none",
+    STORAGE_DRIVER: "local",
+    TRANSACTIONAL_EMAIL_FROM: "Abqoor <noreply@example.com>"
+  };
+  const configUrl = new URL("../src/config/env.ts", import.meta.url).href;
+  const result = spawnSync(
+    process.execPath,
+    ["--import", "tsx", "--eval", `import(${JSON.stringify(configUrl)})`],
+    { encoding: "utf8", env: childEnvironment }
   );
-  assert.equal((await loginUser("0500000044", password)).id, verified.id);
-  await assert.rejects(
-    registerUser("duplicate-phone@example.com", password, "00966500000044", {
-      phoneVerified: true
-    }),
-    /مستخدم بالفعل/
-  );
-});
 
-test("Twilio Verify requests send and check codes without local plaintext persistence", async () => {
-  const originalFetch = globalThis.fetch;
-  const calls: Array<{ body: string; url: string }> = [];
-  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
-    const url = String(input);
-    calls.push({ body: String(init?.body ?? ""), url });
-    return new Response(JSON.stringify({ status: url.endsWith("VerificationCheck") ? "approved" : "pending" }), {
-      headers: { "content-type": "application/json" },
-      status: 200
-    });
-  }) as typeof fetch;
-
-  try {
-    assert.equal(await startTwilioPhoneVerification("+966500000045"), true);
-    assert.equal(await checkTwilioPhoneVerification("+966500000045", "246810"), true);
-    assert.equal(calls.length, 2);
-    assert.match(calls[0]?.url ?? "", /\/Verifications$/);
-    assert.match(calls[1]?.url ?? "", /\/VerificationCheck$/);
-    assert.match(calls[0]?.body ?? "", /To=%2B966500000045/);
-    assert.match(calls[1]?.body ?? "", /Code=246810/);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-
-  assert.equal(
-    await verifyPhoneCode("0500000046", "246810", async (phone, code) =>
-      phone === "+966500000046" && code === "246810"
-    ),
-    "+966500000046"
-  );
-  await assert.rejects(
-    verifyPhoneCode("0500000046", "111111", async () => false),
-    /غير صحيح أو منتهي/
-  );
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /must use HTTPS/);
 });
 
 after(async () => {

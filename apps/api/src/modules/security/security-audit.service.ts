@@ -6,7 +6,6 @@ export type SecurityEventType =
   | "auth.google_login"
   | "auth.google_link"
   | "auth.email_verification_requested"
-  | "auth.phone_verification_requested"
   | "auth.logout"
   | "auth.password_reset"
   | "auth.password_changed"

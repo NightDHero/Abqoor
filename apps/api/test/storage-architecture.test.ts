@@ -6,7 +6,7 @@ import { Readable } from "node:stream";
 import { after, test } from "node:test";
 import type { S3Client } from "@aws-sdk/client-s3";
 import sharp from "sharp";
-import { issueTestPhoneVerificationCode, issueTestRegistrationCode } from "./helpers/auth.js";
+import { issueTestRegistrationCode } from "./helpers/auth.js";
 
 const testDirectory = mkdtempSync(join(tmpdir(), "abqoor-storage-test-"));
 process.env.DATABASE_PATH = join(testDirectory, "test.sqlite");
@@ -280,14 +280,11 @@ test("question image route serves storage-backed images and handles missing obje
   assert.equal(unauthenticatedResponse.status, 401);
 
   const verificationCode = await issueTestRegistrationCode("storage-student@example.com");
-  const phoneVerificationCode = await issueTestPhoneVerificationCode("+966500000071");
   const registration = await fetch(`${baseUrl}/auth/register`, {
     body: JSON.stringify({
       email: "storage-student@example.com",
       password: "correct horse battery",
       passwordConfirmation: "correct horse battery",
-      phoneNumber: "+966500000071",
-      phoneVerificationCode,
       verificationCode
     }),
     headers: { "content-type": "application/json" },

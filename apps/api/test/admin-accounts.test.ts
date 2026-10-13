@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
-import { issueTestPhoneVerificationCode, issueTestRegistrationCode } from "./helpers/auth.js";
+import { issueTestRegistrationCode } from "./helpers/auth.js";
 import bcrypt from "bcryptjs";
 
 const testDirectory = mkdtempSync(join(tmpdir(), "abqoor-admin-accounts-test-"));
@@ -46,16 +46,13 @@ const login = async (email: string, inputPassword = password) => {
   return { cookie: cookieFrom(response), response };
 };
 
-const register = async (email: string, phoneNumber: string) => {
+const register = async (email: string) => {
   const verificationCode = await issueTestRegistrationCode(email);
-  const phoneVerificationCode = await issueTestPhoneVerificationCode(phoneNumber);
   const response = await fetch(`${baseUrl}/auth/register`, {
     body: JSON.stringify({
       email,
       password,
       passwordConfirmation: password,
-      phoneNumber,
-      phoneVerificationCode,
       verificationCode
     }),
     headers: { "content-type": "application/json" },
@@ -85,7 +82,7 @@ test("manages administrator accounts without exposing password data", async () =
   assert.equal(ownerPayload.user.username, "owner");
   assert.equal(JSON.stringify(ownerPayload).includes("password"), false);
 
-  const normalUser = await register("student@example.com", "+966500000001");
+  const normalUser = await register("student@example.com");
   assert.equal(normalUser.response.status, 201);
   const rejected = await fetch(`${baseUrl}/admin/accounts`, {
     headers: { cookie: normalUser.cookie }
@@ -105,10 +102,7 @@ test("manages administrator accounts without exposing password data", async () =
   );
   assert.equal(initialPayload.admins[0]?.canRemove, false);
 
-  const secondAdminRegistration = await register(
-    "second-admin@example.com",
-    "+966500000002"
-  );
+  const secondAdminRegistration = await register("second-admin@example.com");
   assert.equal(secondAdminRegistration.response.status, 201);
 
   const createResponse = await fetch(`${baseUrl}/admin/accounts`, {

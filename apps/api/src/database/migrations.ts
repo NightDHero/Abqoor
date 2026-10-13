@@ -284,7 +284,6 @@ const migrateStudentWeekdayAssignments = (db: Database.Database) => {
 };
 
 const migrateAccountRecovery = (db: Database.Database) => {
-  addColumnIfMissing(db, "users", "phone_number", "TEXT");
   addColumnIfMissing(
     db,
     "users",
@@ -292,10 +291,6 @@ const migrateAccountRecovery = (db: Database.Database) => {
     "INTEGER NOT NULL DEFAULT 0"
   );
   db.exec(`
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone_number
-    ON users(phone_number)
-    WHERE phone_number IS NOT NULL;
-
     CREATE TABLE IF NOT EXISTS password_reset_tokens (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
@@ -388,24 +383,24 @@ const migrateAuthIdentityVerification = (db: Database.Database) => {
 
 const migrateVerifiedContactIdentities = (db: Database.Database) => {
   addColumnIfMissing(db, "users", "email_verified_at", "TEXT");
-  addColumnIfMissing(db, "users", "phone_verified_at", "TEXT");
   db.exec(`
     UPDATE users
     SET email_verified_at = created_at
     WHERE email_verified_at IS NULL;
-
-    CREATE TABLE IF NOT EXISTS phone_verification_requests (
-      id TEXT PRIMARY KEY,
-      phone_number TEXT NOT NULL,
-      purpose TEXT NOT NULL CHECK (purpose IN ('registration', 'link')),
-      user_id TEXT,
-      created_at TEXT NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_phone_verification_requests_destination
-    ON phone_verification_requests(phone_number, purpose, created_at);
   `);
+};
+
+const migrateRemovePhoneIdentity = (db: Database.Database) => {
+  db.exec(`
+    DROP TABLE IF EXISTS phone_verification_requests;
+    DROP INDEX IF EXISTS idx_users_phone_number;
+  `);
+  if (hasColumn(db, "users", "phone_verified_at")) {
+    db.exec("ALTER TABLE users DROP COLUMN phone_verified_at");
+  }
+  if (hasColumn(db, "users", "phone_number")) {
+    db.exec("ALTER TABLE users DROP COLUMN phone_number");
+  }
 };
 
 const migrateDailyPlanSessions = (db: Database.Database) => {
@@ -696,4 +691,5 @@ export const runDatabaseMigrations = (db: Database.Database) => {
   migrateAuthIdentityVerification(db);
   migrateVerifiedContactIdentities(db);
   migrateQuestionBanksAndPasswordChange(db);
+  migrateRemovePhoneIdentity(db);
 };

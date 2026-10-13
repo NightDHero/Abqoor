@@ -9,13 +9,11 @@ import {
   emailVerificationRateLimit,
   passwordResetConfirmRateLimit,
   passwordResetRequestRateLimit,
-  phoneVerificationRateLimit,
   registrationRateLimit
 } from "../security/security.middleware.js";
 import { requireAuth } from "./auth.middleware.js";
 import {
   AuthError,
-  addPhoneNumber,
   changeAuthenticatedPassword,
   createSessionToken,
   loginWithGoogle,
@@ -30,10 +28,6 @@ import {
   requestRegistrationCode,
   verifyRegistrationCode
 } from "./email-verification.service.js";
-import {
-  requestPhoneVerification,
-  verifyPhoneCode
-} from "./phone-verification.service.js";
 import { revokeAuthSession } from "./auth.service.js";
 import { toPublicUser, type UserRecord } from "./auth.types.js";
 import {
@@ -84,7 +78,7 @@ const getCredentials = (request: Request) => {
 
   const account = typeof identifier === "string" ? identifier : email;
   if (typeof account !== "string" || typeof password !== "string") {
-    throw new AuthError("البريد الإلكتروني أو رقم الجوال وكلمة المرور مطلوبان.");
+    throw new AuthError("البريد الإلكتروني وكلمة المرور مطلوبان.");
   }
 
   return { identifier: account, password };
@@ -135,74 +129,31 @@ authRouter.post(
   }
 );
 
-authRouter.post(
-  "/register/phone-code",
-  phoneVerificationRateLimit,
-  async (request, response) => {
-    const { phoneNumber } = request.body as { phoneNumber?: unknown };
-    if (typeof phoneNumber !== "string") {
-      response.status(400).json({ message: "رقم الجوال مطلوب." });
-      return;
-    }
-    try {
-      const result = await requestPhoneVerification({
-        phoneNumber,
-        purpose: "registration"
-      });
-      writeSecurityEvent(request, "auth.phone_verification_requested", {
-        detail: { delivery: result.delivered ? "sent" : "not_sent" },
-        outcome: "success"
-      });
-      response.status(202).json({
-        message: "إذا كان الرقم صالحاً للاستخدام، فستصلك رسالة برمز التحقق."
-      });
-    } catch {
-      writeSecurityEvent(request, "auth.phone_verification_requested", {
-        detail: { delivery: "failed" },
-        outcome: "failure"
-      });
-      response.status(503).json({
-        message: "تعذر إرسال رمز التحقق حالياً. حاول مرة أخرى لاحقاً."
-      });
-    }
-  }
-);
-
 authRouter.post("/register", registrationRateLimit, async (request, response) => {
   try {
-    const { email, password, passwordConfirmation, phoneNumber, phoneVerificationCode, verificationCode } = request.body as {
+    const { email, password, passwordConfirmation, verificationCode } = request.body as {
       email?: unknown;
       password?: unknown;
       passwordConfirmation?: unknown;
-      phoneNumber?: unknown;
-      phoneVerificationCode?: unknown;
       verificationCode?: unknown;
     };
     if (
       typeof email !== "string" ||
       typeof password !== "string" ||
       typeof passwordConfirmation !== "string" ||
-      typeof phoneNumber !== "string" ||
-      typeof phoneVerificationCode !== "string" ||
       typeof verificationCode !== "string"
     ) {
-      throw new AuthError("رقم الجوال وتأكيد كلمة المرور ورمز التحقق مطلوبة.");
+      throw new AuthError("البريد الإلكتروني وتأكيد كلمة المرور ورمز التحقق مطلوبة.");
     }
     if (password !== passwordConfirmation) {
       throw new AuthError("كلمة المرور وتأكيدها غير متطابقين.");
     }
     validatePassword(password);
-    const verifiedPhoneNumber = await verifyPhoneCode(
-      phoneNumber,
-      phoneVerificationCode
-    );
     await verifyRegistrationCode(email, verificationCode);
     const user = await registerStudent({
       email,
       password,
-      passwordConfirmation,
-      phoneNumber: verifiedPhoneNumber,
-      phoneVerified: true
+      passwordConfirmation
     });
 
     await setSessionCookie(response, user);
@@ -220,12 +171,9 @@ authRouter.post(
   "/forgot-password",
   passwordResetRequestRateLimit,
   async (request, response) => {
-    const { email, phoneNumber } = request.body as {
-      email?: unknown;
-      phoneNumber?: unknown;
-    };
-    const delivered = typeof email === "string" && typeof phoneNumber === "string"
-      ? await requestPasswordReset(email, phoneNumber).catch(() => false)
+    const { email } = request.body as { email?: unknown };
+    const delivered = typeof email === "string"
+      ? await requestPasswordReset(email).catch(() => false)
       : false;
 
     response.status(202).json({
@@ -396,40 +344,6 @@ authRouter.post("/logout", requireAuth, asyncHandler(async (request, response) =
     outcome: "success"
   });
 }));
-
-authRouter.post("/phone/code", requireAuth, phoneVerificationRateLimit, async (request, response) => {
-  try {
-    const { phoneNumber } = request.body as { phoneNumber?: unknown };
-    if (typeof phoneNumber !== "string") {
-      throw new AuthError("رقم الجوال مطلوب.");
-    }
-    await requestPhoneVerification({
-      phoneNumber,
-      purpose: "link",
-      userId: request.user?.id
-    });
-    response.status(202).json({ message: "أرسلنا رمز التحقق إلى رقم الجوال." });
-  } catch (error) {
-    handleAuthError(error, response);
-  }
-});
-
-authRouter.patch("/phone", requireAuth, accountChangeRateLimit, async (request, response) => {
-  try {
-    const { code, phoneNumber } = request.body as {
-      code?: unknown;
-      phoneNumber?: unknown;
-    };
-    if (typeof code !== "string" || typeof phoneNumber !== "string") {
-      throw new AuthError("رقم الجوال ورمز التحقق مطلوبان.");
-    }
-    const verifiedPhoneNumber = await verifyPhoneCode(phoneNumber, code);
-    const user = await addPhoneNumber(request.user?.id ?? "", verifiedPhoneNumber);
-    response.status(200).json({ user: await toAuthResponseUser(user) });
-  } catch (error) {
-    handleAuthError(error, response);
-  }
-});
 
 authRouter.get("/me", requireAuth, (request, response) => {
   response.status(200).json({ user: request.user });

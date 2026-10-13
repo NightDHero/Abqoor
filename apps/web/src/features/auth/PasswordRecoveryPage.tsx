@@ -6,8 +6,7 @@ import { homeContent } from "../home/homeContent";
 import {
   validateEmailAddress,
   validatePasswordConfirmation,
-  validatePasswordInput,
-  validatePhoneNumber
+  validatePasswordInput
 } from "./authFormValidation";
 
 const getResetToken = () =>
@@ -16,17 +15,13 @@ const getResetToken = () =>
 export function PasswordRecoveryPage({ mode }: { mode: "request" | "reset" }) {
   const [resetToken] = useState(() => mode === "reset" ? getResetToken() : "");
   const [email, setEmail] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
-  const requestErrors = {
-    email: validateEmailAddress(email),
-    phoneNumber: validatePhoneNumber(phoneNumber)
-  };
+  const requestErrors = { email: validateEmailAddress(email) };
   const resetErrors = {
     password: validatePasswordInput(password),
     passwordConfirmation: validatePasswordConfirmation(password, passwordConfirmation),
@@ -35,7 +30,6 @@ export function PasswordRecoveryPage({ mode }: { mode: "request" | "reset" }) {
   const activeErrors = mode === "request" ? requestErrors : resetErrors;
   const isFormValid = Object.values(activeErrors).every((value) => !value);
   const showEmailError = Boolean(requestErrors.email) && (submitAttempted || Boolean(email));
-  const showPhoneError = Boolean(requestErrors.phoneNumber) && (submitAttempted || Boolean(phoneNumber));
   const showPasswordError = Boolean(resetErrors.password) && (submitAttempted || Boolean(password));
   const showConfirmationError = Boolean(resetErrors.passwordConfirmation) && (submitAttempted || Boolean(passwordConfirmation));
 
@@ -54,7 +48,7 @@ export function PasswordRecoveryPage({ mode }: { mode: "request" | "reset" }) {
     setIsSubmitting(true);
     try {
       if (mode === "request") {
-        const response = await authService.requestPasswordReset({ email, phoneNumber });
+        const response = await authService.requestPasswordReset({ email });
         setMessage(response.message);
       } else {
         const response = await authService.resetPassword({
@@ -95,7 +89,6 @@ export function PasswordRecoveryPage({ mode }: { mode: "request" | "reset" }) {
             {mode === "request" ? (
               <>
                 <label className="form-field">البريد الإلكتروني<input aria-invalid={showEmailError} autoComplete="email" dir="ltr" required type="email" value={email} onChange={(event) => setEmail(event.target.value)} />{showEmailError ? <small className="field-error">{requestErrors.email}</small> : null}</label>
-                <label className="form-field">رقم الجوال<input aria-invalid={showPhoneError} autoComplete="tel" dir="ltr" inputMode="tel" required type="tel" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} />{showPhoneError ? <small className="field-error">{requestErrors.phoneNumber}</small> : null}</label>
               </>
             ) : (
               <>
@@ -107,6 +100,7 @@ export function PasswordRecoveryPage({ mode }: { mode: "request" | "reset" }) {
             {mode === "reset" && resetErrors.token ? <p className="error-message">{resetErrors.token}</p> : null}
             {message ? <p className="status-message">{message}</p> : null}
             <button disabled={isSubmitting || !isFormValid} type="submit">{isSubmitting ? "جاري الإرسال..." : mode === "request" ? "إرسال تعليمات الاستعادة" : "تغيير كلمة المرور"}</button>
+            {mode === "reset" ? <button className="secondary" type="button" onClick={() => navigateTo("/forgot-password")}>طلب رابط استعادة جديد</button> : null}
             <button className="secondary" type="button" onClick={() => navigateTo("/login")}>العودة لتسجيل الدخول</button>
           </form>
         </section>

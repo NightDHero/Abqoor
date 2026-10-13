@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
-import { issueTestPhoneVerificationCode, issueTestRegistrationCode } from "./helpers/auth.js";
+import { issueTestRegistrationCode } from "./helpers/auth.js";
 
 const testDirectory = mkdtempSync(join(tmpdir(), "abqoor-profile-plan-test-"));
 process.env.DATABASE_PATH = join(testDirectory, "test.sqlite");
@@ -24,23 +24,11 @@ const baseUrl = `http://127.0.0.1:${address.port}`;
 const register = async (email: string) => {
   const password = "correct horse battery";
   const verificationCode = await issueTestRegistrationCode(email);
-  const phoneNumber = email.startsWith("invalid")
-    ? "+966500000012"
-    : email.startsWith("schedule-overlap")
-      ? "+966500000015"
-      : email.startsWith("schedule-day")
-        ? "+966500000014"
-        : email.startsWith("schedule")
-          ? "+966500000013"
-          : "+966500000011";
-  const phoneVerificationCode = await issueTestPhoneVerificationCode(phoneNumber);
   const response = await fetch(`${baseUrl}/auth/register`, {
     body: JSON.stringify({
       email,
       password,
       passwordConfirmation: password,
-      phoneNumber,
-      phoneVerificationCode,
       verificationCode
     }),
     headers: { "content-type": "application/json" },

@@ -16,8 +16,6 @@ export const authService = {
       identifier?: string;
       password: string;
       passwordConfirmation?: string;
-      phoneNumber?: string;
-      phoneVerificationCode?: string;
       verificationCode?: string;
     }
   ) => {
@@ -31,11 +29,6 @@ export const authService = {
       body: JSON.stringify({ email }),
       method: "POST"
     }),
-  requestRegistrationPhoneCode: (phoneNumber: string) =>
-    apiRequest<{ message: string }>("/auth/register/phone-code", {
-      body: JSON.stringify({ phoneNumber }),
-      method: "POST"
-    }),
   authenticateWithGoogle: (credential: string) =>
     apiRequest<AuthResponse>("/auth/google", {
       body: JSON.stringify({ credential }),
@@ -46,7 +39,7 @@ export const authService = {
       body: JSON.stringify(input),
       method: "POST"
     }),
-  requestPasswordReset: (input: { email: string; phoneNumber: string }) =>
+  requestPasswordReset: (input: { email: string }) =>
     apiRequest<{ message: string }>("/auth/forgot-password", {
       body: JSON.stringify(input),
       method: "POST"
@@ -68,16 +61,6 @@ export const authService = {
     body: JSON.stringify(input),
     method: "POST"
   }),
-  requestPhoneVerification: (phoneNumber: string) =>
-    apiRequest<{ message: string }>("/auth/phone/code", {
-      body: JSON.stringify({ phoneNumber }),
-      method: "POST"
-    }),
-  addPhoneNumber: (input: { code: string; phoneNumber: string }) =>
-    apiRequest<AuthResponse>("/auth/phone", {
-      body: JSON.stringify(input),
-      method: "PATCH"
-    }),
   logout: async () => {
     await apiRequest<null>("/auth/logout", {
       method: "POST"

@@ -173,11 +173,6 @@ const transactionalEmailFrom =
   toOptionalString(process.env.TRANSACTIONAL_EMAIL_FROM) ??
   toOptionalString(process.env.PASSWORD_RESET_EMAIL_FROM);
 const googleClientId = toOptionalString(process.env.GOOGLE_CLIENT_ID);
-const twilioAccountSid = toOptionalString(process.env.TWILIO_ACCOUNT_SID);
-const twilioAuthToken = toOptionalString(process.env.TWILIO_AUTH_TOKEN);
-const twilioVerifyServiceSid = toOptionalString(
-  process.env.TWILIO_VERIFY_SERVICE_SID
-);
 const r2AccountId = toOptionalString(process.env.R2_ACCOUNT_ID);
 const r2Bucket = toOptionalString(process.env.R2_BUCKET);
 const r2AccessKeyId = toOptionalString(process.env.R2_ACCESS_KEY_ID);
@@ -245,13 +240,18 @@ if (nodeEnv === "production" && !googleClientId) {
   throw new Error("GOOGLE_CLIENT_ID is required in production.");
 }
 
-if (
-  nodeEnv === "production" &&
-  (!twilioAccountSid || !twilioAuthToken || !twilioVerifyServiceSid)
-) {
-  throw new Error(
-    "TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_VERIFY_SERVICE_SID are required in production."
-  );
+if (nodeEnv === "production") {
+  let parsedPasswordResetUrl: URL;
+
+  try {
+    parsedPasswordResetUrl = new URL(passwordResetUrlBase ?? "");
+  } catch {
+    throw new Error("PASSWORD_RESET_URL_BASE must be an absolute HTTPS URL in production.");
+  }
+
+  if (parsedPasswordResetUrl.protocol !== "https:") {
+    throw new Error("PASSWORD_RESET_URL_BASE must use HTTPS in production.");
+  }
 }
 
 export const env = {
@@ -319,18 +319,6 @@ export const env = {
   passwordResetUrlBase,
   resendApiKey,
   googleClientId,
-  phoneVerificationResendCooldownSeconds: toIntegerInRange(
-    process.env.PHONE_VERIFICATION_RESEND_COOLDOWN_SECONDS,
-    60,
-    30,
-    300,
-    "PHONE_VERIFICATION_RESEND_COOLDOWN_SECONDS"
-  ),
-  twilio: {
-    accountSid: twilioAccountSid,
-    authToken: twilioAuthToken,
-    verifyServiceSid: twilioVerifyServiceSid
-  },
   pdftoppmPath: process.env.PDFTOPPM_PATH,
   storageDriver,
   r2: {

@@ -218,25 +218,6 @@ export const emailVerificationRateLimit = composeRateLimits(
   })
 );
 
-const phoneFromBody = (request: Request) => {
-  const phone = (request.body as { phoneNumber?: unknown } | undefined)?.phoneNumber;
-  return typeof phone === "string" ? phone.trim().replace(/\D/g, "") : "unknown";
-};
-
-export const phoneVerificationRateLimit = composeRateLimits(
-  createFixedWindowRateLimit({
-    keyPrefix: "phone-verification-ip", maxRequests: 10,
-    message: "طلبات كثيرة لإرسال رمز الجوال. حاول لاحقاً.",
-    windowMs: 60 * 60 * 1000
-  }),
-  createFixedWindowRateLimit({
-    keyGenerator: phoneFromBody, keyPrefix: "phone-verification-destination",
-    maxRequests: 5,
-    message: "طلبات كثيرة لإرسال رمز الجوال. حاول لاحقاً.",
-    windowMs: 60 * 60 * 1000
-  })
-);
-
 export const accountChangeRateLimit = createFixedWindowRateLimit({
   keyGenerator: (request) => request.user?.id ?? getClientIdentifier(request),
   keyPrefix: "account-change", maxRequests: 10,

@@ -8,8 +8,6 @@ export const initializeSqliteSchema = (db: Database.Database) => {
       email TEXT NOT NULL UNIQUE,
       email_verified_at TEXT,
       password_hash TEXT NOT NULL,
-      phone_number TEXT,
-      phone_verified_at TEXT,
       must_change_password INTEGER NOT NULL DEFAULT 0 CHECK (must_change_password IN (0, 1)),
       session_version INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
@@ -117,18 +115,6 @@ export const initializeSqliteSchema = (db: Database.Database) => {
 
     CREATE INDEX IF NOT EXISTS idx_auth_external_identities_user_id
     ON auth_external_identities(user_id);
-
-    CREATE TABLE IF NOT EXISTS phone_verification_requests (
-      id TEXT PRIMARY KEY,
-      phone_number TEXT NOT NULL,
-      purpose TEXT NOT NULL CHECK (purpose IN ('registration', 'link')),
-      user_id TEXT,
-      created_at TEXT NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_phone_verification_requests_destination
-    ON phone_verification_requests(phone_number, purpose, created_at);
 
     CREATE TABLE IF NOT EXISTS auth_sessions (
       id TEXT PRIMARY KEY,

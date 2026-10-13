@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
-import { issueTestPhoneVerificationCode, issueTestRegistrationCode } from "./helpers/auth.js";
+import { issueTestRegistrationCode } from "./helpers/auth.js";
 
 const testDirectory = mkdtempSync(join(tmpdir(), "abqoor-admin-bootstrap-test-"));
 process.env.DATABASE_PATH = join(testDirectory, "test.sqlite");
@@ -34,14 +34,11 @@ const password = "correct horse battery";
 
 test("configured admin email requires explicit one-time bootstrap", async () => {
   const verificationCode = await issueTestRegistrationCode("bootstrap-admin@example.com");
-  const phoneVerificationCode = await issueTestPhoneVerificationCode("+966500000091");
   const registration = await fetch(`${baseUrl}/auth/register`, {
     body: JSON.stringify({
       email: "bootstrap-admin@example.com",
       password,
       passwordConfirmation: password,
-      phoneNumber: "+966500000091",
-      phoneVerificationCode,
       verificationCode
     }),
     headers: { "content-type": "application/json" },

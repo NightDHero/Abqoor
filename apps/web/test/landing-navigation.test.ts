@@ -6,6 +6,8 @@ import {
   getLandingProgramDestination,
   LandingPage
 } from "../src/pages/LandingPage.js";
+import { AuthPage } from "../src/features/auth/AuthPage.js";
+import { ProfilePage } from "../src/pages/ProfilePage.js";
 import type { User } from "../src/types/auth.js";
 
 const user = (overrides: Partial<User> = {}): User => ({
@@ -15,8 +17,6 @@ const user = (overrides: Partial<User> = {}): User => ({
   id: "student-1",
   isAdmin: false,
   mustChangePassword: false,
-  phoneNumber: null,
-  phoneVerified: false,
   profileCompleted: true,
   username: "student",
   ...overrides
@@ -41,4 +41,29 @@ test("landing entry buttons render immediately without a disabled bootstrap stat
 
   assert.ok(entryButtons.length >= 2);
   assert.equal(entryButtons.some((button) => /\sdisabled(?:=|\s|>)/.test(button)), false);
+});
+
+test("authentication and profile screens contain no phone identity controls", () => {
+  const loginMarkup = renderToStaticMarkup(createElement(AuthPage, {
+    mode: "login",
+    onAuthenticated: () => undefined
+  }));
+  const registrationMarkup = renderToStaticMarkup(createElement(AuthPage, {
+    mode: "register",
+    onAuthenticated: () => undefined
+  }));
+  const profileMarkup = renderToStaticMarkup(createElement(ProfilePage, {
+    activeTheme: "dark",
+    onLogout: async () => undefined,
+    onProfileSaved: () => undefined,
+    onThemeChange: () => undefined,
+    user: user()
+  }));
+
+  for (const markup of [loginMarkup, registrationMarkup, profileMarkup]) {
+    assert.equal(markup.includes("الجوال"), false);
+    assert.equal(markup.includes('type="tel"'), false);
+  }
+  assert.match(loginMarkup, /نسيت كلمة المرور/);
+  assert.match(registrationMarkup, /البريد الإلكتروني/);
 });
