@@ -45,3 +45,33 @@ test("transactional email delivery sends the expected Resend request", async () 
     "Bearer test-resend-key"
   );
 });
+
+test("transactional email delivery never reports rejected or unavailable requests as sent", async () => {
+  const originalConsoleError = console.error;
+  console.error = () => undefined;
+  try {
+    globalThis.fetch = async () => new Response(
+      JSON.stringify({ name: "validation_error" }),
+      {
+        headers: { "x-request-id": "request-id" },
+        status: 403
+      }
+    );
+    assert.equal(await sendTransactionalEmail({
+      subject: "رمز التحقق",
+      text: "message",
+      to: "student@example.com"
+    }), false);
+
+    globalThis.fetch = async () => {
+      throw new TypeError("network unavailable");
+    };
+    assert.equal(await sendTransactionalEmail({
+      subject: "رمز التحقق",
+      text: "message",
+      to: "student@example.com"
+    }), false);
+  } finally {
+    console.error = originalConsoleError;
+  }
+});

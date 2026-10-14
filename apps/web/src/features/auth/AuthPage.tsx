@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { SystemIcon } from "../../components/ui/SystemIcon";
+import { env } from "../../config/env";
 import { authService } from "../../services/authService";
 import { HttpError } from "../../services/http";
 import type { AuthMode, User } from "../../types/auth";
@@ -8,6 +8,7 @@ import { homeContent } from "../home/homeContent";
 import { GoogleSignInButton } from "./GoogleSignInButton";
 import {
   canSubmitAuthForm,
+  getPasswordRequirementState,
   validateEmailAddress,
   validateLoginIdentifier,
   validatePasswordConfirmation,
@@ -42,15 +43,6 @@ const authModeOptions: Array<{ label: string; value: AuthMode }> = [
   { label: "إنشاء حساب", value: "register" }
 ];
 
-const goBack = () => {
-  if (window.history.length > 1) {
-    window.history.back();
-    return;
-  }
-
-  navigateTo("/");
-};
-
 export function AuthPage({
   mode,
   onAuthenticated
@@ -72,8 +64,10 @@ export function AuthPage({
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const copy = labels[mode];
+  const passwordRequirements = getPasswordRequirementState(password);
 
   useEffect(() => {
+    window.scrollTo(0, 0);
     setError("");
     setIsSubmitting(false);
     setVerificationCode("");
@@ -202,71 +196,31 @@ export function AuthPage({
   };
 
   return (
-    <main className="auth-shell" dir="rtl">
-      <nav className="app-navigation auth-app-navigation" aria-label="تنقل الحساب">
-        <div className="app-navigation-shell">
-          <button
-            aria-label="العودة للصفحة السابقة"
-            className="app-navigation-back"
-            type="button"
-            onClick={goBack}
-          >
-            <SystemIcon name="back" />
-          </button>
-
-          <a
-            className="app-navigation-brand"
-            href="/"
-            onClick={(event) => {
-              event.preventDefault();
-              navigateTo("/");
-            }}
-          >
-            <img alt="" src={homeContent.logoPath} />
-            <span>عبقور</span>
-          </a>
-
-          <div className="app-navigation-track">
-            {authModeOptions.map((option) => (
-              <a
-                aria-current={mode === option.value ? "page" : undefined}
-                className={
-                  mode === option.value
-                    ? "app-navigation-item active"
-                    : "app-navigation-item"
-                }
-                href={option.value === "login" ? "/login" : "/register"}
-                key={option.value}
-                onClick={(event) => {
-                  event.preventDefault();
-                  handleModeSelect(option.value);
-                }}
-              >
-                <span className="app-navigation-label">{option.label}</span>
-              </a>
-            ))}
-          </div>
-        </div>
-      </nav>
-
+    <main className={`auth-shell auth-shell-${mode}`} dir="rtl">
       <section className="auth-layout">
         <aside className="auth-context">
-          <img className="auth-brand-logo" alt="عبقور" src={homeContent.logoPath} />
-          <h2>مكان واحد لرحلتك في القدرات.</h2>
-          <p>
-            تدرب، راجع أخطاءك، وتابع تقدمك من حساب واحد مصمم للدراسة اليومية.
-          </p>
-          <button className="secondary" type="button" onClick={() => navigateTo("/")}>
-            العودة للرئيسية
-          </button>
+          <div className="auth-brand-stage" aria-hidden="true">
+            <span className="auth-brand-orbit auth-brand-orbit-outer" />
+            <span className="auth-brand-orbit auth-brand-orbit-inner" />
+            <img className="auth-brand-logo" alt="" src={homeContent.logoPath} />
+          </div>
+          <div className="auth-context-copy">
+            <h2>تأسس وتدرب قدرات في مكان واحد.</h2>
+            <p>
+              تدرب، راجع أخطاءك، وتابع تقدمك من حساب واحد مصمم للدراسة اليومية.
+            </p>
+            <button className="secondary auth-home-action" type="button" onClick={() => navigateTo("/")}>
+              العودة للرئيسية
+            </button>
+          </div>
         </aside>
-        <section className="auth-card">
+        <section className="auth-card" aria-labelledby="auth-page-title">
           <header>
-          <p className="page-eyebrow">{copy.eyebrow}</p>
-          <h1 className="auth-title">{copy.title}</h1>
+            <p className="page-eyebrow">{copy.eyebrow}</p>
+            <h1 className="auth-title" id="auth-page-title">{copy.title}</h1>
           </header>
 
-        <form className="auth-form" onSubmit={handleSubmit}>
+          <form className="auth-form" onSubmit={handleSubmit}>
           <div className="auth-mode-switch" role="group" aria-label="اختيار طريقة الحساب">
             {authModeOptions.map((option) => (
               <button
@@ -320,6 +274,18 @@ export function AuthPage({
             />
             {showFieldError("password") ? <small className="field-error">{fieldErrors.password}</small> : null}
           </label>
+          {mode === "register" && password ? (
+            <ul className="auth-password-requirements" aria-label="متطلبات كلمة المرور" aria-live="polite">
+              <li className={passwordRequirements.hasMinimumLength ? "satisfied" : undefined}>
+                <span aria-hidden="true" />
+                ١٢ حرفاً على الأقل
+              </li>
+              <li className={passwordRequirements.isNotCommon ? "satisfied" : undefined}>
+                <span aria-hidden="true" />
+                ليست من كلمات المرور الشائعة
+              </li>
+            </ul>
+          ) : null}
           {mode === "register" ? (
             <label className="form-field">
               تأكيد كلمة المرور
@@ -347,10 +313,6 @@ export function AuthPage({
           )}
           {mode === "register" ? (
             <div className="auth-verification-block">
-              <div className="auth-verification-copy">
-                <strong>تحقق من بريدك الإلكتروني</strong>
-                <span>سنرسل رمزاً من ٦ أرقام إلى <b dir="ltr">{email || "بريدك الإلكتروني"}</b></span>
-              </div>
               <button
                 className="secondary"
                 disabled={isSendingCode || emailResendCooldown > 0 || Boolean(fieldErrors.email)}
@@ -360,9 +322,12 @@ export function AuthPage({
                 {isSendingCode
                   ? "جاري الإرسال..."
                   : emailResendCooldown > 0
-                    ? `إعادة الإرسال بعد ${emailResendCooldown} ث`
-                    : isCodeSent ? "إعادة إرسال الرمز" : "إرسال رمز التحقق"}
+                    ? `إرسال رمز التحقق بعد ${emailResendCooldown} ث`
+                    : "إرسال رمز التحقق"}
               </button>
+              <small className="auth-verification-hint">
+                سنرسل رمزاً من ٦ أرقام إلى بريدك الإلكتروني
+              </small>
               {isCodeSent ? (
                 <label className="form-field">
                   رمز التحقق
@@ -380,21 +345,23 @@ export function AuthPage({
                   />
                   {showFieldError("verificationCode") ? <small className="field-error">{fieldErrors.verificationCode}</small> : null}
                 </label>
-              ) : (
-                <small className="auth-verification-hint">سنرسل رمزاً من ٦ أرقام للتأكد من ملكية البريد.</small>
-              )}
+              ) : null}
             </div>
           ) : null}
           {error ? <p className="error-message">{error}</p> : null}
           <button type="submit" disabled={isSubmitting || !isFormValid}>
             {isSubmitting ? "جاري الإرسال..." : copy.action}
           </button>
-          <div className="auth-divider"><span>أو</span></div>
-          <GoogleSignInButton
-            disabled={isSubmitting}
-            onCredential={(credential) => void handleGoogleCredential(credential)}
-            onError={setError}
-          />
+          {env.googleClientId ? (
+            <div className="auth-google-alternative">
+              <div className="auth-divider"><span>أو</span></div>
+              <GoogleSignInButton
+                disabled={isSubmitting}
+                onCredential={(credential) => void handleGoogleCredential(credential)}
+                onError={setError}
+              />
+            </div>
+          ) : null}
           {pendingGoogleCredential ? (
             <section className="auth-google-link" aria-labelledby="google-link-title">
               <div>
@@ -419,7 +386,7 @@ export function AuthPage({
               </button>
             </section>
           ) : null}
-        </form>
+          </form>
         </section>
       </section>
     </main>

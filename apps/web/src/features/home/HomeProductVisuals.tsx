@@ -1,10 +1,8 @@
 import { Fragment, useState, type CSSProperties } from "react";
 import { env } from "../../config/env";
 import { SystemIcon } from "../../components/ui/SystemIcon";
-import type { CorrectAnswer, SessionQuestion } from "../../types/session";
 import { CareerTopicIcon } from "../career/CareerTopicIcon";
 import { arabicTopics, mathTopics } from "../career/careerData";
-import { StudyQuestion } from "../study/StudyQuestion";
 import { navigateTo } from "../../utils/router";
 import { homeContent } from "./homeContent";
 import {
@@ -33,6 +31,8 @@ const miniExamQuestions = Array.from({ length: 16 }, (_, index) => ({
   subject: index % 2 === 0 ? "الكمي" : "اللفظي"
 }));
 
+const previewQuestionId = "Q-001";
+
 const adaptiveSignals = [
   { label: "خطأ سابق", tone: "mistake" },
   { label: "تثبيت", tone: "reinforce" },
@@ -50,18 +50,6 @@ const lockedExamSteps = Array.from({ length: 5 }, (_, index) => ({
   index,
   number: (index + 1).toLocaleString("ar-SA")
 }));
-
-const mockExamPreviewQuestion: SessionQuestion = {
-  difficulty: 3,
-  id: "Q-034",
-  questionImageUrl: "/question-images/Q-034.png",
-  subject: "الكمي",
-  subjectId: "math",
-  topic: "اختبار محاكي"
-};
-
-const ignorePreviewAction = () => {};
-const ignorePreviewAnswer = (_answer: CorrectAnswer) => {};
 
 function SentenceCompletionVisual({
   question
@@ -228,9 +216,9 @@ export function HomepageMiniExamDemo() {
 
         <div className="home-mini-exam-image-panel">
           <img
-            alt={`Question ${currentQuestion.id}`}
+            alt={`Question ${previewQuestionId}`}
             loading="lazy"
-            src={toQuestionImage(currentQuestion.id)}
+            src={toQuestionImage(previewQuestionId)}
           />
         </div>
 
@@ -366,25 +354,8 @@ export function HomeMockExamShowcase() {
           <h3>اختبار محاكي</h3>
           <p>{homeContent.systems.mockExam}</p>
         </div>
-        <time>٢٥:٠٠</time>
       </header>
-      <div className="home-mock-exam-preview-shell product-app-shell" aria-hidden="true">
-        <div className="home-mock-exam-preview-scale">
-          <StudyQuestion
-            currentIndex={12}
-            isInReview={false}
-            isLastQuestion={false}
-            isSavingReview={false}
-            isSubmitting={false}
-            onAnswer={ignorePreviewAnswer}
-            onNext={ignorePreviewAction}
-            onPrevious={ignorePreviewAction}
-            onSaveReview={ignorePreviewAction}
-            question={mockExamPreviewQuestion}
-            totalQuestions={15}
-          />
-        </div>
-      </div>
+      <HomepageMiniExamDemo />
     </div>
   );
 }

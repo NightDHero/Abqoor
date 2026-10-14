@@ -634,10 +634,13 @@ test("question counts stay within the existing quantitative taxonomy", async () 
   });
 
   const bank = await importService.getAdminQuestionBank({
+    mode: "general",
     page: 1,
-    pageSize: 10,
+    pageSize: 1,
     sort: "asc"
   });
+  assert.equal(bank.mode, "general");
+  assert.equal(bank.pageSize, 1);
   const quantitative = bank.questionCounts.subjects.find(
     (subject) => subject.subjectId === "math"
   );

@@ -4,8 +4,7 @@ import {
   HomeAdaptiveShowcase,
   HomeAdviceUnlockVisual,
   HomeBrowserShowcase,
-  HomeMockExamShowcase,
-  HomepageMiniExamDemo
+  HomeMockExamShowcase
 } from "../features/home/HomeProductVisuals";
 import { homeContent } from "../features/home/homeContent";
 import {
@@ -238,10 +237,6 @@ export function LandingPage({ user }: { user: User | null }) {
 
           <strong>{homeContent.program.closing}</strong>
         </div>
-
-        <div data-reveal>
-          <HomepageMiniExamDemo />
-        </div>
       </section>
 
       <section
@@ -282,13 +277,20 @@ export function LandingPage({ user }: { user: User | null }) {
         <div className="home-advice-copy" data-reveal>
           <h2 id="home-advice-title">{homeContent.advice.title}</h2>
           <p>{homeContent.advice.text}</p>
-          <button
-            className="home-primary-action"
-            type="button"
-            onClick={() => navigateTo(user ? programDestination : "/register")}
-          >
-            {homeContent.advice.cta}
-          </button>
+          <div className="home-advice-cta-stage">
+            <img alt="" aria-hidden="true" className="home-advice-brand" src={homeContent.logoPath} />
+            <a
+              className="home-primary-action home-advice-cta"
+              href={user ? programDestination : "/register"}
+              onClick={(event) => {
+                event.preventDefault();
+                navigateTo(user ? programDestination : "/register");
+              }}
+            >
+              <span>{homeContent.advice.cta}</span>
+              <i aria-hidden="true" />
+            </a>
+          </div>
         </div>
 
         <div data-reveal>

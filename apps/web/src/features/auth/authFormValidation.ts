@@ -1,5 +1,22 @@
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+export const passwordMinimumLength = 12;
+
+const commonPasswords = new Set([
+  "111111111111",
+  "123456789012",
+  "password1234",
+  "qwerty123456",
+  "admin12345678",
+  "welcome12345",
+  "abcdefgh1234"
+]);
+
+export const getPasswordRequirementState = (value: string) => ({
+  hasMinimumLength: value.length >= passwordMinimumLength,
+  isNotCommon: Boolean(value) && !commonPasswords.has(value.trim().toLowerCase())
+});
+
 export const validateEmailAddress = (value: string) => {
   if (!value.trim()) return "البريد الإلكتروني مطلوب.";
   return emailPattern.test(value.trim()) ? "" : "أدخل بريداً إلكترونياً صالحاً.";
@@ -11,7 +28,11 @@ export const validateLoginIdentifier = (value: string) => {
 
 export const validatePasswordInput = (value: string) => {
   if (!value) return "كلمة المرور مطلوبة.";
-  return value.length >= 12 ? "" : "كلمة المرور يجب ألا تقل عن ١٢ حرفاً.";
+  const requirements = getPasswordRequirementState(value);
+  if (!requirements.hasMinimumLength || !requirements.isNotCommon) {
+    return "كلمة المرور يجب أن تكون قوية وألا تقل عن ١٢ حرفاً.";
+  }
+  return "";
 };
 
 export const validatePasswordConfirmation = (

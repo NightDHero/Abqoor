@@ -7,6 +7,7 @@ import {
   LandingPage
 } from "../src/pages/LandingPage.js";
 import { AuthPage } from "../src/features/auth/AuthPage.js";
+import { HomeMockExamShowcase } from "../src/features/home/HomeProductVisuals.js";
 import { ProfilePage } from "../src/pages/ProfilePage.js";
 import type { User } from "../src/types/auth.js";
 
@@ -43,6 +44,35 @@ test("landing entry buttons render immediately without a disabled bootstrap stat
   assert.equal(entryButtons.some((button) => /\sdisabled(?:=|\s|>)/.test(button)), false);
 });
 
+test("homepage keeps learning content in the program and restores the mock exam interface", () => {
+  const landingMarkup = renderToStaticMarkup(createElement(LandingPage, { user: null }));
+  const programMarkup = landingMarkup.match(
+    /<section[^>]+id="home-program"[\s\S]*?<\/section>/
+  )?.[0] ?? "";
+  const mockExamMarkup = renderToStaticMarkup(createElement(HomeMockExamShowcase));
+
+  assert.match(
+    programMarkup,
+    /عبقور هو برنامج تدريبي لاختبار القدرات للقسمين اللفظي والكمي/
+  );
+  assert.equal(programMarkup.includes("اللفظفي"), false);
+  assert.match(programMarkup, /بتتعلم في برنامجنا:/);
+  assert.match(programMarkup, /كيف شكل واجهة الاختبار الحقيقي/);
+  assert.match(programMarkup, /اشياء اخرى مانعرفها الا لين جربت تحل/);
+  assert.match(
+    programMarkup,
+    /كل الاسئلة اللي تحلها جت في الاختبار الحقيقي، ما بضيع وقتك/
+  );
+  assert.equal((landingMarkup.match(/بتتعلم في برنامجنا:/g) ?? []).length, 1);
+
+  assert.match(mockExamMarkup, /home-mini-exam/);
+  assert.match(mockExamMarkup, /رقم السؤال/);
+  assert.match(mockExamMarkup, /٢٥:٠٠/);
+  assert.match(mockExamMarkup, /question-images\/Q-001\.png/);
+  assert.match(mockExamMarkup, /حفظ والتالي/);
+  assert.equal((mockExamMarkup.match(/aria-label="السؤال /g) ?? []).length, 16);
+});
+
 test("authentication and profile screens contain no phone identity controls", () => {
   const loginMarkup = renderToStaticMarkup(createElement(AuthPage, {
     mode: "login",
@@ -66,4 +96,17 @@ test("authentication and profile screens contain no phone identity controls", ()
   }
   assert.match(loginMarkup, /نسيت كلمة المرور/);
   assert.match(registrationMarkup, /البريد الإلكتروني/);
+  assert.match(loginMarkup, /تأسس وتدرب قدرات في مكان واحد\./);
+  assert.equal(loginMarkup.includes("auth-app-navigation"), false);
+  assert.match(
+    loginMarkup,
+    /class="auth-mode-switch-option selected"[^>]+aria-pressed="true"|aria-pressed="true"[^>]+class="auth-mode-switch-option selected"/
+  );
+  assert.match(registrationMarkup, />إرسال رمز التحقق<\/button>/);
+  assert.match(
+    registrationMarkup,
+    /سنرسل رمزاً من ٦ أرقام إلى بريدك الإلكتروني/
+  );
+  assert.equal(registrationMarkup.includes("تحقق من بريدك الإلكتروني"), false);
+  assert.equal(loginMarkup.includes("auth-divider"), false);
 });

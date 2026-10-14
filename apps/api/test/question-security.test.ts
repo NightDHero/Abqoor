@@ -161,6 +161,15 @@ test("server evaluates answers without exposing the answer before submission", a
   assert.equal(mePayload.user.isAdmin, false);
 });
 
+test("homepage preview exposes Q-001 without opening other question images", async () => {
+  const previewResponse = await fetch(`${baseUrl}/question-images/Q-001.png`);
+  assert.equal(previewResponse.status, 200);
+  assert.equal(previewResponse.headers.get("cache-control"), "public, max-age=300");
+
+  const protectedResponse = await fetch(`${baseUrl}/question-images/Q-002.png`);
+  assert.equal(protectedResponse.status, 401);
+});
+
 after(async () => {
   await new Promise<void>((resolve, reject) =>
     server.close((error) => (error ? reject(error) : resolve()))

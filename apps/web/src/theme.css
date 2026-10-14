@@ -793,22 +793,15 @@ body:has(.onboarding-shell) {
 
 .home-question-image-stage figcaption,
 .home-mock-exam > header,
-.home-focus-map > header,
-.home-mock-exam > footer {
+.home-focus-map > header {
   border-color: var(--home-line);
 }
 
 .home-analogy-question > span,
 .home-topic-route i,
 .home-time-fork-line i,
-.home-focus-signal > i,
-.home-mock-exam > footer i,
-.home-mock-exam-question > div span {
+.home-focus-signal > i {
   background: var(--home-track-bg);
-}
-
-.home-mock-exam > footer i {
-  background: linear-gradient(90deg, var(--home-gold) 46%, var(--home-track-bg) 46%);
 }
 
 .home-topic-rail > span {
@@ -829,8 +822,7 @@ body:has(.onboarding-shell) {
   background: var(--home-panel-solid);
 }
 
-.home-session-node > span,
-.home-mock-exam-question > div span {
+.home-session-node > span {
   border-color: var(--home-line);
 }
 

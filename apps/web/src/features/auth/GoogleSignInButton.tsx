@@ -1,22 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { env } from "../../config/env";
-
-type GoogleCredentialResponse = { credential?: string };
+import {
+  createGoogleIdentityController,
+  type GoogleIdentityApi
+} from "./googleIdentityClient";
 
 declare global {
   interface Window {
     google?: {
       accounts: {
-        id: {
-          initialize: (options: {
-            callback: (response: GoogleCredentialResponse) => void;
-            client_id: string;
-          }) => void;
-          renderButton: (
-            element: HTMLElement,
-            options: Record<string, string | number>
-          ) => void;
-        };
+        id: GoogleIdentityApi;
       };
     };
   }
@@ -39,6 +32,14 @@ const loadGoogleIdentityServices = () => {
   return googleScriptPromise;
 };
 
+const googleIdentityController = createGoogleIdentityController(async () => {
+  await loadGoogleIdentityServices();
+  if (!window.google?.accounts.id) {
+    throw new Error("Google Identity Services did not initialize.");
+  }
+  return window.google.accounts.id;
+});
+
 export function GoogleSignInButton({
   disabled,
   onCredential,
@@ -56,24 +57,22 @@ export function GoogleSignInButton({
   useEffect(() => {
     if (!env.googleClientId) return;
     let active = true;
-    void loadGoogleIdentityServices()
-      .then(() => {
-        if (!active || !containerRef.current || !window.google) return;
-        window.google.accounts.id.initialize({
-          callback: (response) => {
-            if (response.credential) callbackRef.current(response.credential);
-          },
-          client_id: env.googleClientId
-        });
+    const removeCredentialHandler = googleIdentityController.setCredentialHandler(
+      (credential) => callbackRef.current(credential)
+    );
+    void googleIdentityController.initialize(env.googleClientId)
+      .then((googleIdentity) => {
+        if (!active || !containerRef.current) return;
         containerRef.current.replaceChildren();
-        window.google.accounts.id.renderButton(containerRef.current, {
+        const availableWidth = containerRef.current.clientWidth;
+        googleIdentity.renderButton(containerRef.current, {
           locale: "ar",
           shape: "rectangular",
           size: "large",
           text: "continue_with",
           theme: "outline",
           type: "standard",
-          width: 320
+          width: Math.min(400, Math.max(200, availableWidth || 320))
         });
         setIsReady(true);
       })
@@ -82,6 +81,7 @@ export function GoogleSignInButton({
       });
     return () => {
       active = false;
+      removeCredentialHandler();
     };
   }, [onError]);
 

@@ -14,6 +14,7 @@ import "./features/exam/exam-entry.css";
 import "./features/admin/admin-question-management.css";
 import "./theme.css";
 import "./components/layout/app-navigation.css";
+import "./features/auth/auth-page.css";
 
 initializeThemePreference();
 

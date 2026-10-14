@@ -17,7 +17,7 @@ import { requireAuth } from "../auth/auth.middleware.js";
 export const mediaRouter = Router();
 
 const questionImagePattern = /^([A-Za-z0-9-]+)\.(png|webp)$/;
-const publicPreviewQuestionIds = new Set(["Q-034"]);
+const publicPreviewQuestionIds = new Set(["Q-001", "Q-034"]);
 
 const requireQuestionImageAccess = (
   request: Request,

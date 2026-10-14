@@ -16,6 +16,7 @@ import * as authIdentityVerification from "./postgres-migrations/009_auth_identi
 import * as verifiedContactIdentities from "./postgres-migrations/010_verified_contact_identities.js";
 import * as questionBanksAndPasswordChange from "./postgres-migrations/011_question_banks_and_password_change.js";
 import * as removePhoneIdentity from "./postgres-migrations/012_remove_phone_identity.js";
+import * as questionImageStorageKey from "./postgres-migrations/013_question_image_storage_key.js";
 import { initializeSqliteSchema } from "./sqlite-schema.js";
 
 const { Pool, types } = pg;
@@ -62,7 +63,8 @@ const postgresMigrations: PostgresMigration[] = [
   authIdentityVerification,
   verifiedContactIdentities,
   questionBanksAndPasswordChange,
-  removePhoneIdentity
+  removePhoneIdentity,
+  questionImageStorageKey
 ];
 const transactionClientStorage = new AsyncLocalStorage<pg.PoolClient>();
 
