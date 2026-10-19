@@ -102,10 +102,10 @@ export const createApp = async () => {
     app.set("trust proxy", 1);
   }
 
-  app.use(requestContext);
-  app.use(securityHeaders);
   app.options("*", cors(corsOptions));
   app.use(cors(corsOptions));
+  app.use(requestContext);
+  app.use(securityHeaders);
   app.use(cookieParser());
   app.use(express.json({ limit: "1mb", strict: true }));
   app.use(sensitiveResponseCacheControl);

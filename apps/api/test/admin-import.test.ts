@@ -10,8 +10,10 @@ import { issueTestRegistrationCode } from "./helpers/auth.js";
 
 const testDirectory = mkdtempSync(join(tmpdir(), "abqoor-admin-import-test-"));
 const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+const productionFrontendOrigin = "https://abqoor-web.vercel.app";
 process.env.DATABASE_PATH = join(testDirectory, "test.sqlite");
 process.env.ADMIN_EMAILS = "admin@example.com";
+process.env.FRONTEND_ORIGIN = `http://localhost:5173,${productionFrontendOrigin}`;
 process.env.JWT_SECRET = "admin-import-test-secret";
 process.env.NODE_ENV = "test";
 
@@ -1290,7 +1292,7 @@ test("rejects final image promotion when copied content is unreadable", async ()
   );
 });
 
-test("allows configured admins and rejects ordinary authenticated users", async () => {
+test("handles production CORS for admin imports while preserving authorization", async () => {
   const app = await createApp();
   const server = app.listen(0);
   await new Promise<void>((resolve) => server.once("listening", resolve));
@@ -1326,6 +1328,29 @@ test("allows configured admins and rejects ordinary authenticated users", async 
   };
 
   try {
+    const preflight = await fetch(`${baseUrl}/admin/import/analyze`, {
+      headers: {
+        "access-control-request-headers": "content-type",
+        "access-control-request-method": "POST",
+        origin: productionFrontendOrigin
+      },
+      method: "OPTIONS"
+    });
+    assert.equal(preflight.status, 204);
+    assert.equal(
+      preflight.headers.get("access-control-allow-origin"),
+      productionFrontendOrigin
+    );
+    assert.equal(preflight.headers.get("access-control-allow-credentials"), "true");
+    assert.match(
+      preflight.headers.get("access-control-allow-methods") ?? "",
+      /POST/
+    );
+    assert.match(
+      preflight.headers.get("access-control-allow-headers") ?? "",
+      /Content-Type/i
+    );
+
     await register("admin@example.com");
     const userCookie = await register("student@example.com");
     await importConfiguredAdminEmails();
@@ -1339,6 +1364,65 @@ test("allows configured admins and rejects ordinary authenticated users", async 
 
     assert.equal(adminResponse.status, 200);
     assert.equal(userResponse.status, 403);
+
+    const userAnalyzeResponse = await fetch(`${baseUrl}/admin/import/analyze`, {
+      body: new FormData(),
+      headers: { cookie: userCookie, origin: productionFrontendOrigin },
+      method: "POST"
+    });
+    assert.equal(userAnalyzeResponse.status, 403);
+    assert.equal(
+      userAnalyzeResponse.headers.get("access-control-allow-origin"),
+      productionFrontendOrigin
+    );
+
+    const invalidAnalyzeResponse = await fetch(`${baseUrl}/admin/import/analyze`, {
+      body: new FormData(),
+      headers: { cookie: adminCookie, origin: productionFrontendOrigin },
+      method: "POST"
+    });
+    assert.equal(invalidAnalyzeResponse.status, 400);
+    assert.equal(
+      invalidAnalyzeResponse.headers.get("access-control-allow-origin"),
+      productionFrontendOrigin
+    );
+    assert.equal(invalidAnalyzeResponse.headers.get("access-control-allow-credentials"), "true");
+    assert.equal(
+      (await invalidAnalyzeResponse.json() as { message?: string }).message,
+      "ملف Excel مطلوب."
+    );
+
+    const malformedForm = new FormData();
+    malformedForm.append(
+      "unexpected",
+      new Blob([png], { type: "image/png" }),
+      "unexpected.png"
+    );
+    const multipartErrorResponse = await fetch(`${baseUrl}/admin/import/analyze`, {
+      body: malformedForm,
+      headers: { cookie: adminCookie, origin: productionFrontendOrigin },
+      method: "POST"
+    });
+    assert.equal(multipartErrorResponse.status, 400);
+    assert.equal(
+      multipartErrorResponse.headers.get("access-control-allow-origin"),
+      productionFrontendOrigin
+    );
+    assert.match(
+      (await multipartErrorResponse.json() as { message?: string }).message ?? "",
+      /تعذر قبول الملفات المرفوعة/
+    );
+
+    const rejectedPreflight = await fetch(`${baseUrl}/admin/import/analyze`, {
+      headers: {
+        "access-control-request-headers": "content-type",
+        "access-control-request-method": "POST",
+        origin: "https://rejected.example"
+      },
+      method: "OPTIONS"
+    });
+    assert.equal(rejectedPreflight.status, 403);
+    assert.equal(rejectedPreflight.headers.get("access-control-allow-origin"), null);
 
     const userPdfResponse = await fetch(
       `${baseUrl}/admin/import/source-pdfs/source-pdf-test/file`,
@@ -1366,10 +1450,15 @@ test("allows configured admins and rejects ordinary authenticated users", async 
     form.append("questionTo", "503");
     const analyzeResponse = await fetch(`${baseUrl}/admin/import/analyze`, {
       method: "POST",
-      headers: { cookie: adminCookie },
+      headers: { cookie: adminCookie, origin: productionFrontendOrigin },
       body: form
     });
     assert.equal(analyzeResponse.status, 200);
+    assert.equal(
+      analyzeResponse.headers.get("access-control-allow-origin"),
+      productionFrontendOrigin
+    );
+    assert.equal(analyzeResponse.headers.get("access-control-allow-credentials"), "true");
     const analyzed = (await analyzeResponse.json()) as {
       job: { errorCount: number; id: string; status: string; totalQuestions: number };
     };
