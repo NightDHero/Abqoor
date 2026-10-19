@@ -385,10 +385,17 @@ export const analyzeQuestionImport = async (
 ): Promise<ImportJobDetail> => {
   assertAnalysisInput(request);
 
+  request.onStage?.("workbook_analysis_started", {
+    excelBytes: request.excel.fileSize ?? request.excel.buffer.length
+  });
   const workbook = await readAdminWorkbook(
     request.excel.buffer,
     request.questionRange
   );
+  request.onStage?.("workbook_analysis_completed", {
+    issueCount: workbook.issues.length,
+    questionCount: workbook.questions.length
+  });
   const firstSubject = workbook.questions[0]?.subject;
   const bank = request.importType === "aqsam"
     ? await ensureQuestionBank({
@@ -417,9 +424,17 @@ export const analyzeQuestionImport = async (
 
   try {
     const issues = [...workbook.issues];
+    request.onStage?.("media_analysis_started", {
+      mediaType: request.pdf ? "pdf" : "images",
+      selectedCount: request.questionRange.to - request.questionRange.from + 1
+    });
     const media = request.pdf
       ? await analyzePdfMedia(job.id, request, issues, toImportQuestionId)
       : await analyzeImageMedia(job.id, request, issues, toImportQuestionId);
+    request.onStage?.("media_analysis_completed", {
+      mappedCount: media.mapping.size,
+      issueCount: issues.length
+    });
     const workbookNumbers = new Set(
       workbook.questions.map((question) => question.questionNumber)
     );

@@ -348,6 +348,7 @@ const resolveOoxmlTarget = (partPath: string, target: string) =>
 
 export const extractWorkbookEmbeddedImages = (excelBuffer: Buffer) => {
   const archive = unzipSync(new Uint8Array(excelBuffer));
+  const imageBuffers = new Map<string, Buffer>();
   const readXml = (path: string, parser = xmlParser) => archive[path]
     ? parser.parse(xmlDecoder.decode(archive[path])) as unknown
     : null;
@@ -420,12 +421,17 @@ export const extractWorkbookEmbeddedImages = (excelBuffer: Buffer) => {
       const imagePath = resolveOoxmlTarget(drawingPath, imageTarget);
       const bytes = archive[imagePath];
       if (!bytes) continue;
+      let imageBuffer = imageBuffers.get(imagePath);
+      if (!imageBuffer) {
+        imageBuffer = Buffer.from(bytes);
+        imageBuffers.set(imagePath, imageBuffer);
+      }
       const filename = String(
         pic?.nvPicPr?.cNvPr?.["@_name"] ?? posix.basename(imagePath)
       );
       const rowNumber = rowIndex + 1;
       const image: EmbeddedWorkbookImage = {
-        buffer: Buffer.from(bytes),
+        buffer: imageBuffer,
         columnIndex,
         filename,
         mediaType: mediaTypeForWorkbookImage(filename),

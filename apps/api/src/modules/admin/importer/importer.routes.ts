@@ -102,6 +102,32 @@ const uploadedFiles = (request: Request) => {
   return Object.values(files ?? {}).flat();
 };
 
+type ImportAnalysisStage =
+  | "request_received"
+  | "upload_parsing_completed"
+  | "upload_parsing_failed"
+  | "workbook_analysis_started"
+  | "workbook_analysis_completed"
+  | "media_analysis_started"
+  | "media_analysis_completed"
+  | "analysis_completed"
+  | "analysis_failed";
+
+const writeImportLifecycle = (
+  request: Request,
+  stage: ImportAnalysisStage,
+  outcome: "success" | "failure",
+  detail: Record<string, string | number | boolean> = {},
+  targetId?: string
+) => {
+  writeSecurityEvent(request, "admin.import", {
+    actorUserId: request.user?.id,
+    detail: { action: "analyze", stage, ...detail },
+    outcome,
+    targetId
+  });
+};
+
 const cleanupUploadedFiles = (request: Request) => {
   for (const file of uploadedFiles(request)) {
     try {
@@ -164,17 +190,28 @@ const acceptAnalyzeUpload = (
   response: Response,
   next: NextFunction
 ) => {
+  writeImportLifecycle(request, "request_received", "success");
   analyzeFields(request, response, (error) => {
     if (error) {
+      writeImportLifecycle(request, "upload_parsing_failed", "failure", {
+        errorType: error instanceof multer.MulterError ? error.code : "multipart_error"
+      });
       cleanupUploadedFiles(request);
       handleRouteError(error, response);
       return;
     }
+    const files = uploadedFiles(request);
+    writeImportLifecycle(request, "upload_parsing_completed", "success", {
+      fileCount: files.length,
+      uploadBytes: files.reduce((total, file) => total + file.size, 0)
+    });
     next();
   });
 };
 
 importerRouter.post("/analyze", adminImportRateLimit, acceptAnalyzeUpload, async (request, response) => {
+  const startedAt = Date.now();
+  let currentStage: ImportAnalysisStage = "upload_parsing_completed";
   try {
     const files = request.files as
       | Record<string, Express.Multer.File[]>
@@ -216,21 +253,28 @@ importerRouter.post("/analyze", adminImportRateLimit, acceptAnalyzeUpload, async
       ),
       importType,
       bankName: typeof body.bankName === "string" ? body.bankName : undefined,
-      bankKey: typeof body.bankKey === "string" ? body.bankKey : undefined
+      bankKey: typeof body.bankKey === "string" ? body.bankKey : undefined,
+      onStage: (stage, stageDetail) => {
+        currentStage = stage;
+        writeImportLifecycle(request, stage, "success", stageDetail);
+      }
     });
 
     response.status(200).json(detail);
-    writeSecurityEvent(request, "admin.import", {
-      actorUserId: request.user?.id,
-      detail: { action: "analyze" },
-      outcome: "success",
-      targetId: detail.job.id
-    });
+    writeImportLifecycle(request, "analysis_completed", "success", {
+      durationMs: Date.now() - startedAt,
+      issueCount: detail.job.errorCount,
+      questionCount: detail.job.totalQuestions
+    }, detail.job.id);
   } catch (error) {
-    writeSecurityEvent(request, "admin.import", {
-      actorUserId: request.user?.id,
-      detail: { action: "analyze" },
-      outcome: "failure"
+    writeImportLifecycle(request, "analysis_failed", "failure", {
+      durationMs: Date.now() - startedAt,
+      failureStage: currentStage,
+      errorType: error instanceof AdminImportError
+        ? "validation_error"
+        : error instanceof Error
+          ? error.name
+          : "unknown_error"
     });
     handleRouteError(error, response);
   } finally {

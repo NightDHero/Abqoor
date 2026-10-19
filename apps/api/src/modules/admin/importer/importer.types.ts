@@ -238,6 +238,10 @@ export type AnalyzeImportRequest = {
   importType: QuestionImportType;
   bankKey?: string;
   bankName?: string;
+  onStage?: (
+    stage: "workbook_analysis_started" | "workbook_analysis_completed" | "media_analysis_started" | "media_analysis_completed",
+    detail?: Record<string, string | number | boolean>
+  ) => void;
 };
 
 export type ConfirmImportRequest = {

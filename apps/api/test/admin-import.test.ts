@@ -675,6 +675,23 @@ test("maps embedded workbook images by their OOXML row and column anchors", asyn
   }]);
 });
 
+test("reuses one workbook media buffer across repeated drawing anchors", async () => {
+  const repeatedImages = Array.from({ length: 40 }, (_, index) => ({
+    buffer: png,
+    columnIndex: 6,
+    filename: "shared-question-image.png",
+    rowIndex: index % 2 === 0 ? 1 : 2
+  }));
+  const sheets = validQuantitativeSheets();
+  sheets[0]?.data.push([2, "سؤال 2", "أ", "ب", "ج", "د", "نعم", "ب"]);
+  const workbook = createWorkbookBuffer(sheets, {}, { 1: repeatedImages });
+  const imagesBySheet = excelAdapter.extractWorkbookEmbeddedImages(workbook);
+  const images = [...(imagesBySheet.get("الورقة1")?.values() ?? [])].flat();
+
+  assert.equal(images.length, repeatedImages.length);
+  assert.ok(images.every((image) => image.buffer === images[0]?.buffer));
+});
+
 test("extracts question text from an OOXML legacy cell note", async () => {
   const sheets = validWideQuantitativeSheets([12]);
   if (sheets[0]?.data[1]) sheets[0].data[1][6] = "";
