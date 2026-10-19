@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { Readable } from "node:stream";
 import { after, test } from "node:test";
 import { strToU8, zipSync } from "fflate";
 import { issueTestRegistrationCode } from "./helpers/auth.js";
 
 const testDirectory = mkdtempSync(join(tmpdir(), "abqoor-admin-import-test-"));
+const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 process.env.DATABASE_PATH = join(testDirectory, "test.sqlite");
 process.env.ADMIN_EMAILS = "admin@example.com";
 process.env.JWT_SECRET = "admin-import-test-secret";
@@ -185,9 +188,9 @@ const columnName = (index: number) => {
   return result;
 };
 
-const sheetXml = (rows: unknown[][]) =>
+const sheetXml = (rows: unknown[][], hasDrawing = false) =>
   `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-  `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>` +
+  `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetData>` +
   rows
     .map(
       (row, rowIndex) =>
@@ -203,17 +206,26 @@ const sheetXml = (rows: unknown[][]) =>
         `</row>`
     )
     .join("") +
-  `</sheetData></worksheet>`;
+  `</sheetData>${hasDrawing ? '<drawing r:id="rIdDrawing"/>' : ""}</worksheet>`;
+
+type TestEmbeddedImage = {
+  buffer: Buffer;
+  columnIndex: number;
+  filename: string;
+  rowIndex: number;
+};
 
 const createWorkbookBuffer = (
   sheets = validSheets(),
-  commentsBySheet: Record<number, Record<string, string>> = {}
+  commentsBySheet: Record<number, Record<string, string>> = {},
+  embeddedImagesBySheet: Record<number, TestEmbeddedImage[]> = {}
 ) => {
   const contentTypes = [
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`,
     `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">`,
     `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>`,
     `<Default Extension="xml" ContentType="application/xml"/>`,
+    `<Default Extension="png" ContentType="image/png"/>`,
     `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>`,
     ...sheets.map(
       (_sheet, index) =>
@@ -251,15 +263,29 @@ const createWorkbookBuffer = (
     "xl/_rels/workbook.xml.rels": strToU8(workbookRelationships)
   };
   sheets.forEach((sheet, index) => {
-    files[`xl/worksheets/sheet${index + 1}.xml`] = strToU8(sheetXml(sheet.data));
+    const sheetNumber = index + 1;
+    const embeddedImages = embeddedImagesBySheet[sheetNumber] ?? [];
+    files[`xl/worksheets/sheet${sheetNumber}.xml`] = strToU8(
+      sheetXml(sheet.data, embeddedImages.length > 0)
+    );
     const comments = commentsBySheet[index + 1];
-    if (comments) {
-      files[`xl/worksheets/_rels/sheet${index + 1}.xml.rels`] = strToU8(
+    if (comments || embeddedImages.length > 0) {
+      const relationships = [
+        ...(comments ? [
+          `<Relationship Id="rIdComments" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments" Target="../comments${sheetNumber}.xml"/>`
+        ] : []),
+        ...(embeddedImages.length > 0 ? [
+          `<Relationship Id="rIdDrawing" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing${sheetNumber}.xml"/>`
+        ] : [])
+      ].join("");
+      files[`xl/worksheets/_rels/sheet${sheetNumber}.xml.rels`] = strToU8(
         `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
         `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
-        `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments" Target="../comments${index + 1}.xml"/>` +
+        relationships +
         `</Relationships>`
       );
+    }
+    if (comments) {
       files[`xl/comments${index + 1}.xml`] = strToU8(
         `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
         `<comments xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
@@ -269,6 +295,29 @@ const createWorkbookBuffer = (
         ).join("") +
         `</commentList></comments>`
       );
+    }
+    if (embeddedImages.length > 0) {
+      files[`xl/drawings/drawing${sheetNumber}.xml`] = strToU8(
+        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+        `<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
+        embeddedImages.map((image, imageIndex) =>
+          `<xdr:oneCellAnchor><xdr:from><xdr:col>${image.columnIndex}</xdr:col><xdr:row>${image.rowIndex}</xdr:row></xdr:from>` +
+          `<xdr:ext cx="895350" cy="962025"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${imageIndex + 1}" name="${escapeXml(image.filename)}"/></xdr:nvPicPr>` +
+          `<xdr:blipFill><a:blip r:embed="rId${imageIndex + 1}"/></xdr:blipFill></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>`
+        ).join("") +
+        `</xdr:wsDr>`
+      );
+      files[`xl/drawings/_rels/drawing${sheetNumber}.xml.rels`] = strToU8(
+        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+        `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+        embeddedImages.map((image, imageIndex) =>
+          `<Relationship Id="rId${imageIndex + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${escapeXml(image.filename)}"/>`
+        ).join("") +
+        `</Relationships>`
+      );
+      embeddedImages.forEach((image) => {
+        files[`xl/media/${image.filename}`] = new Uint8Array(image.buffer);
+      });
     }
   });
   return Buffer.from(zipSync(files));
@@ -375,6 +424,95 @@ test("selects a verbal sheet by canonical name regardless of workbook order", ()
   assert.equal(analysis.questions[0]?.correctAnswer, "B");
 });
 
+test("maps each supported verbal workbook format without shifting columns", () => {
+  const cases = [
+    {
+      expectedAnswerText: undefined,
+      expectedPassage: undefined,
+      expectedQuestion: "ليل : نهار",
+      expectedOptions: ["برد : حر", "نور : قمر", "صيف : شتاء", "كتاب : قلم"],
+      range: { from: 101, to: 101 },
+      sheet: {
+        sheet: "بنك التناظر عام",
+        data: [standardHeader, [101, "ليل : نهار", "برد : حر", "نور : قمر", "صيف : شتاء", "كتاب : قلم", "أ"]]
+      }
+    },
+    {
+      expectedAnswerText: "مجتهد",
+      expectedPassage: undefined,
+      expectedQuestion: "الطالب ____ في دراسته",
+      expectedOptions: ["مجتهد", "بعيد", "سريع", "قليل"],
+      range: { from: 1, to: 1 },
+      sheet: {
+        sheet: "إكمال الجمل عام",
+        data: [["السؤال", "الإجابة نص", "أ", "ب", "ج", "د", "الإجابة"], ["الطالب ____ في دراسته", "مجتهد", "مجتهد", "بعيد", "سريع", "قليل", "أ"]]
+      }
+    },
+    {
+      expectedAnswerText: "ينام",
+      expectedPassage: undefined,
+      expectedQuestion: "يستيقظ المجتهد مبكراً ثم ينام إلى عمله",
+      expectedOptions: ["يستيقظ", "المجتهد", "ينام", "عمله"],
+      range: { from: 1, to: 1 },
+      sheet: {
+        sheet: "الخطأ السياقي عام",
+        data: [["السؤال", "الإجابة نص", "أ", "ب", "ج", "د", "الإجابة"], ["يستيقظ المجتهد مبكراً ثم ينام إلى عمله", "ينام", "يستيقظ", "المجتهد", "ينام", "عمله", "ج"]]
+      }
+    },
+    {
+      expectedAnswerText: "سيارة",
+      expectedPassage: undefined,
+      expectedQuestion: "أدوات الكتابة",
+      expectedOptions: ["قلم", "دفتر", "ممحاة", "سيارة"],
+      range: { from: 104, to: 104 },
+      sheet: {
+        sheet: "المفردة الشاذة عام",
+        data: [["رقم السؤال", "أ", "ب", "ج", "د", "الإجابة", "الإجابة نص", "السؤال"], [104, "قلم", "دفتر", "ممحاة", "سيارة", "د", "سيارة", "أدوات الكتابة"]]
+      }
+    },
+    {
+      expectedAnswerText: undefined,
+      expectedPassage: "هذا نص قصير مشترك.",
+      expectedQuestion: "ما الفكرة الرئيسة؟",
+      expectedOptions: ["الأولى", "الثانية", "الثالثة", "الرابعة"],
+      range: { from: 105, to: 105 },
+      sheet: {
+        sheet: "استيعاب المقروء عام",
+        data: [["رقم السؤال", "النص", "السؤال", "أ", "ب", "ج", "د", "الإجابة"], [105, "هذا نص قصير مشترك.", "ما الفكرة الرئيسة؟", "الأولى", "الثانية", "الثالثة", "الرابعة", "ب"]]
+      }
+    }
+  ] as const;
+
+  for (const item of cases) {
+    const analysis = excelAdapter.analyzeWorkbookSheets([item.sheet], item.range);
+    assert.equal(analysis.issues.length, 0, item.sheet.sheet);
+    assert.equal(analysis.questions.length, 1, item.sheet.sheet);
+    assert.equal(analysis.questions[0]?.questionText, item.expectedQuestion);
+    assert.deepEqual(analysis.questions[0]?.options, item.expectedOptions);
+    assert.equal(analysis.questions[0]?.metadata.answerText, item.expectedAnswerText);
+    assert.equal(analysis.questions[0]?.metadata.passage, item.expectedPassage);
+  }
+});
+
+test("gives repeated reading passages a stable relationship identifier", () => {
+  const header = ["رقم السؤال", "النص", "السؤال", "أ", "ب", "ج", "د", "الإجابة"];
+  const analysis = excelAdapter.analyzeWorkbookSheets([{
+    sheet: "استيعاب المقروء عام",
+    data: [
+      header,
+      [201, "نص مشترك", "السؤال الأول", "أ1", "ب1", "ج1", "د1", "أ"],
+      [202, "نص مشترك", "السؤال الثاني", "أ2", "ب2", "ج2", "د2", "ب"]
+    ]
+  }], { from: 201, to: 202 });
+
+  assert.equal(analysis.issues.length, 0);
+  assert.ok(analysis.questions[0]?.metadata.passageId);
+  assert.equal(
+    analysis.questions[0]?.metadata.passageId,
+    analysis.questions[1]?.metadata.passageId
+  );
+});
+
 test("parses only the selected named sheet and ignores unrelated extras", async () => {
   const sheets = [
     { sheet: "تعليمات", data: [["not", "an", "import", "sheet"]] },
@@ -469,6 +607,70 @@ test("maps the documented A-R quantitative workbook and cell-note fallback", () 
     precisionDifficulty: "3",
     weight: "2"
   });
+});
+
+test("maps the extended A-Y quantitative workbook without using the bank id as the question id", () => {
+  const header = [
+    "رقم البنك", "معرف داخلي ١", "معرف داخلي ٢", "السؤال", "المقارنة أ",
+    "أ", "ب", "ج", "مرجع", "د", "الصورة", "نعم / لا", "صعوبة",
+    "فئة السؤال", "فئة إضافية", "الإجابة", "صورة مقارنة ١", "صورة مقارنة ٢",
+    "تقني S", "تقني T", "تقني U", "تقني V", "معرف السؤال", "تقني X", "تقني Y"
+  ];
+  const row = [
+    7, "SRC-1", "REF-2", "قارن بين القيمتين", "القيمة الأولى",
+    "الأولى أكبر", "الثانية أكبر", "متساويتان", "محجوز", "لا تكفي البيانات",
+    "نعم", "نعم", 4, "الحساب", "العمليات الأساسية", "ب", "cmp-1", "cmp-2",
+    "s", "t", "u", "v", 321, "x", "y"
+  ];
+  const analysis = excelAdapter.analyzeWorkbookSheets(
+    [{ sheet: "كمي بنك ٧", data: [header, row] }],
+    { from: 321, to: 321 }
+  );
+
+  assert.equal(analysis.issues.length, 0);
+  assert.equal(analysis.questions[0]?.questionNumber, 321);
+  assert.equal(analysis.questions[0]?.metadata.bankGroupIdentifier, "7");
+  assert.equal(analysis.questions[0]?.topicId, "arithmetic");
+  assert.equal(analysis.questions[0]?.subtopic, "العمليات الأساسية");
+  assert.equal(analysis.questions[0]?.difficulty, 4);
+  assert.deepEqual(analysis.questions[0]?.metadata.comparisonImages, ["cmp-1", "cmp-2"]);
+});
+
+test("rejects a selected A-Y range that would merge separate bank groups", () => {
+  const header = [
+    "رقم البنك", "معرف داخلي ١", "معرف داخلي ٢", "السؤال", "المقارنة أ",
+    "أ", "ب", "ج", "مرجع", "د", "الصورة", "نعم / لا", "صعوبة",
+    "فئة السؤال", "فئة إضافية", "الإجابة", "صورة مقارنة ١", "صورة مقارنة ٢",
+    "تقني S", "تقني T", "تقني U", "تقني V", "معرف السؤال", "تقني X", "تقني Y"
+  ];
+  const row = (bankGroup: number, questionNumber: number) => [
+    bankGroup, "SRC", "REF", `سؤال ${questionNumber}`, "قيمة",
+    "١", "٢", "٣", "محجوز", "٤", "", "لا", 2, "الحساب", "", "أ",
+    "", "", "", "", "", "", questionNumber, "", ""
+  ];
+  const analysis = excelAdapter.analyzeWorkbookSheets([{
+    sheet: "كمي متعدد الأقسام",
+    data: [header, row(1, 401), row(2, 402)]
+  }], { from: 401, to: 402 });
+
+  assert.ok(analysis.issues.some((item) => item.code === "multiple_bank_groups"));
+});
+
+test("maps embedded workbook images by their OOXML row and column anchors", async () => {
+  const workbook = createWorkbookBuffer(validQuantitativeSheets(), {}, {
+    1: [{ buffer: png, columnIndex: 6, filename: "question-1.png", rowIndex: 1 }]
+  });
+  const analysis = await excelAdapter.readAdminWorkbook(workbook, { from: 1, to: 1 });
+
+  assert.equal(analysis.issues.length, 0);
+  assert.equal(analysis.questions[0]?.embeddedImages.length, 1);
+  assert.equal(analysis.questions[0]?.embeddedImages[0]?.columnIndex, 6);
+  assert.deepEqual(analysis.questions[0]?.metadata.embeddedImages, [{
+    column: "G",
+    filename: "question-1.png",
+    mediaType: "image/png",
+    rowNumber: 2
+  }]);
 });
 
 test("extracts question text from an OOXML legacy cell note", async () => {
@@ -701,6 +903,14 @@ test("maps PDF pages deterministically from a starting question number", () => {
   assert.equal(pages.length, 201);
   assert.deepEqual(pages[0], { pageIndex: 1, questionNumber: 500 });
   assert.deepEqual(pages.at(-1), { pageIndex: 201, questionNumber: 700 });
+});
+
+test("reads PDF page counts from a disk path without buffering the source file", async () => {
+  const pdfPath = resolve(
+    workspaceRoot,
+    "test-data/pdf/(1 بالجملة) القالب الرئيسي عبقور.pdf"
+  );
+  assert.equal(await pdfAdapter.getPdfPageCount(pdfPath), 49);
 });
 
 test("maps a selected PDF page range deterministically", () => {
@@ -1027,6 +1237,35 @@ test("rejects storage upload and verification failures", async () => {
     }),
     /could not be verified/
   );
+});
+
+test("cleans up a partial streamed source upload when verification fails", async () => {
+  const path = join(testDirectory, "source-upload.pdf");
+  writeFileSync(path, Buffer.from("%PDF-test"));
+  const deleted: string[] = [];
+  const storage = {
+    copyObject: async () => {},
+    deleteObject: async (key: string) => { deleted.push(key); },
+    deletePrefix: async () => {},
+    getObject: async () => ({
+      body: Readable.from(Buffer.alloc(0)),
+      contentLength: 9
+    }),
+    getObjectBuffer: async () => null,
+    objectExists: async () => true,
+    uploadFile: async () => {},
+    uploadObject: async () => {}
+  };
+
+  await assert.rejects(
+    mediaService.uploadVerifiedFileObject(storage, {
+      contentLength: 9,
+      key: "pdfs/originals/test/original.pdf",
+      path
+    }),
+    /could not be read/
+  );
+  assert.deepEqual(deleted, ["pdfs/originals/test/original.pdf"]);
 });
 
 test("rejects final image promotion when copied content is unreadable", async () => {

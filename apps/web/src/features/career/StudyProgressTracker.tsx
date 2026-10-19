@@ -18,6 +18,7 @@ import {
 
 type ProgressView = "today" | "week" | "month";
 type CalendarCellVariant = "month" | "today" | "week";
+const studyProgressTimeZone = "Asia/Riyadh";
 
 const progressViews: Array<{ label: string; value: ProgressView }> = [
   { label: "اليوم", value: "today" },
@@ -589,7 +590,7 @@ export function StudyProgressTracker({
   userId: string;
   username?: string | null;
 }) {
-  const resolvedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const resolvedTimeZone = studyProgressTimeZone;
   const currentCacheKey = getStudyProgressCacheKey(resolvedTimeZone);
   const initialCache = readStudyProgressCache(userId, currentCacheKey);
   const [activeView, setActiveView] = useState<ProgressView>(() =>

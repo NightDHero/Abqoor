@@ -458,12 +458,6 @@ export const getStudyProgress = async (
     activityByDate.set(date, existing);
   }
 
-  const buildDays = (dayCount: number) =>
-    getDateRange(todayDate, dayCount).map(
-      (date) => applyDailyPlanProgress(
-        activityByDate.get(date) ?? emptyDay(getSchedule(date))
-      )
-    );
   const buildRange = (dates: string[]) =>
     summarizeDays(
       dates.map((date) => applyDailyPlanProgress(
@@ -534,7 +528,7 @@ export const getStudyProgress = async (
     streak: calculateStreaks(activityByDate, todayDate),
     timeZone,
     today,
-    week: summarizeDays(buildDays(7)),
+    week: buildRange(getCalendarWeekRange(todayDate)),
     year: buildRange(getCalendarYearRange(`${displayedMonthKey.slice(0, 4)}-01-01`))
   };
 };

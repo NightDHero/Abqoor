@@ -7,6 +7,11 @@ import type {
 } from "../../types/admin";
 import { answerLabel, importStatusLabels } from "./adminUtils";
 import { AdminShell } from "./AdminShell";
+import {
+  adminImportExcelLimitBytes,
+  adminImportPdfLimitBytes,
+  formatImportFileSize
+} from "./importLimits";
 
 const duplicateOptions: Array<{ label: string; value: DuplicateAction }> = [
   { label: "استبدال السؤال والمتابعة", value: "replace" },
@@ -34,6 +39,8 @@ export function AdminImportPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [excelError, setExcelError] = useState("");
+  const [pdfError, setPdfError] = useState("");
   const [previewPage, setPreviewPage] = useState(1);
   const previewPageSize = 25;
 
@@ -74,6 +81,28 @@ export function AdminImportPage() {
     setPreviewPage(1);
     setMessage("");
     setError("");
+  };
+
+  const selectExcel = (file: File | null) => {
+    resetResult();
+    if (file && file.size > adminImportExcelLimitBytes) {
+      setExcel(null);
+      setExcelError("حجم ملف Excel يتجاوز الحد المسموح وهو 100MiB.");
+      return;
+    }
+    setExcel(file);
+    setExcelError("");
+  };
+
+  const selectPdf = (file: File | null) => {
+    resetResult();
+    if (file && file.size > adminImportPdfLimitBytes) {
+      setPdf(null);
+      setPdfError("حجم ملف PDF يتجاوز الحد المسموح وهو 1GiB.");
+      return;
+    }
+    setPdf(file);
+    setPdfError("");
   };
 
   const handleAnalyze = async (event: FormEvent<HTMLFormElement>) => {
@@ -201,14 +230,14 @@ export function AdminImportPage() {
       title="رفع الأسئلة"
     >
       <form className="admin-panel admin-import-form" onSubmit={handleAnalyze}>
-        <header className="admin-panel-heading">
-          <div>
-            <h2>١. اختيار ملفات الدفعة</h2>
-            <p>Excel هو مصدر البيانات، وPDF أو الصور هي مصدر محتوى السؤال.</p>
-          </div>
-        </header>
-
-        <div className="admin-form-grid">
+        <section className="admin-import-step" data-step="1">
+          <header className="admin-import-step-heading">
+            <span>١</span>
+            <div>
+              <h2>نوع الرفع والبنك</h2>
+              <p>حدد وجهة الأسئلة أولاً حتى تبقى البنوك العامة وأسئلة الأقسام منفصلة.</p>
+            </div>
+          </header>
           <fieldset className="admin-import-mode-selector">
             <legend>نوع الرفع</legend>
             <label>
@@ -247,7 +276,10 @@ export function AdminImportPage() {
                   placeholder="مثال: بنك الأقسام الكمي الأول"
                   required
                   value={bankName}
-                  onChange={(event) => setBankName(event.target.value)}
+                onChange={(event) => {
+                  setBankName(event.target.value);
+                  resetResult();
+                }}
                 />
               </label>
               <label>
@@ -258,67 +290,112 @@ export function AdminImportPage() {
                   placeholder="quant-01"
                   required
                   value={bankKey}
-                  onChange={(event) => setBankKey(event.target.value)}
+                onChange={(event) => {
+                  setBankKey(event.target.value);
+                  resetResult();
+                }}
                 />
               </label>
             </div>
           ) : null}
-          <div className="admin-import-source-note">
-            <strong>التصنيف من Excel</strong>
-            <span>يحدد اسم ورقة العمل القسم والموضوع تلقائياً، ولا تتم الكتابة فوق بيانات الملف.</span>
-          </div>
-          <label>
-            ملف Excel
+        </section>
+
+        <section className="admin-import-step" data-step="2">
+          <header className="admin-import-step-heading">
+            <span>٢</span>
+            <div>
+              <h2>ملف Excel</h2>
+              <p>اختر المصنف الذي يحتوي على بيانات الأسئلة. الحد الأقصى 100MiB.</p>
+            </div>
+          </header>
+          <label className="admin-import-file-field">
+            ملف Excel <b aria-hidden="true">مطلوب</b>
             <input
               accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               required
               type="file"
-              onChange={(event) => setExcel(event.target.files?.[0] ?? null)}
+              onChange={(event) => selectExcel(event.target.files?.[0] ?? null)}
             />
+            {excel ? (
+              <small className="admin-selected-file">
+                {excel.name} · {formatImportFileSize(excel.size)}
+              </small>
+            ) : null}
+            {excelError ? <small className="admin-field-error" role="alert">{excelError}</small> : null}
           </label>
+          <div className="admin-import-source-note">
+            <strong>التصنيف من Excel</strong>
+            <span>يحدد اسم ورقة العمل وبنية الأعمدة القسم والموضوع تلقائياً. ستظهر الورقة المختارة في المعاينة.</span>
+          </div>
+        </section>
+
+        <section className="admin-import-step" data-step="3">
+          <header className="admin-import-step-heading">
+            <span>٣</span>
+            <div>
+              <h2>النطاق ومصدر الصور</h2>
+              <p>طابق نطاق صفوف Excel مع صفحات PDF أو صور PNG بالترتيب نفسه.</p>
+            </div>
+          </header>
+          <div className="admin-import-fields">
           <fieldset className="admin-range-field">
             <legend>نطاق أسئلة Excel</legend>
-            <label>من السؤال<input min="1" required type="number" value={questionFrom} onChange={(event) => setQuestionFrom(event.target.value)} /></label>
-            <label>إلى السؤال<input min="1" required type="number" value={questionTo} onChange={(event) => setQuestionTo(event.target.value)} /></label>
+            <label>من السؤال<input min="1" required type="number" value={questionFrom} onChange={(event) => { setQuestionFrom(event.target.value); resetResult(); }} /></label>
+            <label>إلى السؤال<input min="1" required type="number" value={questionTo} onChange={(event) => { setQuestionTo(event.target.value); resetResult(); }} /></label>
           </fieldset>
           <fieldset>
             <legend>مصدر الصور</legend>
-            <label><input checked={mediaType === "pdf"} name="media" type="radio" onChange={() => setMediaType("pdf")} /> PDF</label>
-            <label><input checked={mediaType === "images"} name="media" type="radio" onChange={() => setMediaType("images")} /> صور منفردة</label>
+            <label><input checked={mediaType === "pdf"} name="media" type="radio" onChange={() => { setMediaType("pdf"); setPdfError(""); resetResult(); }} /> PDF</label>
+            <label><input checked={mediaType === "images"} name="media" type="radio" onChange={() => { setMediaType("images"); setPdfError(""); resetResult(); }} /> صور منفردة</label>
           </fieldset>
           {mediaType === "pdf" ? (
             <>
-              <label>
-                ملف PDF
-                <input accept="application/pdf,.pdf" required type="file" onChange={(event) => setPdf(event.target.files?.[0] ?? null)} />
+              <label className="admin-import-file-field">
+                ملف PDF <b aria-hidden="true">مطلوب</b>
+                <input accept="application/pdf,.pdf" required type="file" onChange={(event) => selectPdf(event.target.files?.[0] ?? null)} />
+                {pdf ? (
+                  <small className="admin-selected-file">
+                    {pdf.name} · {formatImportFileSize(pdf.size)}
+                  </small>
+                ) : null}
+                {pdfError ? <small className="admin-field-error" role="alert">{pdfError}</small> : null}
               </label>
               <fieldset className="admin-range-field">
                 <legend>نطاق صفحات PDF</legend>
-                <label>من صفحة<input min="1" required type="number" value={pdfPageFrom} onChange={(event) => setPdfPageFrom(event.target.value)} /></label>
-                <label>إلى صفحة<input min="1" required type="number" value={pdfPageTo} onChange={(event) => setPdfPageTo(event.target.value)} /></label>
+                <label>من صفحة<input min="1" required type="number" value={pdfPageFrom} onChange={(event) => { setPdfPageFrom(event.target.value); resetResult(); }} /></label>
+                <label>إلى صفحة<input min="1" required type="number" value={pdfPageTo} onChange={(event) => { setPdfPageTo(event.target.value); resetResult(); }} /></label>
               </fieldset>
             </>
           ) : (
             <label>
               صور PNG بالترتيب
-              <input accept="image/png,.png" multiple required type="file" onChange={(event) => setImages(Array.from(event.target.files ?? []))} />
+              <input accept="image/png,.png" multiple required type="file" onChange={(event) => { setImages(Array.from(event.target.files ?? [])); resetResult(); }} />
               <small>الصورة الأولى تقابل أول سؤال في النطاق، ثم يستمر الترتيب تلقائياً.</small>
             </label>
           )}
-        </div>
+          </div>
+        </section>
 
-        <div className="admin-range-summary" data-matched={selectedQuestionCount > 0 && selectedQuestionCount === selectedMediaCount}>
-          <span>الأسئلة: <b>{selectedQuestionCount.toLocaleString("ar-SA")}</b></span>
-          <span>{mediaType === "pdf" ? "صفحات PDF" : "الصور"}: <b>{selectedMediaCount.toLocaleString("ar-SA")}</b></span>
-          <span>المطابقة: <b>{selectedQuestionCount === selectedMediaCount && selectedQuestionCount > 0 ? `${selectedQuestionCount.toLocaleString("ar-SA")} / ${selectedMediaCount.toLocaleString("ar-SA")}` : "غير متطابقة"}</b></span>
-        </div>
-
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "جاري التحليل..." : "تحليل الدفعة"}
-        </button>
+        <section className="admin-import-step" data-step="4">
+          <header className="admin-import-step-heading">
+            <span>٤</span>
+            <div>
+              <h2>مراجعة الإعدادات</h2>
+              <p>تأكد من تطابق عدد الأسئلة مع مصدر الصور قبل بدء التحليل.</p>
+            </div>
+          </header>
+          <div className="admin-range-summary" data-matched={selectedQuestionCount > 0 && selectedQuestionCount === selectedMediaCount}>
+            <span>الأسئلة: <b>{selectedQuestionCount.toLocaleString("ar-SA")}</b></span>
+            <span>{mediaType === "pdf" ? "صفحات PDF" : "الصور"}: <b>{selectedMediaCount.toLocaleString("ar-SA")}</b></span>
+            <span>المطابقة: <b>{selectedQuestionCount === selectedMediaCount && selectedQuestionCount > 0 ? `${selectedQuestionCount.toLocaleString("ar-SA")} / ${selectedMediaCount.toLocaleString("ar-SA")}` : "غير متطابقة"}</b></span>
+          </div>
+          {error ? <p className="admin-alert error" role="alert">{error}</p> : null}
+          <button type="submit" disabled={isSubmitting || Boolean(excelError || pdfError)}>
+            {isSubmitting ? "جاري التحليل..." : "تحليل الدفعة وعرض المعاينة"}
+          </button>
+        </section>
       </form>
 
-      {error ? <p className="admin-alert error">{error}</p> : null}
       {message ? <p className="admin-alert">{message}</p> : null}
 
       {job ? (
@@ -326,7 +403,11 @@ export function AdminImportPage() {
           <section className="admin-panel">
             <header className="admin-panel-heading">
               <div>
-                <h2>٢. نتيجة التحليل</h2>
+                <h2>
+                  {job.status === "completed" || job.status === "failed" || job.status === "cancelled" || job.status === "rolled_back"
+                    ? "٧. النتيجة النهائية"
+                    : "٥. المعاينة والتحقق"}
+                </h2>
                 <p>رفع #{job.id.slice(0, 8)} · {importStatusLabels[job.status]}</p>
                 <p>{job.importType === "aqsam" ? `أسئلة الأقسام · ${job.bankName ?? "البنك"}` : "الأسئلة العامة"}</p>
               </div>
@@ -364,9 +445,34 @@ export function AdminImportPage() {
             </section>
           ) : null}
 
+          {detail.items.length > 0 ? (
+            <section className="admin-panel">
+              <header className="admin-panel-heading"><div><h2>الأسئلة المحللة</h2><p>النطاق المحدد فقط، بواقع {previewPageSize.toLocaleString("ar-SA")} سؤالاً في الصفحة.</p></div></header>
+              <div className="admin-table-wrap">
+                <table className="admin-table admin-import-preview-table">
+                  <thead><tr><th>السؤال</th><th>{job.sourceType === "pdf" ? "صفحة PDF" : "الصورة"}</th><th>القسم</th><th>الموضوع</th><th>الموضوع الفرعي</th><th>الإجابة</th><th>الحالة</th></tr></thead>
+                  <tbody>
+                    {previewItems.map((item) => (
+                      <tr key={item.questionId}>
+                        <td>{item.questionNumber.toLocaleString("ar-SA")}</td>
+                        <td>{item.pageNumber?.toLocaleString("ar-SA") ?? item.sourceImageName ?? "—"}</td>
+                        <td>{item.subject === "quantitative" ? "كمي" : "لفظي"}</td>
+                        <td>{item.topic}</td>
+                        <td>{item.subtopic ?? "بدون موضوع فرعي"}</td>
+                        <td>{answerLabel(item.correctAnswer)}</td>
+                        <td><b data-valid={item.validationStatus === "valid"}>{item.validationStatus === "valid" ? "جاهز" : item.errors[0]?.message ?? "خطأ"}</b></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {previewPageCount > 1 ? <nav className="admin-pagination" aria-label="صفحات معاينة الاستيراد"><button className="secondary" disabled={previewPage === 1} type="button" onClick={() => setPreviewPage((page) => page - 1)}>السابق</button><span>{previewPage.toLocaleString("ar-SA")} / {previewPageCount.toLocaleString("ar-SA")}</span><button className="secondary" disabled={previewPage === previewPageCount} type="button" onClick={() => setPreviewPage((page) => page + 1)}>التالي</button></nav> : null}
+            </section>
+          ) : null}
+
           {duplicates.length > 0 && job.status === "ready" ? (
             <section className="admin-panel">
-              <header className="admin-panel-heading"><h2>٣. قرارات الأسئلة المكررة</h2></header>
+              <header className="admin-panel-heading"><h2>٦. قرارات الأسئلة المكررة</h2></header>
               <label className="admin-checkbox">
                 <input checked={applyToAll} type="checkbox" onChange={(event) => setApplyToAll(event.target.checked)} />
                 تطبيق الاختيار على جميع الأسئلة المكررة
@@ -391,34 +497,9 @@ export function AdminImportPage() {
             </section>
           ) : null}
 
-          {detail.items.length > 0 ? (
-            <section className="admin-panel">
-              <header className="admin-panel-heading"><div><h2>٤. المعاينة</h2><p>النطاق المحدد فقط، بواقع {previewPageSize.toLocaleString("ar-SA")} سؤالاً في الصفحة.</p></div></header>
-              <div className="admin-table-wrap">
-                <table className="admin-table admin-import-preview-table">
-                  <thead><tr><th>السؤال</th><th>{job.sourceType === "pdf" ? "صفحة PDF" : "الصورة"}</th><th>القسم</th><th>الموضوع</th><th>الموضوع الفرعي</th><th>الإجابة</th><th>الحالة</th></tr></thead>
-                  <tbody>
-                    {previewItems.map((item) => (
-                      <tr key={item.questionId}>
-                        <td>{item.questionNumber.toLocaleString("ar-SA")}</td>
-                        <td>{item.pageNumber?.toLocaleString("ar-SA") ?? item.sourceImageName ?? "—"}</td>
-                        <td>{item.subject === "quantitative" ? "كمي" : "لفظي"}</td>
-                        <td>{item.topic}</td>
-                        <td>{item.subtopic ?? "بدون موضوع فرعي"}</td>
-                        <td>{answerLabel(item.correctAnswer)}</td>
-                        <td><b data-valid={item.validationStatus === "valid"}>{item.validationStatus === "valid" ? "جاهز" : item.errors[0]?.message ?? "خطأ"}</b></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {previewPageCount > 1 ? <nav className="admin-pagination" aria-label="صفحات معاينة الاستيراد"><button className="secondary" disabled={previewPage === 1} type="button" onClick={() => setPreviewPage((page) => page - 1)}>السابق</button><span>{previewPage.toLocaleString("ar-SA")} / {previewPageCount.toLocaleString("ar-SA")}</span><button className="secondary" disabled={previewPage === previewPageCount} type="button" onClick={() => setPreviewPage((page) => page + 1)}>التالي</button></nav> : null}
-            </section>
-          ) : null}
-
           {job.status === "importing" ? (
             <section className="admin-panel admin-progress-panel">
-              <h2>رفع الأسئلة...</h2>
+              <h2>٧. رفع الأسئلة...</h2>
               <strong>{job.processedCount.toLocaleString("ar-SA")} / {job.totalQuestions.toLocaleString("ar-SA")}</strong>
               <progress max={100} value={progress}>{progress}%</progress>
               <p>قراءة Excel · مطابقة الصور · التحقق من البيانات · حفظ الأسئلة</p>

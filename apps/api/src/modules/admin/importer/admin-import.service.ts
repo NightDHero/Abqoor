@@ -16,6 +16,7 @@ import {
   readQuestionImageObject,
   restoreQuestionImageObjectBackup,
   stageQuestionImageObject,
+  uploadVerifiedFileObject,
   uploadVerifiedObject,
   writeQuestionImageObject
 } from "../../media/media.service.js";
@@ -222,20 +223,31 @@ const analyzePdfMedia = async (
   toImportQuestionId: (questionNumber: number) => string
 ) => {
   const pdf = request.pdf as NonNullable<AnalyzeImportRequest["pdf"]>;
-  const pageCount = await getPdfPageCount(pdf.buffer);
+  const pdfInput = pdf.temporaryPath ?? pdf.buffer;
+  const pdfFileSize = pdf.fileSize ?? pdf.buffer.length;
+  const pageCount = await getPdfPageCount(pdfInput);
   const sourcePdfId = randomUUID();
   const sourcePdfStorageKey = getSourcePdfStorageKey(sourcePdfId);
 
-  await uploadVerifiedObject(objectStorage, {
-    body: pdf.buffer,
-    contentType: "application/pdf",
-    key: sourcePdfStorageKey
-  });
+  if (pdf.temporaryPath) {
+    await uploadVerifiedFileObject(objectStorage, {
+      contentLength: pdfFileSize,
+      contentType: "application/pdf",
+      key: sourcePdfStorageKey,
+      path: pdf.temporaryPath
+    });
+  } else {
+    await uploadVerifiedObject(objectStorage, {
+      body: pdf.buffer,
+      contentType: "application/pdf",
+      key: sourcePdfStorageKey
+    });
+  }
 
   try {
     await createSourcePdf({
       createdBy: request.createdBy,
-      fileSize: pdf.buffer.length,
+      fileSize: pdfFileSize,
       id: sourcePdfId,
       originalFilename: pdf.originalname,
       pageCount,
@@ -276,7 +288,7 @@ const analyzePdfMedia = async (
       const questionId = toImportQuestionId(page.questionNumber);
       let optimizedImage: Awaited<ReturnType<typeof optimizeQuestionImage>>;
       try {
-        const image = await renderPdfPageToPng(pdf.buffer, page.pageIndex);
+        const image = await renderPdfPageToPng(pdfInput, page.pageIndex);
         if (!isPngBuffer(image)) {
           throw new Error("Rendered output is not PNG.");
         }

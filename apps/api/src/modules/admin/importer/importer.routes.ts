@@ -31,6 +31,10 @@ import {
   getQuestionImportTaxonomy,
   rollbackQuestionImport
 } from "./admin-import.service.js";
+import {
+  getImportUploadSizeError,
+  importerUploadFileSizeLimitBytes
+} from "./import-limits.js";
 import { requireImportAdmin } from "./admin-import.middleware.js";
 import type {
   ConfirmImportRequest,
@@ -39,10 +43,6 @@ import type {
 
 export const importerRouter = Router();
 
-const importerUploadFileSizeLimitBytes = 80 * 1024 * 1024;
-const importerAggregateSizeLimitBytes = 250 * 1024 * 1024;
-const importerExcelSizeLimitBytes = 10 * 1024 * 1024;
-const importerImageSizeLimitBytes = 15 * 1024 * 1024;
 const importerMaxImages = 500;
 ensureQuestionImportUploadDirectory();
 
@@ -89,6 +89,7 @@ const toUploadedFile = (
   buffer: options.headerOnly
     ? readFileHeader(file.path, 8)
     : readFileSync(file.path),
+  fileSize: file.size,
   mimetype: file.mimetype,
   originalname: file.originalname,
   temporaryPath: file.path
@@ -113,17 +114,9 @@ const cleanupUploadedFiles = (request: Request) => {
 
 const validateUploadedFileLimits = (request: Request) => {
   const files = uploadedFiles(request);
-  const totalSize = files.reduce((total, file) => total + file.size, 0);
-  if (totalSize > importerAggregateSizeLimitBytes) {
-    throw new AdminImportError("إجمالي الملفات يتجاوز الحد المسموح وهو 250MB.", 413);
-  }
-  for (const file of files) {
-    if ((file.fieldname === "excel" || file.fieldname === "excelFile") && file.size > importerExcelSizeLimitBytes) {
-      throw new AdminImportError("حجم ملف Excel يتجاوز الحد المسموح وهو 10MB.", 413);
-    }
-    if (file.fieldname === "images" && file.size > importerImageSizeLimitBytes) {
-      throw new AdminImportError("إحدى الصور تتجاوز الحد المسموح وهو 15MB.", 413);
-    }
+  const sizeError = getImportUploadSizeError(files);
+  if (sizeError) {
+    throw new AdminImportError(sizeError.message, 413);
   }
 };
 
@@ -152,9 +145,11 @@ const handleRouteError = (error: unknown, response: Response) => {
   if (error instanceof multer.MulterError) {
     const message =
       error.code === "LIMIT_FILE_SIZE"
-        ? "حجم الملف يتجاوز الحد الأقصى المسموح وهو 80MB."
+        ? error.field === "pdf"
+          ? "حجم ملف PDF يتجاوز الحد المسموح وهو 1GiB."
+          : "حجم الملف يتجاوز الحد الأقصى المسموح لهذه العملية."
         : `تعذر قبول الملفات المرفوعة: ${error.message}`;
-    response.status(400).json({ message });
+    response.status(error.code === "LIMIT_FILE_SIZE" ? 413 : 400).json({ message });
     return;
   }
 
@@ -214,7 +209,7 @@ importerRouter.post("/analyze", adminImportRateLimit, acceptAnalyzeUpload, async
       createdBy: request.user?.email ?? "unknown",
       excel: toUploadedFile(excel),
       questionRange,
-      pdf: pdf ? toUploadedFile(pdf) : undefined,
+      pdf: pdf ? toUploadedFile(pdf, { headerOnly: true }) : undefined,
       pdfPageRange,
       images: images.map((image) =>
         toUploadedFile(image, { headerOnly: true })

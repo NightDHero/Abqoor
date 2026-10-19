@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
@@ -48,11 +48,14 @@ test("local object storage supports upload, read, copy, existence, and delete", 
   const sourceKey = "generated/storage-tests/source.txt";
   const copyKey = "generated/storage-tests/copy.txt";
   const body = Buffer.from("abqoor storage adapter");
+  const sourcePath = join(testDirectory, "streamed-source.txt");
+  writeFileSync(sourcePath, body);
 
-  await objectStorage.uploadObject({
-    body,
+  await objectStorage.uploadFile({
+    contentLength: body.length,
     contentType: "text/plain",
-    key: sourceKey
+    key: sourceKey,
+    path: sourcePath
   });
   assert.equal(await objectStorage.objectExists(sourceKey), true);
   assert.deepEqual(await objectStorage.getObjectBuffer(sourceKey), body);
@@ -105,8 +108,17 @@ test("R2 object storage adapter supports S3-style object operations without real
 
       switch (commandName(command)) {
         case "PutObjectCommand": {
+          const inputBody = input.Body;
+          const chunks: Buffer[] = [];
+          if (inputBody instanceof Readable) {
+            for await (const chunk of inputBody) {
+              chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+            }
+          } else {
+            chunks.push(Buffer.from(inputBody as Uint8Array));
+          }
           objects.set(key, {
-            body: Buffer.from(input.Body as Uint8Array),
+            body: Buffer.concat(chunks),
             contentType: input.ContentType as string | undefined
           });
           return {};
@@ -175,8 +187,15 @@ test("R2 object storage adapter supports S3-style object operations without real
   const sourceKey = "generated/r2-tests/source.txt";
   const copyKey = "generated/r2-tests/copy.txt";
   const body = Buffer.from("abqoor mocked r2 adapter");
+  const sourcePath = join(testDirectory, "streamed-r2-source.txt");
+  writeFileSync(sourcePath, body);
 
-  await storage.uploadObject({ body, contentType: "text/plain", key: sourceKey });
+  await storage.uploadFile({
+    contentLength: body.length,
+    contentType: "text/plain",
+    key: sourceKey,
+    path: sourcePath
+  });
   assert.equal(await storage.objectExists(sourceKey), true);
   assert.deepEqual(await storage.getObjectBuffer(sourceKey), body);
 

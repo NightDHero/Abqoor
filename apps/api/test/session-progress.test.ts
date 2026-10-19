@@ -422,6 +422,8 @@ test("summarizes real session activity into study progress windows", async () =>
       correctAnswers: number;
       approximateStudySeconds: number;
       days: Array<{
+        answeredQuestions: number;
+        date: string;
         planKind: "study" | "review" | "rest";
         planSubjectId: "math" | "arabic" | null;
         questionTarget: number | null;
@@ -438,11 +440,36 @@ test("summarizes real session activity into study progress windows", async () =>
   assert.equal(payload.today.approximateStudySeconds, 115);
   assert.equal(payload.streak.current, 2);
   assert.equal(payload.streak.highest, 3);
-  assert.equal(payload.week.activeDays, 5);
-  assert.equal(payload.week.answeredQuestions, 7);
-  assert.equal(payload.week.correctAnswers, 6);
-  assert.equal(payload.week.approximateStudySeconds, 245);
+  const currentWeekday = today.getUTCDay();
+  const activityByOffset = [
+    { offset: 0, answered: 3, correct: 2, seconds: 115 },
+    { offset: 1, answered: 1, correct: 1, seconds: 40 },
+    { offset: 4, answered: 1, correct: 1, seconds: 30 },
+    { offset: 5, answered: 1, correct: 1, seconds: 30 },
+    { offset: 6, answered: 1, correct: 1, seconds: 30 }
+  ].filter((item) => item.offset <= currentWeekday);
+  assert.equal(payload.week.activeDays, activityByOffset.length);
+  assert.equal(
+    payload.week.answeredQuestions,
+    activityByOffset.reduce((total, item) => total + item.answered, 0)
+  );
+  assert.equal(
+    payload.week.correctAnswers,
+    activityByOffset.reduce((total, item) => total + item.correct, 0)
+  );
+  assert.equal(
+    payload.week.approximateStudySeconds,
+    activityByOffset.reduce((total, item) => total + item.seconds, 0)
+  );
   assert.equal(payload.week.days.length, 7);
+  const todayDate = today.toISOString().slice(0, 10);
+  assert.equal(payload.week.days[0]?.date, addUtcDays(todayDate, -currentWeekday));
+  assert.equal(payload.week.days[6]?.date, addUtcDays(todayDate, 6 - currentWeekday));
+  assert.equal(new Set(payload.week.days.map((day) => day.date)).size, 7);
+  assert.equal(
+    payload.week.days.some((day) => day.answeredQuestions === 0),
+    true
+  );
   assert.equal(payload.week.days.filter((day) => day.planKind === "rest").length, 1);
   assert.equal(payload.week.days.filter((day) => day.planKind === "review").length, 1);
   assert.equal(payload.week.days.filter((day) => day.planKind === "study").length, 5);
@@ -460,6 +487,24 @@ test("summarizes real session activity into study progress windows", async () =>
   assert.equal(payload.monthWeeks.every((week) => week.days.length === 7), true);
   assert.equal(payload.year.days.length, getCurrentUtcYearDayCount());
   assert.equal(JSON.stringify(payload).includes("password"), false);
+
+  const refreshResponse = await fetch(`${baseUrl}/sessions/progress?timeZone=UTC`, {
+    headers: { cookie }
+  });
+  assert.equal(refreshResponse.status, 200);
+  const refreshed = (await refreshResponse.json()) as typeof payload;
+  assert.deepEqual(
+    refreshed.week.days.map((day) => ({
+      date: day.date,
+      planKind: day.planKind,
+      planSubjectId: day.planSubjectId
+    })),
+    payload.week.days.map((day) => ({
+      date: day.date,
+      planKind: day.planKind,
+      planSubjectId: day.planSubjectId
+    }))
+  );
 
   const requestedMonthResponse = await fetch(
     `${baseUrl}/sessions/progress?timeZone=UTC&month=2024-02`,

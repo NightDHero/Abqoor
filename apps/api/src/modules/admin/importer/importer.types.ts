@@ -201,7 +201,17 @@ export type ParsedWorkbookQuestion = {
   subtopicId: string | null;
   difficulty: number;
   metadata: Record<string, unknown>;
+  embeddedImages: EmbeddedWorkbookImage[];
   issues: ImportValidationIssue[];
+};
+
+export type EmbeddedWorkbookImage = {
+  buffer: Buffer;
+  columnIndex: number;
+  filename: string;
+  mediaType: string;
+  rowNumber: number;
+  sheetName: string;
 };
 
 export type WorkbookAnalysis = {
@@ -212,6 +222,7 @@ export type WorkbookAnalysis = {
 
 export type UploadedImportFile = {
   buffer: Buffer;
+  fileSize?: number;
   mimetype: string;
   originalname: string;
   temporaryPath?: string;

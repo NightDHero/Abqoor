@@ -317,6 +317,125 @@
   gap: 16px;
 }
 
+.admin-import-form {
+  width: 100%;
+  max-width: 1040px;
+  margin-inline: auto;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.admin-import-step {
+  display: grid;
+  gap: 18px;
+  padding: clamp(20px, 3vw, 30px);
+}
+
+.admin-import-step + .admin-import-step {
+  border-top: 1px solid var(--abqoor-border);
+}
+
+.admin-import-step-heading {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.admin-import-step-heading > span {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  border: 1px solid color-mix(in srgb, var(--brand-cyan) 42%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--brand-cyan) 13%, transparent);
+  color: var(--brand-cyan);
+  font-family: var(--font-arabic-display);
+  font-weight: 950;
+  place-items: center;
+}
+
+.admin-import-step-heading h2,
+.admin-import-step-heading p {
+  margin: 0;
+}
+
+.admin-import-step-heading p {
+  margin-top: 4px;
+  color: var(--abqoor-muted);
+}
+
+.admin-import-fields {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-import-step > label,
+.admin-import-fields > label,
+.admin-import-step fieldset,
+.admin-bank-identity-fields label {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  border: 0;
+  color: var(--abqoor-muted);
+}
+
+.admin-import-step fieldset {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-import-step legend {
+  grid-column: 1 / -1;
+  margin-bottom: 8px;
+}
+
+.admin-import-step fieldset label {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+}
+
+.admin-import-step .admin-range-field label {
+  display: grid;
+  gap: 7px;
+  align-items: stretch;
+}
+
+.admin-import-file-field > b {
+  width: fit-content;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand-cyan) 12%, transparent);
+  padding: 3px 8px;
+  color: var(--brand-cyan);
+  font-size: 0.72rem;
+}
+
+.admin-selected-file {
+  color: #62d9b8;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.admin-field-error {
+  color: #ffc2c8;
+  font-weight: 800;
+}
+
+.admin-import-source-note {
+  display: grid;
+  gap: 4px;
+  border-inline-start: 3px solid color-mix(in srgb, var(--brand-cyan) 58%, transparent);
+  background: color-mix(in srgb, var(--brand-cyan) 7%, transparent);
+  padding: 12px 14px;
+  color: var(--abqoor-muted);
+}
+
+.admin-import-source-note strong {
+  color: var(--abqoor-text);
+}
+
 .admin-import-mode-selector,
 .admin-bank-mode-switch {
   display: grid;

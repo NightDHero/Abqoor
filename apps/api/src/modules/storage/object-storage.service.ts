@@ -12,6 +12,7 @@ import {
   createReadStream,
   existsSync,
   mkdirSync,
+  copyFileSync,
   readFileSync,
   rmSync,
   statSync,
@@ -28,6 +29,13 @@ export type ObjectUploadInput = {
   key: string;
 };
 
+export type ObjectFileUploadInput = {
+  contentLength: number;
+  contentType?: string;
+  key: string;
+  path: string;
+};
+
 export type StoredObject = {
   body: Readable;
   contentLength?: number;
@@ -41,6 +49,7 @@ export type ObjectStorage = {
   getObject(key: string): Promise<StoredObject | null>;
   getObjectBuffer(key: string): Promise<Buffer | null>;
   objectExists(key: string): Promise<boolean>;
+  uploadFile(input: ObjectFileUploadInput): Promise<void>;
   uploadObject(input: ObjectUploadInput): Promise<void>;
 };
 
@@ -113,6 +122,12 @@ const createLocalStorage = (): ObjectStorage => ({
     const path = localPathForKey(input.key);
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, input.body);
+  },
+
+  async uploadFile(input) {
+    const path = localPathForKey(input.key);
+    mkdirSync(dirname(path), { recursive: true });
+    copyFileSync(input.path, path);
   }
 });
 
@@ -242,6 +257,19 @@ export const createR2ObjectStorage = (
         new PutObjectCommand({
           Body: input.body,
           Bucket: bucket,
+          ContentType: input.contentType ?? contentTypeForKey(input.key),
+          Key: input.key
+        })
+      );
+    },
+
+    async uploadFile(input) {
+      assertObjectKey(input.key);
+      await client.send(
+        new PutObjectCommand({
+          Body: createReadStream(input.path),
+          Bucket: bucket,
+          ContentLength: input.contentLength,
           ContentType: input.contentType ?? contentTypeForKey(input.key),
           Key: input.key
         })

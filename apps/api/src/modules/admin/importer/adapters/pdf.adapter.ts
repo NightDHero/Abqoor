@@ -6,11 +6,15 @@ import { delimiter, dirname, join, resolve } from "node:path";
 import { env } from "../../../../config/env.js";
 import type { PageRange, PdfQuestionPage } from "../importer.types.js";
 
-export const getPdfPageCount = async (pdfBuffer: Buffer) => {
+type PdfInput = Buffer | string;
+
+export const getPdfPageCount = async (pdfInput: PdfInput) => {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const loadingTask = pdfjs.getDocument({
-    data: new Uint8Array(pdfBuffer)
-  });
+  const loadingTask = pdfjs.getDocument(
+    typeof pdfInput === "string"
+      ? pdfInput
+      : { data: new Uint8Array(pdfInput) }
+  );
   const document = await loadingTask.promise;
 
   try {
@@ -160,16 +164,20 @@ const resolvePdftoppmCommand = () => {
 };
 
 export const renderPdfPageToPng = async (
-  pdfBuffer: Buffer,
+  pdfInput: PdfInput,
   pageIndex: number
 ) => {
   const workingDirectory = await mkdtemp(join(tmpdir(), "abqoor-pdf-"));
-  const inputPath = join(workingDirectory, "input.pdf");
+  const inputPath = typeof pdfInput === "string"
+    ? pdfInput
+    : join(workingDirectory, "input.pdf");
   const outputPrefix = join(workingDirectory, "page");
   const outputPath = `${outputPrefix}.png`;
 
   try {
-    await writeFile(inputPath, pdfBuffer);
+    if (Buffer.isBuffer(pdfInput)) {
+      await writeFile(inputPath, pdfInput);
+    }
     await runPdftoppm(resolvePdftoppmCommand(), [
       "-f",
       String(pageIndex),

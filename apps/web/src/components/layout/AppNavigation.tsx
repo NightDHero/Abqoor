@@ -3,7 +3,7 @@ import { SystemIcon } from "../ui/SystemIcon";
 import { homeContent } from "../../features/home/homeContent";
 import { navigateTo } from "../../utils/router";
 
-const navigationItems = [
+const primaryNavigationItems = [
   {
     activePath: "/career",
     icon: "/assets/navigation/hub.png",
@@ -29,18 +29,19 @@ const navigationItems = [
     route: "/review"
   },
   {
-    activePath: "/",
-    icon: "/assets/navigation/home.png",
-    label: "الموقع",
-    route: "/"
-  },
-  {
     activePath: "/profile",
     icon: "/assets/navigation/settings.png",
     label: "ملفي",
     route: "/profile"
   }
 ] as const;
+
+const websiteNavigationItem = {
+  activePath: "/",
+  icon: "/assets/navigation/home.png",
+  label: "الموقع",
+  route: "/"
+} as const;
 
 const adminNavigationItem = {
   activePath: "/admin",
@@ -56,6 +57,12 @@ type NavigationItem = {
   route: string;
   showSystemIcon?: boolean;
 };
+
+export const getNavigationItems = (isAdmin: boolean): NavigationItem[] => [
+  ...primaryNavigationItems,
+  ...(isAdmin ? [adminNavigationItem] : []),
+  websiteNavigationItem
+];
 
 const isItemActive = (currentPath: string, activePath: string) =>
   activePath === "/"
@@ -92,9 +99,7 @@ export function AppNavigation({
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [usesTwoRows, setUsesTwoRows] = useState(false);
-  const items: NavigationItem[] = isAdmin
-    ? [...navigationItems, adminNavigationItem]
-    : [...navigationItems];
+  const items = getNavigationItems(isAdmin);
 
   useLayoutEffect(() => {
     const track = trackRef.current;

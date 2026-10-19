@@ -15,6 +15,7 @@ import {
   contentTypeForKey,
   objectStorage,
   type ObjectStorage,
+  type ObjectFileUploadInput,
   type ObjectUploadInput
 } from "../storage/object-storage.service.js";
 
@@ -317,6 +318,36 @@ export const uploadVerifiedObject = async (
   await storage.uploadObject(input);
   if (!(await verifyReadableObject(storage, input.key, expected))) {
     throw new Error(`Uploaded object could not be verified: ${input.key}.`);
+  }
+};
+
+export const uploadVerifiedFileObject = async (
+  storage: ObjectStorage,
+  input: ObjectFileUploadInput
+) => {
+  try {
+    await storage.uploadFile(input);
+    const stored = await storage.getObject(input.key);
+    if (!stored) {
+      throw new Error(`Uploaded object could not be verified: ${input.key}.`);
+    }
+
+    const storedLength = stored.contentLength;
+    let receivedData = false;
+    for await (const chunk of stored.body) {
+      receivedData = Buffer.byteLength(chunk) > 0;
+      break;
+    }
+    stored.body.destroy();
+    if (!receivedData) {
+      throw new Error(`Uploaded object could not be read: ${input.key}.`);
+    }
+    if (storedLength !== undefined && storedLength !== input.contentLength) {
+      throw new Error(`Uploaded object size could not be verified: ${input.key}.`);
+    }
+  } catch (error) {
+    await storage.deleteObject(input.key).catch(() => undefined);
+    throw error;
   }
 };
 
