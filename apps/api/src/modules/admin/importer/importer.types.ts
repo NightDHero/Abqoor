@@ -112,6 +112,56 @@ export type SheetSummary = {
   subtopic: string | null;
   questionCount: number;
 };
+
+export type WorkbookColumnMapping = {
+  field: string;
+  columnIndex: number | null;
+  columnName: string;
+  header: string | null;
+  source: "column" | "row-order";
+};
+
+export type WorkbookDiagnosticRow = {
+  excelRowNumber: number;
+  status: "extracted" | "invalid" | "skipped";
+  reason: string | null;
+  rawValues: unknown[];
+  questionNumber: number | null;
+  questionText: string | null;
+  options: [string, string, string, string] | null;
+  correctAnswer: CorrectAnswer | null;
+  subject: Subject | null;
+  topic: string | null;
+  topicId: string | null;
+  subtopic: string | null;
+  subtopicId: string | null;
+  difficulty: number | null;
+  metadata: Record<string, unknown> | null;
+  issues: ImportValidationIssue[];
+};
+
+export type WorkbookSheetDiagnostic = {
+  sheetName: string;
+  selected: boolean;
+  recognized: boolean;
+  format: string | null;
+  detectedHeaders: string[];
+  columnMappings: WorkbookColumnMapping[];
+  skippedReason: string | null;
+  emptyRowCount: number;
+  rows: WorkbookDiagnosticRow[];
+};
+
+export type ImportDiagnostics = {
+  configuredQuestionRange: PageRange;
+  selectedWorksheetNames: string[];
+  parsedQuestionIdentifiers: number[];
+  mediaIdentifiers: number[];
+  missingQuestionIdentifiers: number[];
+  unmatchedMediaIdentifiers: number[];
+  matchingStatus: "completed" | "not_attempted";
+  sheets: WorkbookSheetDiagnostic[];
+};
 export type MediaSummary = {
   expected: number;
   found: number;
@@ -185,7 +235,11 @@ export type ImportJobItem = {
   updatedAt: string;
 };
 
-export type ImportJobDetail = { job: ImportJob; items: ImportJobItem[] };
+export type ImportJobDetail = {
+  job: ImportJob;
+  items: ImportJobItem[];
+  diagnostics?: ImportDiagnostics;
+};
 
 export type ParsedWorkbookQuestion = {
   questionNumber: number;
@@ -218,6 +272,15 @@ export type WorkbookAnalysis = {
   questions: ParsedWorkbookQuestion[];
   sheetSummary: SheetSummary[];
   issues: ImportValidationIssue[];
+  diagnostics: Omit<
+    ImportDiagnostics,
+    | "configuredQuestionRange"
+    | "matchingStatus"
+    | "mediaIdentifiers"
+    | "missingQuestionIdentifiers"
+    | "unmatchedMediaIdentifiers"
+  >;
+  structuralFailure: boolean;
 };
 
 export type UploadedImportFile = {

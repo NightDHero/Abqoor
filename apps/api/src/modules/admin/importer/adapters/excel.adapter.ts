@@ -14,8 +14,11 @@ import type {
   EmbeddedWorkbookImage,
   PageRange,
   ParsedWorkbookQuestion,
+  QuestionImportType,
   RawMetadataAdapterResult,
-  WorkbookAnalysis
+  WorkbookAnalysis,
+  WorkbookColumnMapping,
+  WorkbookDiagnosticRow
 } from "../importer.types.js";
 
 export const requiredVerbalWorkbookSheets = [
@@ -45,7 +48,7 @@ type SheetDefinition = {
   comparisonImageIndexes?: readonly number[];
   comparisonOperandIndexes?: readonly number[];
   difficultyIndex?: number;
-  format: "compact" | "quantitative-wide" | "quantitative-extended" | "verbal-detail" | "reading";
+  format: "compact" | "general-standard" | "quantitative-wide" | "quantitative-extended" | "verbal-detail" | "reading";
   headers: readonly HeaderExpectation[];
   imageIndex?: number;
   internalIdentifierIndexes?: readonly number[];
@@ -59,6 +62,7 @@ type SheetDefinition = {
   questionNumberIndex: number | null;
   questionNumberStrategy?: "cell" | "data-row";
   questionTextIndex: number;
+  scopeToFirstBankGroup?: boolean;
   subtopicIndex?: number;
 };
 
@@ -110,6 +114,26 @@ const quantitativeExtendedHeaders = [
   null,
   null,
   null
+] as const satisfies readonly HeaderExpectation[];
+const quantitativeBankFirstHeaders = [
+  ["البنك", "رقم البنك"],
+  "رقم السؤال",
+  null,
+  "السؤال",
+  ["المقارنة أ", "المقارنة ١"],
+  ["المقارنة ب", "المقارنة ٢"],
+  "أ",
+  "ب",
+  "ج",
+  "د",
+  "الصورة",
+  ["هل يحتاج صوره؟", "هل يحتاج صورة؟", "نعم / لا"],
+  ["صعوبة السؤال", "صعوبة"],
+  ["فئة السؤال", "الفئة"],
+  ["فئة اضافية", "فئة إضافية"],
+  answerHeader,
+  ["صورة مقارنة أ", "صورة مقارنة ١"],
+  ["صورة مقارنة ب", "صورة مقارنة ٢"]
 ] as const satisfies readonly HeaderExpectation[];
 
 const verbalSheetDefinitions: Record<string, SheetDefinition[]> = {
@@ -175,6 +199,23 @@ const createQuantitativeSheetDefinition = (
   format: "compact"
 });
 
+const createGeneralStandardDefinition = (
+  topic: TopicDefinition
+): SheetDefinition => ({
+  acceptedNames: [],
+  answerIndex: 6,
+  format: "general-standard",
+  headers: standardHeaders,
+  optionIndexes: [2, 3, 4, 5],
+  questionNumberIndex: 0,
+  questionTextIndex: 1,
+  subject: "quantitative",
+  subtopic: null,
+  subtopicId: null,
+  topic: topic.displayNameAr,
+  topicId: topic.slug
+});
+
 const createWideQuantitativeDefinition = (
   topic: TopicDefinition
 ): SheetDefinition => ({
@@ -209,6 +250,43 @@ const createExtendedQuantitativeDefinition = (
   optionIndexes: [5, 6, 7, 9],
   questionNumberIndex: 22,
   questionTextIndex: 3,
+  subject: "quantitative",
+  subtopic: null,
+  subtopicId: null,
+  subtopicIndex: 14,
+  topic: topic.displayNameAr,
+  topicId: topic.slug
+});
+
+const createBankFirstQuantitativeDefinition = (
+  topic: TopicDefinition,
+  headerLength: number
+): SheetDefinition => ({
+  acceptedNames: [],
+  answerIndex: 15,
+  bankGroupIndex: 0,
+  categoryIndex: 13,
+  comparisonImageIndexes: [16, 17],
+  comparisonOperandIndexes: [4, 5],
+  difficultyIndex: 12,
+  format: "quantitative-extended",
+  headers: [
+    ...quantitativeBankFirstHeaders,
+    ...Array.from(
+      { length: Math.max(0, headerLength - quantitativeBankFirstHeaders.length) },
+      () => null
+    )
+  ],
+  imageIndex: 10,
+  internalIdentifierIndexes: [
+    1,
+    2,
+    ...Array.from({ length: Math.max(0, headerLength - 18) }, (_, index) => index + 18)
+  ],
+  optionIndexes: [6, 7, 8, 9],
+  questionNumberIndex: 1,
+  questionTextIndex: 3,
+  scopeToFirstBankGroup: true,
   subject: "quantitative",
   subtopic: null,
   subtopicId: null,
@@ -509,19 +587,31 @@ const potentialQuestionNumber = (value: unknown) => {
   return match ? Number(match[1]) : null;
 };
 
-const normalizedSheetName = (value: string) =>
-  value.trim().replace(/\s+/g, " ").toLowerCase();
-
-const normalizedHeader = (value: unknown) => text(value).replace(/\s+/g, " ");
+const normalizedArabicText = (value: unknown) => text(value)
+  .normalize("NFKC")
+  .replace(/[\u064b-\u065f\u0670\u0640]/g, "")
+  .replace(/[أإآ]/g, "ا")
+  .replace(/ى/g, "ي")
+  .replace(/\s+/g, " ")
+  .toLowerCase();
+const normalizedSheetName = (value: string) => normalizedArabicText(value);
+const normalizedHeader = (value: unknown) => normalizedArabicText(value);
 const isWideQuantitativeSheet = (sheet: RawWorkbookSheet) =>
   quantitativeWideHeaders.every(
-    (header, index) => normalizedHeader(sheet.data[0]?.[index]) === header
+    (header, index) => normalizedHeader(sheet.data[0]?.[index]) === normalizedHeader(header)
   );
 const isExtendedQuantitativeSheet = (sheet: RawWorkbookSheet) => {
   const header = sheet.data[0] ?? [];
   return [3, 5, 6, 7, 9, 10, 12, 13, 14, 15].every((index) =>
     headerMatches(header[index], quantitativeExtendedHeaders[index] ?? null)
   ) && header.length >= quantitativeExtendedHeaders.length;
+};
+const isBankFirstQuantitativeSheet = (sheet: RawWorkbookSheet) => {
+  const header = sheet.data[0] ?? [];
+  return header.length >= quantitativeBankFirstHeaders.length &&
+    quantitativeBankFirstHeaders.every((expected, index) =>
+      headerMatches(header[index], expected)
+    );
 };
 
 const verbalTopicSheetNames: Record<string, readonly string[]> = {
@@ -585,8 +675,23 @@ const findQuantitativeTopic = (sheetName: string) => {
   );
 };
 
-const getSheetPlans = (sheets: RawWorkbookSheet[], questionRange?: PageRange) => {
+const getSheetPlans = (
+  sheets: RawWorkbookSheet[],
+  questionRange?: PageRange,
+  importType: QuestionImportType = "general"
+) => {
   const recognized = sheets.flatMap((sheet) => {
+    if (isBankFirstQuantitativeSheet(sheet)) {
+      const topic = topicTaxonomy.find((candidate) => candidate.slug === "arithmetic");
+      return topic ? [{
+        canonicalName: sheet.sheet,
+        definition: createBankFirstQuantitativeDefinition(
+          topic,
+          sheet.data[0]?.length ?? quantitativeBankFirstHeaders.length
+        ),
+        sheet
+      }] : [];
+    }
     if (isExtendedQuantitativeSheet(sheet)) {
       const topic = topicTaxonomy.find((candidate) => candidate.slug === "arithmetic");
       return topic ? [{
@@ -614,26 +719,200 @@ const getSheetPlans = (sheets: RawWorkbookSheet[], questionRange?: PageRange) =>
         sheet
       }];
     }
+    if (importType === "general") {
+      const topic = topicTaxonomy.find((candidate) => candidate.slug === "arithmetic");
+      const definition = topic ? createGeneralStandardDefinition(topic) : null;
+      if (definition && definitionMatchesHeader(definition, sheet.data[0] ?? [])) {
+        return [{ canonicalName: sheet.sheet, definition, sheet }];
+      }
+    }
     return [];
   });
   const selected = recognized.filter((plan) =>
     hasSelectedQuestion(plan.sheet, plan.definition, questionRange)
   );
-  return selected.length > 0 ? selected : recognized;
+  return {
+    recognized,
+    selected: selected.length > 0 ? selected : recognized
+  };
+};
+
+const columnMappingsForDefinition = (
+  definition: SheetDefinition,
+  header: unknown[]
+): WorkbookColumnMapping[] => {
+  const topicIndex = definition.format === "quantitative-wide"
+    ? 11
+    : definition.categoryIndex ?? null;
+  const subtopicIndex = definition.format === "quantitative-wide"
+    ? 17
+    : definition.subtopicIndex ?? null;
+  const difficultyIndex = definition.format === "quantitative-wide"
+    ? 10
+    : definition.difficultyIndex ?? null;
+  const mappings: Array<[string, number | null, "column" | "row-order"]> = [
+    ["questionNumber", definition.questionNumberIndex, definition.questionNumberStrategy === "data-row" ? "row-order" : "column"],
+    ["questionText", definition.questionTextIndex, "column"],
+    ["optionA", definition.optionIndexes[0], "column"],
+    ["optionB", definition.optionIndexes[1], "column"],
+    ["optionC", definition.optionIndexes[2], "column"],
+    ["optionD", definition.optionIndexes[3], "column"],
+    ["correctAnswer", definition.answerIndex, "column"],
+    ["topic", topicIndex, "column"],
+    ["subtopic", subtopicIndex, "column"],
+    ["difficulty", difficultyIndex, "column"]
+  ];
+
+  return mappings
+    .filter(([, index, source]) => source === "row-order" || index !== null)
+    .map(([field, index, source]) => ({
+      field,
+      columnIndex: source === "row-order" ? null : index,
+      columnName: source === "row-order" || index === null ? "ترتيب الصف" : columnName(index),
+      header: source === "row-order" || index === null ? null : text(header[index]) || null,
+      source
+    }));
+};
+
+const selectedBankGroupForDefinition = (
+  definition: SheetDefinition,
+  data: unknown[][],
+  questionRange?: PageRange
+) => {
+  if (!definition.scopeToFirstBankGroup || definition.bankGroupIndex === undefined) {
+    return null;
+  }
+  for (let rowIndex = 1; rowIndex < data.length; rowIndex += 1) {
+    const row = data[rowIndex] ?? [];
+    const questionNumber = parseQuestionNumber(row[definition.questionNumberIndex ?? 0]);
+    if (questionNumber !== null && (!questionRange || inRange(questionNumber, questionRange))) {
+      return text(row[definition.bankGroupIndex]) || null;
+    }
+  }
+  return null;
+};
+
+const buildWorkbookDiagnostics = (
+  sheets: RawWorkbookSheet[],
+  recognizedPlans: ReturnType<typeof getSheetPlans>["recognized"],
+  selectedPlans: ReturnType<typeof getSheetPlans>["selected"],
+  questions: ParsedWorkbookQuestion[],
+  issues: ImportValidationIssue[],
+  questionRange?: PageRange
+): WorkbookAnalysis["diagnostics"] => {
+  const questionsByRow = new Map(
+    questions.map((question) => [`${question.sheetName}\0${question.rowNumber}`, question] as const)
+  );
+  const selectedWorksheetNames = selectedPlans.map((plan) => plan.sheet.sheet);
+
+  return {
+    parsedQuestionIdentifiers: questions.map((question) => question.questionNumber),
+    selectedWorksheetNames,
+    sheets: sheets.map((sheet) => {
+      const recognizedPlan = recognizedPlans.find((plan) => plan.sheet === sheet);
+      const selected = selectedPlans.some((plan) => plan.sheet === sheet);
+      const definition = recognizedPlan?.definition;
+      const data = Array.isArray(sheet.data) ? sheet.data : [];
+      const selectedBankGroup = definition
+        ? selectedBankGroupForDefinition(definition, data, questionRange)
+        : null;
+      const detectedHeaders = (data[0] ?? []).map((value) => text(value));
+      const nonEmptyRows = data.slice(1)
+        .map((row, index) => ({ row, rowNumber: index + 2 }))
+        .filter(({ row }) => !isEmptyRow(row));
+      const rows: WorkbookDiagnosticRow[] = nonEmptyRows.map(({ row, rowNumber }) => {
+        const parsed = questionsByRow.get(`${recognizedPlan?.canonicalName ?? sheet.sheet}\0${rowNumber}`);
+        const questionNumber = definition?.questionNumberStrategy === "data-row"
+          ? rowNumber - 1
+          : definition
+            ? parseQuestionNumber(row[definition.questionNumberIndex ?? 0])
+            : parseQuestionNumber(row[0]);
+        const rowIssues = issues.filter((entry) =>
+          entry.sheetName === (recognizedPlan?.canonicalName ?? sheet.sheet) &&
+          entry.rowNumber === rowNumber
+        );
+        let status: WorkbookDiagnosticRow["status"] = "skipped";
+        let reason: string | null = null;
+
+        if (!recognizedPlan) {
+          reason = "بنية ورقة العمل غير مدعومة.";
+        } else if (!selected) {
+          reason = "لم تُحدد ورقة العمل لهذا النطاق.";
+        } else if (
+          selectedBankGroup !== null &&
+          definition?.bankGroupIndex !== undefined &&
+          text(row[definition.bankGroupIndex]) !== selectedBankGroup
+        ) {
+          reason = `الصف تابع لمجموعة بنك أخرى (${text(row[definition.bankGroupIndex]) || "فارغة"}).`;
+        } else if (questionNumber === null) {
+          status = "invalid";
+          reason = "تعذر قراءة رقم السؤال من العمود المحدد.";
+        } else if (questionRange && !inRange(questionNumber, questionRange)) {
+          reason = "رقم السؤال خارج النطاق المحدد.";
+        } else if (!parsed) {
+          status = "invalid";
+          reason = rowIssues[0]?.message ?? "لم يتمكن المحلل من استخراج هذا الصف.";
+        } else {
+          status = parsed.issues.some((entry) => entry.severity === "error")
+            ? "invalid"
+            : "extracted";
+          reason = parsed.issues[0]?.message ?? null;
+        }
+
+        return {
+          correctAnswer: parsed?.correctAnswer ?? null,
+          difficulty: parsed?.difficulty ?? null,
+          excelRowNumber: rowNumber,
+          issues: parsed?.issues ?? rowIssues,
+          metadata: parsed?.metadata ?? null,
+          options: parsed?.options ?? null,
+          questionNumber: parsed?.questionNumber ?? questionNumber,
+          questionText: parsed?.questionText || null,
+          rawValues: row,
+          reason,
+          status,
+          subject: parsed?.subject ?? null,
+          subtopic: parsed?.subtopic ?? null,
+          subtopicId: parsed?.subtopicId ?? null,
+          topic: parsed?.topic ?? null,
+          topicId: parsed?.topicId ?? null
+        };
+      });
+
+      return {
+        columnMappings: definition
+          ? columnMappingsForDefinition(definition, data[0] ?? [])
+          : [],
+        detectedHeaders,
+        emptyRowCount: Math.max(0, data.length - 1 - nonEmptyRows.length),
+        format: definition?.format ?? null,
+        recognized: Boolean(recognizedPlan),
+        rows,
+        selected,
+        sheetName: sheet.sheet,
+        skippedReason: recognizedPlan
+          ? selected ? null : "لا تحتوي الورقة على أسئلة من النطاق المحدد."
+          : "لم تتطابق رؤوس الأعمدة مع أي بنية Excel مدعومة."
+      };
+    })
+  };
 };
 
 export const analyzeWorkbookSheets = (
   sheets: RawWorkbookSheet[],
-  questionRange?: PageRange
+  questionRange?: PageRange,
+  importType: QuestionImportType = "general"
 ): WorkbookAnalysis => {
   const issues: ImportValidationIssue[] = [];
   const questions: ParsedWorkbookQuestion[] = [];
   const seenQuestions = new Map<number, ParsedWorkbookQuestion>();
-  const sheetPlans = getSheetPlans(sheets, questionRange);
+  const plans = getSheetPlans(sheets, questionRange, importType);
+  const sheetPlans = plans.selected;
+  const structuralFailure = sheetPlans.length === 0;
   if (sheetPlans.length === 0) {
     issues.push(issue(
-      "unrecognized_workbook_classification",
-      "تعذر تحديد قسم وموضوع الأسئلة من أوراق ملف Excel."
+      "unsupported_workbook_structure",
+      `لم يُعثر على ورقة ببنية Excel مدعومة. الأوراق المكتشفة: ${sheets.map((sheet) => sheet.sheet).join("، ") || "لا توجد أوراق"}.`
     ));
   }
   const sheetSummary = sheetPlans.map(({ canonicalName, definition }) => ({
@@ -664,10 +943,22 @@ export const analyzeWorkbookSheets = (
     issues.push(...validateHeader(sheetName, data[0] ?? [], definition.headers));
 
     const selectedBankGroups = new Set<string>();
+    const selectedBankGroup = selectedBankGroupForDefinition(
+      definition,
+      data,
+      questionRange
+    );
     for (let rowIndex = 1; rowIndex < data.length; rowIndex += 1) {
       const row = data[rowIndex] ?? [];
       if (isEmptyRow(row)) continue;
       const rowNumber = rowIndex + 1;
+      if (
+        selectedBankGroup !== null &&
+        definition.bankGroupIndex !== undefined &&
+        text(row[definition.bankGroupIndex]) !== selectedBankGroup
+      ) {
+        continue;
+      }
       const questionNumber = definition.questionNumberStrategy === "data-row"
         ? rowIndex
         : parseQuestionNumber(row[definition.questionNumberIndex ?? 0]);
@@ -774,7 +1065,10 @@ export const analyzeWorkbookSheets = (
           questionNumber, rowNumber, sheetName
         }));
       }
+      const comparisonQuestion = definition.format === "quantitative-extended" &&
+        (definition.comparisonOperandIndexes ?? []).some((index) => text(row[index]));
       options.forEach((option, optionIndex) => {
+        if (comparisonQuestion) return;
         if (!option) {
           rowIssues.push(issue(
             "missing_option",
@@ -828,7 +1122,7 @@ export const analyzeWorkbookSheets = (
       sheetSummary[sheetIndex].questionCount += 1;
     }
 
-    if (selectedBankGroups.size > 1) {
+    if (!definition.scopeToFirstBankGroup && selectedBankGroups.size > 1) {
       issues.push(issue(
         "multiple_bank_groups",
         `النطاق المحدد في ورقة ${sheetName} يحتوي على أكثر من معرّف بنك في العمود A. ارفع كل بنك في عملية مستقلة حتى لا تندمج الأقسام.`,
@@ -837,7 +1131,7 @@ export const analyzeWorkbookSheets = (
     }
   }
 
-  if (questionRange) {
+  if (questionRange && !structuralFailure) {
     for (let questionNumber = questionRange.from; questionNumber <= questionRange.to; questionNumber += 1) {
       if (!seenQuestions.has(questionNumber)) {
         issues.push(issue(
@@ -850,15 +1144,25 @@ export const analyzeWorkbookSheets = (
   }
 
   return {
+    diagnostics: buildWorkbookDiagnostics(
+      sheets,
+      plans.recognized,
+      sheetPlans,
+      questions,
+      issues,
+      questionRange
+    ),
     issues,
     questions: questions.sort((left, right) => left.questionNumber - right.questionNumber),
-    sheetSummary
+    sheetSummary,
+    structuralFailure
   };
 };
 
 export const readAdminWorkbook = async (
   excelBuffer: Buffer,
-  questionRange?: PageRange
+  questionRange?: PageRange,
+  importType: QuestionImportType = "general"
 ) => {
   assertSafeWorkbookArchive(excelBuffer);
   const sheets = (await readXlsxFile(excelBuffer)) as RawWorkbookSheet[];
@@ -870,7 +1174,8 @@ export const readAdminWorkbook = async (
   }
   return analyzeWorkbookSheets(
     sheets,
-    questionRange
+    questionRange,
+    importType
   );
 };
 

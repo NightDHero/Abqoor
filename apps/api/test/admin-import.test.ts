@@ -63,6 +63,10 @@ const standardHeader = [
   "د",
   "الاجابة"
 ];
+const toArabicDigits = (value: number) => String(value).replace(
+  /\d/g,
+  (digit) => "٠١٢٣٤٥٦٧٨٩"[Number(digit)] ?? digit
+);
 const sentenceHeader = [
   "رقم السؤال",
   "السؤال",
@@ -638,6 +642,77 @@ test("maps the extended A-Y quantitative workbook without using the bank id as t
   assert.deepEqual(analysis.questions[0]?.metadata.comparisonImages, ["cmp-1", "cmp-2"]);
 });
 
+test("maps the bank-first quantitative workbook using its local question column", () => {
+  const header = [
+    "البنك", "رقم السؤال", "معرف داخلي", "السؤال", "المقارنة أ", "المقارنة ب",
+    "أ", "ب", "ج", "د", "الصورة", "هل يحتاج صوره؟", "صعوبة السؤال",
+    "فئة السؤال", "فئة اضافية", "الإجابة", "صورة مقارنة أ", "صورة مقارنة ب",
+    "تقني S", "تقني T", "تقني U", "تقني V", "0"
+  ];
+  const row = (bankGroup: number, questionNumber: number, globalNumber: number) => [
+    bankGroup, questionNumber, globalNumber + 1, `سؤال ${questionNumber}`, "", "",
+    "١", "٢", "٣", "٤", "", "لا", 3, "الحساب", "", "أ",
+    "", "", "", "", "", "", globalNumber
+  ];
+  const analysis = excelAdapter.analyzeWorkbookSheets([{
+    sheet: "بنك كمي",
+    data: [
+      header,
+      ...Array.from({ length: 48 }, (_, index) => row(1, index + 1, index + 1)),
+      ...Array.from({ length: 48 }, (_, index) => row(2, index + 1, index + 49))
+    ]
+  }], { from: 1, to: 48 }, "general");
+
+  assert.equal(analysis.questions.length, 48);
+  assert.equal(analysis.issues.length, 0);
+  assert.deepEqual(
+    analysis.questions.map((question) => question.questionNumber),
+    Array.from({ length: 48 }, (_, index) => index + 1)
+  );
+  assert.equal(
+    analysis.diagnostics.sheets[0]?.rows.filter((row) => row.status === "skipped").length,
+    48
+  );
+});
+
+test("parses Arabic question numbers in a standard general workbook", () => {
+  const analysis = excelAdapter.analyzeWorkbookSheets([{
+    sheet: "أسئلة عامة",
+    data: [
+      standardHeader,
+      ...Array.from({ length: 48 }, (_, index) => [
+        toArabicDigits(index + 1),
+        `سؤال ${index + 1}`,
+        "أول",
+        "ثان",
+        "ثالث",
+        "رابع",
+        "أ"
+      ])
+    ]
+  }], { from: 1, to: 48 }, "general");
+
+  assert.equal(analysis.structuralFailure, false);
+  assert.equal(analysis.questions.length, 48);
+  assert.equal(analysis.issues.length, 0);
+  assert.equal(analysis.questions[0]?.topicId, "arithmetic");
+  assert.equal(analysis.questions[47]?.questionNumber, 48);
+  assert.equal(analysis.diagnostics.sheets[0]?.selected, true);
+  assert.equal(analysis.diagnostics.sheets[0]?.detectedHeaders[0], "رقم السؤال");
+});
+
+test("reports one structural error without cascading range errors", () => {
+  const analysis = excelAdapter.analyzeWorkbookSheets([{
+    sheet: "ورقة غير مدعومة",
+    data: [["عمود غريب"], ["قيمة"]]
+  }], { from: 1, to: 48 }, "general");
+
+  assert.equal(analysis.structuralFailure, true);
+  assert.deepEqual(analysis.issues.map((entry) => entry.code), ["unsupported_workbook_structure"]);
+  assert.equal(analysis.diagnostics.sheets[0]?.recognized, false);
+  assert.equal(analysis.diagnostics.sheets[0]?.rows[0]?.status, "skipped");
+});
+
 test("rejects a selected A-Y range that would merge separate bank groups", () => {
   const header = [
     "رقم البنك", "معرف داخلي ١", "معرف داخلي ٢", "السؤال", "المقارنة أ",
@@ -783,6 +858,76 @@ test("creates a quantitative import without manual classification fields", async
   const detail = await importService.analyzeQuestionImport(input);
   assert.equal(detail.items[0]?.subject, "quantitative");
   assert.equal(detail.items[0]?.topicId, "arithmetic");
+  await importService.cancelQuestionImport(detail.job.id);
+});
+
+test("analyzes a 48-question general workbook with 48 matching images", async () => {
+  const workbook = createWorkbookBuffer([{
+    sheet: "أسئلة عامة",
+    data: [
+      standardHeader,
+      ...Array.from({ length: 48 }, (_, index) => [
+        toArabicDigits(index + 1),
+        `سؤال ${index + 1}`,
+        "أول",
+        "ثان",
+        "ثالث",
+        "رابع",
+        "أ"
+      ])
+    ]
+  }]);
+  const detail = await importService.analyzeQuestionImport({
+    createdBy: "admin@example.com",
+    importType: "general",
+    questionRange: { from: 1, to: 48 },
+    excel: {
+      buffer: workbook,
+      mimetype: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      originalname: "general.xlsx"
+    },
+    images: Array.from({ length: 48 }, (_, index) => ({
+      buffer: png,
+      mimetype: "image/png",
+      originalname: `${index + 1}.png`
+    }))
+  });
+
+  assert.equal(detail.items.length, 48);
+  assert.equal(detail.job.errorCount, 0);
+  assert.deepEqual(detail.job.mediaSummary, {
+    expected: 48,
+    extra: 0,
+    found: 48,
+    matched: 48,
+    missing: 0
+  });
+  assert.equal(detail.diagnostics?.sheets[0]?.rows[0]?.excelRowNumber, 2);
+  assert.equal(detail.diagnostics?.matchingStatus, "completed");
+  assert.equal(detail.diagnostics?.parsedQuestionIdentifiers.length, 48);
+  await importService.cancelQuestionImport(detail.job.id);
+});
+
+test("does not report every image as extra when workbook detection fails", async () => {
+  const detail = await importService.analyzeQuestionImport({
+    createdBy: "admin@example.com",
+    importType: "general",
+    questionRange: { from: 1, to: 1 },
+    excel: {
+      buffer: createWorkbookBuffer([{
+        sheet: "ورقة غير مدعومة",
+        data: [["عمود غريب"], ["قيمة"]]
+      }]),
+      mimetype: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      originalname: "unsupported.xlsx"
+    },
+    images: [{ buffer: png, mimetype: "image/png", originalname: "1.png" }]
+  });
+
+  assert.deepEqual(detail.job.issues.map((entry) => entry.code), ["unsupported_workbook_structure"]);
+  assert.equal(detail.job.mediaSummary.extra, 0);
+  assert.equal(detail.diagnostics?.matchingStatus, "not_attempted");
+  assert.deepEqual(detail.diagnostics?.unmatchedMediaIdentifiers, []);
   await importService.cancelQuestionImport(detail.job.id);
 });
 

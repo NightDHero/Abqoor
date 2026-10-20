@@ -43,8 +43,17 @@ export const toQuestionId = (questionNumber: number) => {
 };
 
 export const parseQuestionNumber = (value: unknown) => {
+  const normalizedValue = String(value ?? "")
+    .trim()
+    .replace(/[\u0660-\u0669]/g, (digit) =>
+      String(digit.charCodeAt(0) - 0x0660)
+    )
+    .replace(/[\u06f0-\u06f9]/g, (digit) =>
+      String(digit.charCodeAt(0) - 0x06f0)
+    )
+    .replace(/[\u066c,]/g, "");
   const parsed =
-    typeof value === "number" ? value : Number(String(value ?? "").trim());
+    typeof value === "number" ? value : Number(normalizedValue);
 
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 };

@@ -35,6 +35,23 @@ test("keeps the question upload workflow vertical and ordered", () => {
   assert.deepEqual([...stepPositions].sort((left, right) => left - right), stepPositions);
 });
 
+test("renders backend workbook diagnostics in a contained expandable preview", () => {
+  const source = readFileSync(
+    resolve(workspaceRoot, "apps/web/src/features/admin/AdminImportPage.tsx"),
+    "utf8"
+  );
+  const css = readFileSync(
+    resolve(workspaceRoot, "apps/web/src/features/admin/admin-question-management.css"),
+    "utf8"
+  );
+
+  assert.match(source, /بيانات Excel المستخرجة/);
+  assert.match(source, /JSON\.stringify\(detail\.diagnostics, null, 2\)/);
+  assert.match(source, /sheet\.columnMappings/);
+  assert.match(source, /row\.rawValues/);
+  assert.match(css, /\.admin-diagnostic-rows-wrap\s*\{[\s\S]*?max-height:\s*520px;[\s\S]*?overflow:\s*auto;/);
+});
+
 test("places the website destination last for regular users and administrators", () => {
   for (const isAdmin of [false, true]) {
     const items = getNavigationItems(isAdmin);

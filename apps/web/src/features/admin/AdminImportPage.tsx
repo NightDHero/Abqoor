@@ -19,6 +19,30 @@ const duplicateOptions: Array<{ label: string; value: DuplicateAction }> = [
   { label: "إيقاف الرفع", value: "stop" }
 ];
 
+const diagnosticStatusLabels = {
+  extracted: "مستخرج",
+  invalid: "غير صالح",
+  skipped: "متجاوز"
+} as const;
+
+const diagnosticFieldLabels: Record<string, string> = {
+  correctAnswer: "الإجابة الصحيحة",
+  difficulty: "الصعوبة",
+  optionA: "الخيار أ",
+  optionB: "الخيار ب",
+  optionC: "الخيار ج",
+  optionD: "الخيار د",
+  questionNumber: "رقم السؤال",
+  questionText: "نص السؤال",
+  subtopic: "الموضوع الفرعي",
+  topic: "الموضوع"
+};
+
+const formatDiagnosticValue = (value: unknown) => {
+  if (value === null || value === undefined || value === "") return "فارغ";
+  return typeof value === "object" ? JSON.stringify(value) : String(value);
+};
+
 export function AdminImportPage() {
   const [importType, setImportType] = useState<"general" | "aqsam">("general");
   const [bankName, setBankName] = useState("");
@@ -435,6 +459,95 @@ export function AdminImportPage() {
               <span>الزائد: {job.mediaSummary.extra.toLocaleString("ar-SA")}</span>
             </div>
           </section>
+
+          {detail.diagnostics ? (
+            <section className="admin-panel admin-import-diagnostics">
+              <header className="admin-panel-heading">
+                <div>
+                  <h2>بيانات Excel المستخرجة</h2>
+                  <p>هذه هي نتيجة المحلل في الخادم كما استُخدمت في التحقق والمطابقة.</p>
+                </div>
+                <b className="admin-status" data-status={detail.diagnostics.matchingStatus === "completed" ? "ready" : "failed"}>
+                  {detail.diagnostics.matchingStatus === "completed" ? "اكتملت المطابقة" : "لم تبدأ المطابقة"}
+                </b>
+              </header>
+              <div className="admin-diagnostic-summary">
+                <span>النطاق: <b>{detail.diagnostics.configuredQuestionRange.from.toLocaleString("ar-SA")}–{detail.diagnostics.configuredQuestionRange.to.toLocaleString("ar-SA")}</b></span>
+                <span>الأوراق المحددة: <b>{detail.diagnostics.selectedWorksheetNames.join("، ") || "لا توجد"}</b></span>
+                <span>معرّفات Excel: <b>{detail.diagnostics.parsedQuestionIdentifiers.join("، ") || "لا توجد"}</b></span>
+                <span>معرّفات الصور: <b>{detail.diagnostics.mediaIdentifiers.join("، ") || "لا توجد"}</b></span>
+              </div>
+              {detail.diagnostics.sheets.map((sheet) => (
+                <details className="admin-diagnostic-sheet" key={sheet.sheetName} open={sheet.selected}>
+                  <summary>
+                    <span>{sheet.sheetName}</span>
+                    <small>
+                      {sheet.selected ? "محددة للاستيراد" : sheet.recognized ? "معروفة ومتجاوزة" : "بنية غير معروفة"}
+                      {sheet.format ? ` · ${sheet.format}` : ""}
+                    </small>
+                  </summary>
+                  {sheet.skippedReason ? <p className="admin-diagnostic-note">{sheet.skippedReason}</p> : null}
+                  <div className="admin-diagnostic-block">
+                    <h3>الرؤوس المكتشفة</h3>
+                    <div className="admin-diagnostic-chips">
+                      {sheet.detectedHeaders.map((header, index) => (
+                        <span key={`${sheet.sheetName}-header-${index}`}>
+                          {String.fromCharCode(65 + index)}: {header || "فارغ"}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="admin-diagnostic-block">
+                    <h3>ربط الأعمدة</h3>
+                    {sheet.columnMappings.length > 0 ? (
+                      <div className="admin-table-wrap admin-diagnostic-table-wrap">
+                        <table className="admin-table">
+                          <thead><tr><th>الحقل</th><th>المصدر</th><th>الرأس</th></tr></thead>
+                          <tbody>
+                            {sheet.columnMappings.map((mapping) => (
+                              <tr key={`${sheet.sheetName}-${mapping.field}`}>
+                                <td>{diagnosticFieldLabels[mapping.field] ?? mapping.field}</td>
+                                <td>{mapping.columnName}</td>
+                                <td>{mapping.header ?? "ترتيب الصف"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : <p className="admin-diagnostic-empty">لم يتم اكتشاف ربط أعمدة صالح.</p>}
+                  </div>
+                  <div className="admin-diagnostic-block">
+                    <h3>الصفوف المستخرجة والمتجاوزة</h3>
+                    <p className="admin-diagnostic-note">الصفوف الفارغة: {sheet.emptyRowCount.toLocaleString("ar-SA")}</p>
+                    <div className="admin-table-wrap admin-diagnostic-rows-wrap">
+                      <table className="admin-table admin-diagnostic-rows">
+                        <thead><tr><th>صف Excel</th><th>الحالة</th><th>رقم السؤال</th><th>السؤال</th><th>الخيارات</th><th>الإجابة</th><th>القسم والموضوع</th><th>البيانات الخام</th><th>التفاصيل</th></tr></thead>
+                        <tbody>
+                          {sheet.rows.map((row) => (
+                            <tr data-diagnostic-status={row.status} key={`${sheet.sheetName}-${row.excelRowNumber}`}>
+                              <td>{row.excelRowNumber.toLocaleString("ar-SA")}</td>
+                              <td><b>{diagnosticStatusLabels[row.status]}</b></td>
+                              <td>{row.questionNumber?.toLocaleString("ar-SA") ?? "فارغ"}</td>
+                              <td>{row.questionText ?? "فارغ"}</td>
+                              <td>{row.options?.join(" | ") ?? "فارغ"}</td>
+                              <td>{answerLabel(row.correctAnswer)}</td>
+                              <td>{row.subject ? `${row.subject === "quantitative" ? "كمي" : "لفظي"} ← ${row.topic ?? "دون موضوع"}${row.subtopic ? ` ← ${row.subtopic}` : ""}` : "غير محدد"}</td>
+                              <td><code>{row.rawValues.map(formatDiagnosticValue).join(" | ")}</code></td>
+                              <td>{row.reason ?? (row.issues.map((issue) => issue.message).join(" · ") || "—")}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </details>
+              ))}
+              <details className="admin-diagnostic-json">
+                <summary>عرض JSON الخام</summary>
+                <pre dir="ltr">{JSON.stringify(detail.diagnostics, null, 2)}</pre>
+              </details>
+            </section>
+          ) : null}
 
           {job.issues.length > 0 ? (
             <section className="admin-panel">

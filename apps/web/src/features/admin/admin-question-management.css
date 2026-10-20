@@ -941,6 +941,95 @@
 .admin-import-preview-table b[data-valid="true"] { color: #62d9b8; }
 .admin-import-preview-table b[data-valid="false"] { color: #ff9aa5; }
 
+.admin-import-diagnostics {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-diagnostic-summary,
+.admin-diagnostic-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-diagnostic-summary span,
+.admin-diagnostic-chips span {
+  padding: 7px 10px;
+  border: 1px solid var(--abqoor-border);
+  border-radius: 7px;
+  background: rgb(255 255 255 / 4%);
+  color: var(--abqoor-muted);
+}
+
+.admin-diagnostic-summary b { color: var(--abqoor-text); }
+
+.admin-diagnostic-sheet,
+.admin-diagnostic-json {
+  border-block-start: 1px solid var(--abqoor-border);
+  padding-block-start: 12px;
+}
+
+.admin-diagnostic-sheet > summary,
+.admin-diagnostic-json > summary {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  cursor: pointer;
+  color: var(--abqoor-text);
+  font-weight: 900;
+}
+
+.admin-diagnostic-sheet > summary small {
+  color: var(--abqoor-muted);
+  font-weight: 700;
+}
+
+.admin-diagnostic-block {
+  display: grid;
+  gap: 8px;
+  margin-block-start: 14px;
+}
+
+.admin-diagnostic-block h3 { margin: 0; }
+.admin-diagnostic-note,
+.admin-diagnostic-empty { color: var(--abqoor-muted); }
+
+.admin-diagnostic-table-wrap { max-height: 260px; }
+.admin-diagnostic-rows-wrap {
+  max-height: 520px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.admin-diagnostic-rows { min-width: 1500px; }
+.admin-diagnostic-rows td { max-width: 340px; }
+.admin-diagnostic-rows code {
+  display: block;
+  direction: rtl;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  color: var(--abqoor-muted);
+}
+
+.admin-diagnostic-rows tr[data-diagnostic-status="extracted"] > td:nth-child(2) { color: #62d9b8; }
+.admin-diagnostic-rows tr[data-diagnostic-status="invalid"] > td:nth-child(2) { color: #ff9aa5; }
+.admin-diagnostic-rows tr[data-diagnostic-status="skipped"] > td:nth-child(2) { color: #f3ca78; }
+
+.admin-diagnostic-json pre {
+  max-height: 520px;
+  margin: 12px 0 0;
+  padding: 14px;
+  overflow: auto;
+  border: 1px solid var(--abqoor-border);
+  border-radius: 7px;
+  background: rgb(0 0 0 / 22%);
+  color: var(--abqoor-text);
+  font: 0.78rem/1.7 ui-monospace, SFMono-Regular, Consolas, monospace;
+  text-align: left;
+  white-space: pre;
+}
+
 .admin-missing { color: #ff9aa5; }
 
 .admin-pagination {

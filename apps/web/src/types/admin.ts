@@ -111,9 +111,54 @@ export type ImportJobItem = {
   updatedAt: string;
 };
 
+export type ImportDiagnostics = {
+  configuredQuestionRange: { from: number; to: number };
+  selectedWorksheetNames: string[];
+  parsedQuestionIdentifiers: number[];
+  mediaIdentifiers: number[];
+  missingQuestionIdentifiers: number[];
+  unmatchedMediaIdentifiers: number[];
+  matchingStatus: "completed" | "not_attempted";
+  sheets: Array<{
+    sheetName: string;
+    selected: boolean;
+    recognized: boolean;
+    format: string | null;
+    detectedHeaders: string[];
+    columnMappings: Array<{
+      field: string;
+      columnIndex: number | null;
+      columnName: string;
+      header: string | null;
+      source: "column" | "row-order";
+    }>;
+    skippedReason: string | null;
+    emptyRowCount: number;
+    rows: Array<{
+      excelRowNumber: number;
+      status: "extracted" | "invalid" | "skipped";
+      reason: string | null;
+      rawValues: unknown[];
+      questionNumber: number | null;
+      questionText: string | null;
+      options: [string, string, string, string] | null;
+      correctAnswer: "A" | "B" | "C" | "D" | null;
+      subject: "quantitative" | "verbal" | null;
+      topic: string | null;
+      topicId: string | null;
+      subtopic: string | null;
+      subtopicId: string | null;
+      difficulty: number | null;
+      metadata: Record<string, unknown> | null;
+      issues: ImportIssue[];
+    }>;
+  }>;
+};
+
 export type ImportJobDetail = {
   job: ImportJob;
   items: ImportJobItem[];
+  diagnostics?: ImportDiagnostics;
 };
 
 export type QuestionImportTaxonomy = {

@@ -390,7 +390,8 @@ export const analyzeQuestionImport = async (
   });
   const workbook = await readAdminWorkbook(
     request.excel.buffer,
-    request.questionRange
+    request.questionRange,
+    request.importType
   );
   request.onStage?.("workbook_analysis_completed", {
     issueCount: workbook.issues.length,
@@ -440,7 +441,7 @@ export const analyzeQuestionImport = async (
     );
 
     for (const mediaNumber of media.mapping.keys()) {
-      if (!workbookNumbers.has(mediaNumber)) {
+      if (!workbook.structuralFailure && !workbookNumbers.has(mediaNumber)) {
         issues.push(
           errorIssue(
             "extra_media",
@@ -510,7 +511,9 @@ export const analyzeQuestionImport = async (
       found: media.found,
       matched,
       missing: items.length - matched,
-      extra: [...media.mapping.keys()].filter((number) => !workbookNumbers.has(number)).length
+      extra: workbook.structuralFailure
+        ? 0
+        : [...media.mapping.keys()].filter((number) => !workbookNumbers.has(number)).length
     };
     const validCount = items.filter((item) => item.validationStatus === "valid").length;
     const errorCount = issues.filter((item) => item.severity === "error").length;
@@ -530,7 +533,29 @@ export const analyzeQuestionImport = async (
       issues
     });
 
-    return getImportJobDetail(job.id);
+    const detail = await getImportJobDetail(job.id);
+    const mediaIdentifiers = [...media.mapping.keys()].sort((left, right) => left - right);
+    const parsedQuestionIdentifiers = [...workbookNumbers].sort((left, right) => left - right);
+    const expectedIdentifiers = Array.from(
+      { length: request.questionRange.to - request.questionRange.from + 1 },
+      (_, index) => request.questionRange.from + index
+    );
+    return {
+      ...detail,
+      diagnostics: {
+        ...workbook.diagnostics,
+        configuredQuestionRange: request.questionRange,
+        matchingStatus: workbook.structuralFailure ? "not_attempted" : "completed",
+        mediaIdentifiers,
+        missingQuestionIdentifiers: workbook.structuralFailure
+          ? []
+          : expectedIdentifiers.filter((number) => !workbookNumbers.has(number)),
+        parsedQuestionIdentifiers,
+        unmatchedMediaIdentifiers: workbook.structuralFailure
+          ? []
+          : mediaIdentifiers.filter((number) => !workbookNumbers.has(number))
+      }
+    };
   } catch (error) {
     const failedJob = await findImportJob(job.id);
     if (failedJob?.sourcePdfId) {
