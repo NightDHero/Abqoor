@@ -156,6 +156,48 @@ const validWideQuantitativeSheets = (questionNumbers: number[]) => [{
   ]
 }];
 
+const authoritativeArHeader = [
+  null,
+  null,
+  null,
+  "السؤال",
+  "المقارنة أ",
+  "المقارنة ب",
+  "أ",
+  "ب",
+  "ج",
+  "د",
+  "الصورة",
+  null,
+  "صعوبة",
+  "فئة السؤال",
+  "فئة إضافية",
+  "الإجابة",
+  "صورة مقارنة أ",
+  "صورة مقارنة ب"
+];
+
+const authoritativeArRow = (questionNumber: number) => [
+  questionNumber,
+  "GROUP-7",
+  `CODE-${questionNumber}`,
+  `سؤال هندسي ${questionNumber}`,
+  `القيمة أ ${questionNumber}`,
+  `القيمة ب ${questionNumber}`,
+  "الأولى أكبر",
+  "الثانية أكبر",
+  "متساويتان",
+  "المعطيات غير كافية",
+  "نعم",
+  "",
+  4,
+  "الزوايا",
+  "تدريب تأسيسي",
+  "ب",
+  `cmp-a-${questionNumber}`,
+  `cmp-b-${questionNumber}`
+];
+
 const selectedVerbalSheets = (questionNumbers: number[]) => {
   const sheets = validSheets();
   sheets[0] = {
@@ -494,10 +536,27 @@ test("maps each supported verbal workbook format without shifting columns", () =
     assert.equal(analysis.issues.length, 0, item.sheet.sheet);
     assert.equal(analysis.questions.length, 1, item.sheet.sheet);
     assert.equal(analysis.questions[0]?.questionText, item.expectedQuestion);
+    assert.equal(analysis.questions[0]?.subject, "verbal");
     assert.deepEqual(analysis.questions[0]?.options, item.expectedOptions);
     assert.equal(analysis.questions[0]?.metadata.answerText, item.expectedAnswerText);
     assert.equal(analysis.questions[0]?.metadata.passage, item.expectedPassage);
   }
+});
+
+test("supports the numbered seven-column sentence-completion workbook", () => {
+  const analysis = excelAdapter.analyzeWorkbookSheets([{
+    sheet: "إكمال الجمل عام",
+    data: [
+      ["رقم السؤال", "الإجابة نص", "أ", "ب", "ج", "د", "الإجابة"],
+      [106, "الطالب ____ في دراسته", "مجتهد", "بعيد", "سريع", "قليل", "أ"]
+    ]
+  }], { from: 106, to: 106 }, "general");
+
+  assert.equal(analysis.issues.length, 0);
+  assert.equal(analysis.questions[0]?.subject, "verbal");
+  assert.equal(analysis.questions[0]?.topicId, "sentence-completion");
+  assert.equal(analysis.questions[0]?.questionText, "الطالب ____ في دراسته");
+  assert.equal(analysis.questions[0]?.metadata.answerText, "الطالب ____ في دراسته");
 });
 
 test("gives repeated reading passages a stable relationship identifier", () => {
@@ -603,16 +662,17 @@ test("maps the documented A-R quantitative workbook and cell-note fallback", () 
   assert.equal(analysis.questions[0]?.topic, "الحساب");
   assert.equal(analysis.questions[0]?.subtopic, "العمليات الأساسية");
   assert.equal(analysis.questions[0]?.difficulty, 3);
-  assert.deepEqual(analysis.questions[0]?.metadata, {
-    additionalCategory: "الحساب",
-    chapter: "العمليات الأساسية",
-    comparisonImages: [],
-    comparisonOperands: ["القيمة الأولى 10", "القيمة الثانية 10"],
-    imageIndicator: "لا",
-    model: "نموذج تجريبي",
-    precisionDifficulty: "3",
-    weight: "2"
-  });
+  assert.equal(analysis.questions[0]?.metadata.additionalCategory, "الحساب");
+  assert.equal(analysis.questions[0]?.metadata.chapter, "العمليات الأساسية");
+  assert.deepEqual(analysis.questions[0]?.metadata.comparisonImages, []);
+  assert.deepEqual(
+    analysis.questions[0]?.metadata.comparisonOperands,
+    ["القيمة الأولى 10", "القيمة الثانية 10"]
+  );
+  assert.equal(analysis.questions[0]?.metadata.imageIndicator, "لا");
+  assert.equal(analysis.questions[0]?.metadata.model, "نموذج تجريبي");
+  assert.equal(analysis.questions[0]?.metadata.precisionDifficulty, "3");
+  assert.equal(analysis.questions[0]?.metadata.weight, "2");
 });
 
 test("maps the extended A-Y quantitative workbook without using the bank id as the question id", () => {
@@ -642,7 +702,7 @@ test("maps the extended A-Y quantitative workbook without using the bank id as t
   assert.deepEqual(analysis.questions[0]?.metadata.comparisonImages, ["cmp-1", "cmp-2"]);
 });
 
-test("maps the bank-first quantitative workbook using its local question column", () => {
+test("maps the labeled bank-first quantitative workbook using its local question column", () => {
   const header = [
     "البنك", "رقم السؤال", "معرف داخلي", "السؤال", "المقارنة أ", "المقارنة ب",
     "أ", "ب", "ج", "د", "الصورة", "هل يحتاج صوره؟", "صعوبة السؤال",
@@ -655,7 +715,7 @@ test("maps the bank-first quantitative workbook using its local question column"
     "", "", "", "", "", "", globalNumber
   ];
   const analysis = excelAdapter.analyzeWorkbookSheets([{
-    sheet: "بنك كمي",
+    sheet: "بنك هندسة",
     data: [
       header,
       ...Array.from({ length: 48 }, (_, index) => row(1, index + 1, index + 1)),
@@ -665,6 +725,8 @@ test("maps the bank-first quantitative workbook using its local question column"
 
   assert.equal(analysis.questions.length, 48);
   assert.equal(analysis.issues.length, 0);
+  assert.equal(analysis.questions[0]?.topicId, "geometry");
+  assert.equal(analysis.questions[0]?.subtopic, "الحساب");
   assert.deepEqual(
     analysis.questions.map((question) => question.questionNumber),
     Array.from({ length: 48 }, (_, index) => index + 1)
@@ -675,9 +737,9 @@ test("maps the bank-first quantitative workbook using its local question column"
   );
 });
 
-test("parses Arabic question numbers in a standard general workbook", () => {
+test("parses Arabic question numbers when a standard general sheet identifies its topic", () => {
   const analysis = excelAdapter.analyzeWorkbookSheets([{
-    sheet: "أسئلة عامة",
+    sheet: "الحساب",
     data: [
       standardHeader,
       ...Array.from({ length: 48 }, (_, index) => [
@@ -699,6 +761,59 @@ test("parses Arabic question numbers in a standard general workbook", () => {
   assert.equal(analysis.questions[47]?.questionNumber, 48);
   assert.equal(analysis.diagnostics.sheets[0]?.selected, true);
   assert.equal(analysis.diagnostics.sheets[0]?.detectedHeaders[0], "رقم السؤال");
+});
+
+test("does not guess a section or main topic for an ambiguous seven-column sheet", () => {
+  const analysis = excelAdapter.analyzeWorkbookSheets([{
+    sheet: "أسئلة عامة",
+    data: [standardHeader, [1, "سؤال", "أ", "ب", "ج", "د", "أ"]]
+  }], { from: 1, to: 1 }, "general");
+
+  assert.equal(analysis.structuralFailure, true);
+  assert.deepEqual(analysis.issues.map((entry) => entry.code), ["ambiguous_workbook_structure"]);
+});
+
+test("maps the authoritative A-R quantitative format without shifting the empty L column", () => {
+  const analysis = excelAdapter.analyzeWorkbookSheets([{
+    sheet: "بنك الهندسة",
+    data: [authoritativeArHeader, authoritativeArRow(701)]
+  }], { from: 701, to: 701 }, "general");
+
+  assert.equal(analysis.issues.length, 0);
+  assert.equal(analysis.questions[0]?.subject, "quantitative");
+  assert.equal(analysis.questions[0]?.topic, "الهندسة");
+  assert.equal(analysis.questions[0]?.topicId, "geometry");
+  assert.equal(analysis.questions[0]?.subtopic, "الزوايا");
+  assert.equal(analysis.questions[0]?.subtopicId, "angles");
+  assert.equal(analysis.questions[0]?.correctAnswer, "B");
+  assert.deepEqual(analysis.questions[0]?.options, [
+    "الأولى أكبر", "الثانية أكبر", "متساويتان", "المعطيات غير كافية"
+  ]);
+  assert.deepEqual(analysis.questions[0]?.metadata.sourceIdentifiers, {
+    code: "CODE-701",
+    primary: "701",
+    secondary: "GROUP-7"
+  });
+  assert.deepEqual(analysis.questions[0]?.metadata.comparisonOperands, [
+    "القيمة أ 701", "القيمة ب 701"
+  ]);
+  assert.equal(analysis.questions[0]?.metadata.imageIndicator, "نعم");
+  assert.equal(analysis.questions[0]?.metadata.additionalCategory, "تدريب تأسيسي");
+  assert.deepEqual(analysis.questions[0]?.metadata.comparisonImages, [
+    "cmp-a-701", "cmp-b-701"
+  ]);
+});
+
+test("reports a missing main topic without defaulting an A-R sheet to arithmetic", () => {
+  const analysis = excelAdapter.analyzeWorkbookSheets([{
+    sheet: "بيانات كمية",
+    data: [authoritativeArHeader, authoritativeArRow(702)]
+  }], { from: 702, to: 702 }, "general");
+
+  assert.equal(analysis.questions[0]?.subject, "quantitative");
+  assert.equal(analysis.questions[0]?.topic, "");
+  assert.equal(analysis.questions[0]?.topicId, "");
+  assert.deepEqual(analysis.issues.map((entry) => entry.code), ["missing_main_topic"]);
 });
 
 test("reports one structural error without cascading range errors", () => {
@@ -863,7 +978,7 @@ test("creates a quantitative import without manual classification fields", async
 
 test("analyzes a 48-question general workbook with 48 matching images", async () => {
   const workbook = createWorkbookBuffer([{
-    sheet: "أسئلة عامة",
+    sheet: "الحساب",
     data: [
       standardHeader,
       ...Array.from({ length: 48 }, (_, index) => [
@@ -906,6 +1021,83 @@ test("analyzes a 48-question general workbook with 48 matching images", async ()
   assert.equal(detail.diagnostics?.matchingStatus, "completed");
   assert.equal(detail.diagnostics?.parsedQuestionIdentifiers.length, 48);
   await importService.cancelQuestionImport(detail.job.id);
+});
+
+test("matches 48 authoritative A-R rows to 48 selected media identifiers", async () => {
+  const detail = await importService.analyzeQuestionImport({
+    createdBy: "admin@example.com",
+    importType: "general",
+    questionRange: { from: 1, to: 48 },
+    excel: {
+      buffer: createWorkbookBuffer([{
+        sheet: "بنك الهندسة",
+        data: [
+          authoritativeArHeader,
+          ...Array.from({ length: 48 }, (_, index) => authoritativeArRow(index + 1))
+        ]
+      }]),
+      mimetype: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      originalname: "quantitative-a-r.xlsx"
+    },
+    images: Array.from({ length: 48 }, (_, index) => ({
+      buffer: png,
+      mimetype: "image/png",
+      originalname: `${index + 1}.png`
+    }))
+  });
+
+  assert.equal(detail.items.length, 48);
+  assert.equal(detail.job.errorCount, 0);
+  assert.deepEqual(detail.job.mediaSummary, {
+    expected: 48,
+    extra: 0,
+    found: 48,
+    matched: 48,
+    missing: 0
+  });
+  assert.equal(
+    detail.diagnostics?.sheets[0]?.rows.filter((row) => row.mediaMatchStatus === "matched").length,
+    48
+  );
+  await importService.cancelQuestionImport(detail.job.id);
+});
+
+test("persists authoritative Excel metadata with the imported question", async () => {
+  const questionNumber = 7901;
+  const detail = await importService.analyzeQuestionImport({
+    createdBy: "admin@example.com",
+    importType: "general",
+    questionRange: { from: questionNumber, to: questionNumber },
+    excel: {
+      buffer: createWorkbookBuffer([{
+        sheet: "بنك الهندسة",
+        data: [authoritativeArHeader, authoritativeArRow(questionNumber)]
+      }]),
+      mimetype: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      originalname: "metadata-source.xlsx"
+    },
+    images: [{ buffer: png, mimetype: "image/png", originalname: `${questionNumber}.png` }]
+  });
+
+  await importService.confirmQuestionImport(detail.job.id, {});
+  const completed = await waitForTerminalJob(detail.job.id);
+  assert.equal(completed.job.status, "completed");
+  const saved = await questionRepository.findQuestionById(`Q-${questionNumber}`);
+  const metadata = JSON.parse(saved?.import_metadata_json ?? "{}") as Record<string, unknown>;
+  assert.equal(metadata.sourceWorkbook, "metadata-source.xlsx");
+  assert.equal(metadata.sourceWorksheet, "بنك الهندسة");
+  assert.equal(metadata.sourceRowNumber, 2);
+  assert.deepEqual(metadata.sourceIdentifiers, {
+    code: `CODE-${questionNumber}`,
+    primary: String(questionNumber),
+    secondary: "GROUP-7"
+  });
+  assert.equal(metadata.additionalCategory, "تدريب تأسيسي");
+  assert.deepEqual(metadata.comparisonImages, [
+    `cmp-a-${questionNumber}`,
+    `cmp-b-${questionNumber}`
+  ]);
+  await importService.rollbackQuestionImport(detail.job.id);
 });
 
 test("does not report every image as extra when workbook detection fails", async () => {
@@ -1084,6 +1276,26 @@ test("maps a selected PDF page range deterministically", () => {
     { pageIndex: 8, questionNumber: 51 },
     { pageIndex: 9, questionNumber: 52 }
   ]);
+});
+
+test("pairs 48 authoritative Excel rows with the same 48 selected PDF question identifiers", () => {
+  const analysis = excelAdapter.analyzeWorkbookSheets([{
+    sheet: "بنك الهندسة",
+    data: [
+      authoritativeArHeader,
+      ...Array.from({ length: 48 }, (_, index) => authoritativeArRow(index + 1))
+    ]
+  }], { from: 1, to: 48 }, "general");
+  const pages = pdfAdapter.selectPdfPagesForQuestionRange(
+    48,
+    { from: 1, to: 48 },
+    { from: 1, to: 48 }
+  );
+
+  assert.deepEqual(
+    analysis.questions.map((question) => question.questionNumber),
+    pages.map((page) => page.questionNumber)
+  );
 });
 
 test("rejects mismatched Excel question and PDF page counts", () => {

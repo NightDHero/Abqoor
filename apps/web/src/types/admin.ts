@@ -124,6 +124,8 @@ export type ImportDiagnostics = {
     selected: boolean;
     recognized: boolean;
     format: string | null;
+      detectedSection: "quantitative" | "verbal" | null;
+      sectionDetectionSource: "structure" | "worksheet-name" | null;
     detectedHeaders: string[];
     columnMappings: Array<{
       field: string;
@@ -149,6 +151,24 @@ export type ImportDiagnostics = {
       subtopic: string | null;
       subtopicId: string | null;
       difficulty: number | null;
+      format: string | null;
+      detectedSection: "quantitative" | "verbal" | null;
+      sourceIdentifiers: {
+        primary: string | null;
+        secondary: string | null;
+        code: string | null;
+      } | null;
+      comparisonA: string | null;
+      comparisonB: string | null;
+      imageIndicator: string | null;
+      additionalCategory: string | null;
+      comparisonImages: string[];
+      topicSource: string | null;
+      subtopicSource: string | null;
+      mediaMatchStatus: "matched" | "missing" | "not_attempted";
+      matchedMediaIdentifier: number | null;
+      matchedPageNumber: number | null;
+      matchedSourceName: string | null;
       metadata: Record<string, unknown> | null;
       issues: ImportIssue[];
     }>;

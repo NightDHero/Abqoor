@@ -393,6 +393,9 @@ export const analyzeQuestionImport = async (
     request.questionRange,
     request.importType
   );
+  for (const question of workbook.questions) {
+    question.metadata.sourceWorkbook = request.excel.originalname;
+  }
   request.onStage?.("workbook_analysis_completed", {
     issueCount: workbook.issues.length,
     questionCount: workbook.questions.length
@@ -540,6 +543,30 @@ export const analyzeQuestionImport = async (
       { length: request.questionRange.to - request.questionRange.from + 1 },
       (_, index) => request.questionRange.from + index
     );
+    const diagnosticSheets = workbook.diagnostics.sheets.map((sheet) => ({
+      ...sheet,
+      rows: sheet.rows.map((row) => {
+        const inSelectedRange = row.questionNumber !== null &&
+          row.questionNumber >= request.questionRange.from &&
+          row.questionNumber <= request.questionRange.to;
+        const match = inSelectedRange && row.questionNumber !== null
+          ? media.mapping.get(row.questionNumber)
+          : undefined;
+        return {
+          ...row,
+          matchedMediaIdentifier: match && row.questionNumber !== null
+            ? row.questionNumber
+            : null,
+          matchedPageNumber: match?.pageNumber ?? null,
+          matchedSourceName: match?.sourceImageName ?? null,
+          mediaMatchStatus: workbook.structuralFailure || !inSelectedRange
+            ? "not_attempted" as const
+            : match
+              ? "matched" as const
+              : "missing" as const
+        };
+      })
+    }));
     return {
       ...detail,
       diagnostics: {
@@ -551,6 +578,7 @@ export const analyzeQuestionImport = async (
           ? []
           : expectedIdentifiers.filter((number) => !workbookNumbers.has(number)),
         parsedQuestionIdentifiers,
+        sheets: diagnosticSheets,
         unmatchedMediaIdentifiers: workbook.structuralFailure
           ? []
           : mediaIdentifiers.filter((number) => !workbookNumbers.has(number))

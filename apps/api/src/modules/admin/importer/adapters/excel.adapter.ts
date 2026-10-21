@@ -41,6 +41,7 @@ type RawWorkbookSheet = {
 type HeaderExpectation = string | readonly string[] | null;
 type SheetDefinition = {
   acceptedNames: readonly string[];
+  additionalCategoryIndex?: number;
   answerIndex: number;
   answerTextIndex?: number;
   bankGroupIndex?: number;
@@ -48,14 +49,18 @@ type SheetDefinition = {
   comparisonImageIndexes?: readonly number[];
   comparisonOperandIndexes?: readonly number[];
   difficultyIndex?: number;
-  format: "compact" | "general-standard" | "quantitative-wide" | "quantitative-extended" | "verbal-detail" | "reading";
+  format: "compact" | "quantitative-wide" | "quantitative-extended" | "quantitative-bank-first" | "quantitative-a-r" | "verbal-detail" | "reading";
   headers: readonly HeaderExpectation[];
   imageIndex?: number;
+  imageIndicatorIndex?: number;
   internalIdentifierIndexes?: readonly number[];
   optionIndexes: readonly [number, number, number, number];
   passageIndex?: number;
+  sectionDetectionSource?: "structure" | "worksheet-name";
+  sourceIdentifierIndexes?: readonly [number, number, number];
   topic: string;
   topicId: string;
+  topicSource?: "fixed-contract" | "worksheet-name" | "column" | "missing";
   subtopic: string | null;
   subtopicId: string | null;
   subject: LegacyQuestionSubject;
@@ -64,12 +69,16 @@ type SheetDefinition = {
   questionTextIndex: number;
   scopeToFirstBankGroup?: boolean;
   subtopicIndex?: number;
+  subtopicSource?: "column" | "fixed-contract" | null;
 };
 
 const answerHeader = ["الاجابة", "الإجابة"] as const;
 const standardHeaders = ["رقم السؤال", "السؤال", "أ", "ب", "ج", "د", answerHeader] as const;
 const sentenceCompletionHeaders = [
   "السؤال", "الإجابة نص", "أ", "ب", "ج", "د", answerHeader
+] as const;
+const numberedSentenceCompletionHeaders = [
+  "رقم السؤال", "الإجابة نص", "أ", "ب", "ج", "د", answerHeader
 ] as const;
 const legacySentenceCompletionHeaders = [
   "رقم السؤال", "السؤال", "الإجابة نص", "أ", "ب", "ج", "د", answerHeader
@@ -135,6 +144,26 @@ const quantitativeBankFirstHeaders = [
   ["صورة مقارنة أ", "صورة مقارنة ١"],
   ["صورة مقارنة ب", "صورة مقارنة ٢"]
 ] as const satisfies readonly HeaderExpectation[];
+const quantitativeArHeaders = [
+  null,
+  null,
+  null,
+  "السؤال",
+  ["المقارنة أ", "المقارنة ١"],
+  ["المقارنة ب", "المقارنة ٢"],
+  "أ",
+  "ب",
+  "ج",
+  "د",
+  "الصورة",
+  null,
+  ["صعوبة السؤال", "صعوبة"],
+  ["فئة السؤال", "الفئة"],
+  ["فئة اضافية", "فئة إضافية"],
+  answerHeader,
+  ["صورة مقارنة أ", "صورة مقارنة ١", "صورة المقارنة ١"],
+  ["صورة مقارنة ب", "صورة مقارنة ٢", "صورة المقارنة ٢"]
+] as const satisfies readonly HeaderExpectation[];
 
 const verbalSheetDefinitions: Record<string, SheetDefinition[]> = {
   "verbal-analogy": [{
@@ -148,6 +177,11 @@ const verbalSheetDefinitions: Record<string, SheetDefinition[]> = {
     optionIndexes: [2, 3, 4, 5], answerIndex: 6, answerTextIndex: 1,
     topic: "إكمال الجمل", topicId: "sentence-completion", subtopic: null, subtopicId: null,
     subject: "verbal", questionNumberIndex: null, questionNumberStrategy: "data-row", questionTextIndex: 0, format: "verbal-detail"
+  }, {
+    acceptedNames: ["اكمال الجمل عام"], headers: numberedSentenceCompletionHeaders,
+    optionIndexes: [2, 3, 4, 5], answerIndex: 6, answerTextIndex: 1,
+    topic: "إكمال الجمل", topicId: "sentence-completion", subtopic: null, subtopicId: null,
+    subject: "verbal", questionNumberIndex: 0, questionTextIndex: 1, format: "verbal-detail"
   }, {
     acceptedNames: ["اكمال الجمل عام"], headers: legacySentenceCompletionHeaders,
     optionIndexes: [3, 4, 5, 6], answerIndex: 7, answerTextIndex: 2,
@@ -190,51 +224,57 @@ const createQuantitativeSheetDefinition = (
   acceptedNames: ["الورقة1"], headers: quantitativeHeaders,
   optionIndexes: [2, 3, 4, 5], answerIndex: 7,
   subject: "quantitative",
+  sectionDetectionSource: "structure",
   subtopic: null,
   subtopicId: null,
   topic: topic.displayNameAr,
   topicId: topic.slug,
+  topicSource: "fixed-contract",
   questionNumberIndex: 0,
   questionTextIndex: 1,
   format: "compact"
 });
 
-const createGeneralStandardDefinition = (
+const createTopicStandardDefinition = (
   topic: TopicDefinition
 ): SheetDefinition => ({
   acceptedNames: [],
   answerIndex: 6,
-  format: "general-standard",
+  format: "compact",
   headers: standardHeaders,
   optionIndexes: [2, 3, 4, 5],
   questionNumberIndex: 0,
   questionTextIndex: 1,
+  sectionDetectionSource: "worksheet-name",
   subject: "quantitative",
   subtopic: null,
   subtopicId: null,
   topic: topic.displayNameAr,
-  topicId: topic.slug
+  topicId: topic.slug,
+  topicSource: "worksheet-name"
 });
 
 const createWideQuantitativeDefinition = (
-  topic: TopicDefinition
+  topic: TopicDefinition | null
 ): SheetDefinition => ({
   acceptedNames: [],
   answerIndex: 12,
   headers: quantitativeWideHeaders,
   optionIndexes: [2, 3, 4, 5],
-  topic: topic.displayNameAr,
-  topicId: topic.slug,
+  topic: topic?.displayNameAr ?? "",
+  topicId: topic?.slug ?? "",
   subtopic: null,
   subtopicId: null,
   subject: "quantitative",
+  sectionDetectionSource: "structure",
   questionNumberIndex: 7,
   questionTextIndex: 6,
-  format: "quantitative-wide"
+  format: "quantitative-wide",
+  topicSource: topic ? "worksheet-name" : "column"
 });
 
 const createExtendedQuantitativeDefinition = (
-  topic: TopicDefinition
+  topic: TopicDefinition | null
 ): SheetDefinition => ({
   acceptedNames: [],
   answerIndex: 15,
@@ -251,25 +291,27 @@ const createExtendedQuantitativeDefinition = (
   questionNumberIndex: 22,
   questionTextIndex: 3,
   subject: "quantitative",
+  sectionDetectionSource: "structure",
   subtopic: null,
   subtopicId: null,
   subtopicIndex: 14,
-  topic: topic.displayNameAr,
-  topicId: topic.slug
+  topic: topic?.displayNameAr ?? "",
+  topicId: topic?.slug ?? "",
+  topicSource: topic ? "worksheet-name" : "column"
 });
 
 const createBankFirstQuantitativeDefinition = (
-  topic: TopicDefinition,
+  topic: TopicDefinition | null,
   headerLength: number
 ): SheetDefinition => ({
   acceptedNames: [],
+  additionalCategoryIndex: 14,
   answerIndex: 15,
   bankGroupIndex: 0,
-  categoryIndex: 13,
   comparisonImageIndexes: [16, 17],
   comparisonOperandIndexes: [4, 5],
   difficultyIndex: 12,
-  format: "quantitative-extended",
+  format: "quantitative-bank-first",
   headers: [
     ...quantitativeBankFirstHeaders,
     ...Array.from(
@@ -278,6 +320,7 @@ const createBankFirstQuantitativeDefinition = (
     )
   ],
   imageIndex: 10,
+  imageIndicatorIndex: 11,
   internalIdentifierIndexes: [
     1,
     2,
@@ -288,11 +331,45 @@ const createBankFirstQuantitativeDefinition = (
   questionTextIndex: 3,
   scopeToFirstBankGroup: true,
   subject: "quantitative",
+  sectionDetectionSource: "structure",
+  sourceIdentifierIndexes: [0, 1, 2],
   subtopic: null,
   subtopicId: null,
-  subtopicIndex: 14,
-  topic: topic.displayNameAr,
-  topicId: topic.slug
+  subtopicIndex: 13,
+  subtopicSource: "column",
+  topic: topic?.displayNameAr ?? "",
+  topicId: topic?.slug ?? "",
+  topicSource: topic ? "worksheet-name" : "missing"
+});
+
+const createAuthoritativeArDefinition = (
+  topic: TopicDefinition | null,
+  questionNumberIndex: number
+): SheetDefinition => ({
+  acceptedNames: [],
+  additionalCategoryIndex: 14,
+  answerIndex: 15,
+  comparisonImageIndexes: [16, 17],
+  comparisonOperandIndexes: [4, 5],
+  difficultyIndex: 12,
+  format: "quantitative-a-r",
+  headers: quantitativeArHeaders,
+  imageIndex: 10,
+  imageIndicatorIndex: 10,
+  internalIdentifierIndexes: [0, 1, 2],
+  optionIndexes: [6, 7, 8, 9],
+  questionNumberIndex,
+  questionTextIndex: 3,
+  sectionDetectionSource: "structure",
+  sourceIdentifierIndexes: [0, 1, 2],
+  subject: "quantitative",
+  subtopic: null,
+  subtopicId: null,
+  subtopicIndex: 13,
+  subtopicSource: "column",
+  topic: topic?.displayNameAr ?? "",
+  topicId: topic?.slug ?? "",
+  topicSource: topic ? "worksheet-name" : "missing"
 });
 
 const text = (value: unknown) => String(value ?? "").trim();
@@ -613,6 +690,42 @@ const isBankFirstQuantitativeSheet = (sheet: RawWorkbookSheet) => {
       headerMatches(header[index], expected)
     );
 };
+const isAuthoritativeArQuantitativeSheet = (sheet: RawWorkbookSheet) => {
+  const header = sheet.data[0] ?? [];
+  return header.length >= quantitativeArHeaders.length &&
+    quantitativeArHeaders.every((expected, index) =>
+      headerMatches(header[index], expected)
+    );
+};
+
+const findRangeIdentifierIndex = (
+  sheet: RawWorkbookSheet,
+  range?: PageRange
+) => {
+  const candidates = [0, 1, 2].map((index) => {
+    const values = sheet.data.slice(1)
+      .map((row) => parseQuestionNumber(row[index]))
+      .filter((value): value is number => value !== null && (!range || inRange(value, range)));
+    const uniqueValues = new Set(values);
+    const expectedCoverage = range
+      ? Array.from(
+          { length: range.to - range.from + 1 },
+          (_, offset) => range.from + offset
+        ).filter((value) => uniqueValues.has(value)).length
+      : uniqueValues.size;
+    return {
+      duplicates: values.length - uniqueValues.size,
+      expectedCoverage,
+      index
+    };
+  });
+  const selected = candidates.sort((left, right) =>
+    right.expectedCoverage - left.expectedCoverage ||
+    left.duplicates - right.duplicates ||
+    left.index - right.index
+  )[0];
+  return selected && selected.expectedCoverage > 0 ? selected.index : 0;
+};
 
 const verbalTopicSheetNames: Record<string, readonly string[]> = {
   "verbal-analogy": ["بنك التناظر عام"],
@@ -652,9 +765,44 @@ const findVerbalDefinition = (sheet: RawWorkbookSheet) => {
     return {
       canonicalName,
       definition: topic
-        ? { ...base, topic: topic.displayNameAr, topicId: topic.slug }
-        : base
+        ? {
+            ...base,
+            sectionDetectionSource: "worksheet-name" as const,
+            topic: topic.displayNameAr,
+            topicId: topic.slug,
+            topicSource: "worksheet-name" as const
+          }
+        : {
+            ...base,
+            sectionDetectionSource: "worksheet-name" as const,
+            topicSource: "worksheet-name" as const
+          }
     };
+  }
+
+  const structuralMatches = Object.entries(verbalSheetDefinitions).flatMap(
+    ([topicId, definitions]) => definitions
+      .filter((definition) => definitionMatchesHeader(definition, sheet.data[0] ?? []))
+      .map((definition) => ({ definition, topicId }))
+  );
+  const matchingTopics = [...new Set(structuralMatches.map((match) => match.topicId))];
+  if (matchingTopics.length === 1) {
+    const match = structuralMatches[0];
+    const topic = match
+      ? topicTaxonomy.find((candidate) => candidate.slug === match.topicId)
+      : null;
+    if (match && topic) {
+      return {
+        canonicalName: sheet.sheet,
+        definition: {
+          ...match.definition,
+          sectionDetectionSource: "structure" as const,
+          topic: topic.displayNameAr,
+          topicId: topic.slug,
+          topicSource: "fixed-contract" as const
+        }
+      };
+    }
   }
   return null;
 };
@@ -670,7 +818,8 @@ const findQuantitativeTopic = (sheetName: string) => {
       (topic) =>
         topic.subject === "math" &&
         (normalized === normalizedSheetName(topic.slug) ||
-          normalized.includes(normalizedSheetName(topic.displayNameAr)))
+          normalized.includes(normalizedSheetName(topic.displayNameAr)) ||
+          normalized.includes(normalizedSheetName(topic.displayNameAr).replace(/^ال/, "")))
     ) ?? null
   );
 };
@@ -680,51 +829,69 @@ const getSheetPlans = (
   questionRange?: PageRange,
   importType: QuestionImportType = "general"
 ) => {
+  const detectionIssues: ImportValidationIssue[] = [];
   const recognized = sheets.flatMap((sheet) => {
     if (isBankFirstQuantitativeSheet(sheet)) {
-      const topic = topicTaxonomy.find((candidate) => candidate.slug === "arithmetic");
-      return topic ? [{
+      const topic = findQuantitativeTopic(sheet.sheet);
+      return [{
         canonicalName: sheet.sheet,
         definition: createBankFirstQuantitativeDefinition(
           topic,
           sheet.data[0]?.length ?? quantitativeBankFirstHeaders.length
         ),
         sheet
-      }] : [];
+      }];
+    }
+    if (isAuthoritativeArQuantitativeSheet(sheet)) {
+      return [{
+        canonicalName: sheet.sheet,
+        definition: createAuthoritativeArDefinition(
+          findQuantitativeTopic(sheet.sheet),
+          findRangeIdentifierIndex(sheet, questionRange)
+        ),
+        sheet
+      }];
     }
     if (isExtendedQuantitativeSheet(sheet)) {
-      const topic = topicTaxonomy.find((candidate) => candidate.slug === "arithmetic");
-      return topic ? [{
+      return [{
         canonicalName: sheet.sheet,
-        definition: createExtendedQuantitativeDefinition(topic),
+        definition: createExtendedQuantitativeDefinition(findQuantitativeTopic(sheet.sheet)),
         sheet
-      }] : [];
+      }];
     }
     if (isWideQuantitativeSheet(sheet)) {
-      const topic = topicTaxonomy.find((candidate) => candidate.slug === "arithmetic");
-      return topic ? [{
+      return [{
         canonicalName: sheet.sheet,
-        definition: createWideQuantitativeDefinition(topic),
+        definition: createWideQuantitativeDefinition(findQuantitativeTopic(sheet.sheet)),
         sheet
-      }] : [];
+      }];
     }
     const verbal = findVerbalDefinition(sheet);
     if (verbal) return [{ ...verbal, sheet }];
 
     const quantitativeTopic = findQuantitativeTopic(sheet.sheet);
     if (quantitativeTopic) {
+      const header = sheet.data[0] ?? [];
+      const standardDefinition = createTopicStandardDefinition(quantitativeTopic);
       return [{
         canonicalName: sheet.sheet,
-        definition: createQuantitativeSheetDefinition(quantitativeTopic),
+        definition: definitionMatchesHeader(standardDefinition, header)
+          ? standardDefinition
+          : createQuantitativeSheetDefinition(quantitativeTopic),
         sheet
       }];
     }
-    if (importType === "general") {
-      const topic = topicTaxonomy.find((candidate) => candidate.slug === "arithmetic");
-      const definition = topic ? createGeneralStandardDefinition(topic) : null;
-      if (definition && definitionMatchesHeader(definition, sheet.data[0] ?? [])) {
-        return [{ canonicalName: sheet.sheet, definition, sheet }];
-      }
+    const header = sheet.data[0] ?? [];
+    if (
+      importType === "general" &&
+      header.length === standardHeaders.length &&
+      standardHeaders.every((expected, index) => headerMatches(header[index], expected))
+    ) {
+      detectionIssues.push(issue(
+        "ambiguous_workbook_structure",
+        `ورقة ${sheet.sheet} تطابق بنية مشتركة من سبعة أعمدة، لكن اسمها ومحتواها لا يحددان هل الأسئلة كمية أم لفظية أو ما هو الموضوع الرئيسي.`,
+        { sheetName: sheet.sheet }
+      ));
     }
     return [];
   });
@@ -732,6 +899,7 @@ const getSheetPlans = (
     hasSelectedQuestion(plan.sheet, plan.definition, questionRange)
   );
   return {
+    detectionIssues,
     recognized,
     selected: selected.length > 0 ? selected : recognized
   };
@@ -760,7 +928,16 @@ const columnMappingsForDefinition = (
     ["correctAnswer", definition.answerIndex, "column"],
     ["topic", topicIndex, "column"],
     ["subtopic", subtopicIndex, "column"],
-    ["difficulty", difficultyIndex, "column"]
+    ["additionalCategory", definition.additionalCategoryIndex ?? null, "column"],
+    ["difficulty", difficultyIndex, "column"],
+    ["comparisonA", definition.comparisonOperandIndexes?.[0] ?? null, "column"],
+    ["comparisonB", definition.comparisonOperandIndexes?.[1] ?? null, "column"],
+    ["imageIndicator", definition.imageIndicatorIndex ?? definition.imageIndex ?? null, "column"],
+    ["comparisonImageA", definition.comparisonImageIndexes?.[0] ?? null, "column"],
+    ["comparisonImageB", definition.comparisonImageIndexes?.[1] ?? null, "column"],
+    ["sourceIdentifierPrimary", definition.sourceIdentifierIndexes?.[0] ?? null, "column"],
+    ["sourceIdentifierSecondary", definition.sourceIdentifierIndexes?.[1] ?? null, "column"],
+    ["sourceIdentifierCode", definition.sourceIdentifierIndexes?.[2] ?? null, "column"]
   ];
 
   return mappings
@@ -790,6 +967,18 @@ const selectedBankGroupForDefinition = (
     }
   }
   return null;
+};
+
+const metadataText = (metadata: Record<string, unknown> | undefined, key: string) => {
+  const value = metadata?.[key];
+  return value === null || value === undefined || value === "" ? null : String(value);
+};
+
+const metadataTextArray = (metadata: Record<string, unknown> | undefined, key: string) => {
+  const value = metadata?.[key];
+  return Array.isArray(value)
+    ? value.map((entry) => String(entry)).filter(Boolean)
+    : [];
 };
 
 const buildWorkbookDiagnostics = (
@@ -860,10 +1049,21 @@ const buildWorkbookDiagnostics = (
         }
 
         return {
+          additionalCategory: metadataText(parsed?.metadata, "additionalCategory"),
+          comparisonA: metadataTextArray(parsed?.metadata, "comparisonOperands")[0] ?? null,
+          comparisonB: metadataTextArray(parsed?.metadata, "comparisonOperands")[1] ?? null,
+          comparisonImages: metadataTextArray(parsed?.metadata, "comparisonImages"),
           correctAnswer: parsed?.correctAnswer ?? null,
+          detectedSection: parsed?.subject ?? definition?.subject ?? null,
           difficulty: parsed?.difficulty ?? null,
           excelRowNumber: rowNumber,
+          format: definition?.format ?? null,
+          imageIndicator: metadataText(parsed?.metadata, "imageIndicator"),
           issues: parsed?.issues ?? rowIssues,
+          matchedMediaIdentifier: null,
+          matchedPageNumber: null,
+          matchedSourceName: null,
+          mediaMatchStatus: "not_attempted",
           metadata: parsed?.metadata ?? null,
           options: parsed?.options ?? null,
           questionNumber: parsed?.questionNumber ?? questionNumber,
@@ -872,10 +1072,16 @@ const buildWorkbookDiagnostics = (
           reason,
           status,
           subject: parsed?.subject ?? null,
+          sourceIdentifiers: parsed?.metadata?.sourceIdentifiers &&
+            typeof parsed.metadata.sourceIdentifiers === "object"
+            ? parsed.metadata.sourceIdentifiers as WorkbookDiagnosticRow["sourceIdentifiers"]
+            : null,
           subtopic: parsed?.subtopic ?? null,
           subtopicId: parsed?.subtopicId ?? null,
+          subtopicSource: definition?.subtopicSource ?? null,
           topic: parsed?.topic ?? null,
-          topicId: parsed?.topicId ?? null
+          topicId: parsed?.topicId ?? null,
+          topicSource: definition?.topicSource ?? null
         };
       });
 
@@ -886,9 +1092,11 @@ const buildWorkbookDiagnostics = (
         detectedHeaders,
         emptyRowCount: Math.max(0, data.length - 1 - nonEmptyRows.length),
         format: definition?.format ?? null,
+        detectedSection: definition?.subject ?? null,
         recognized: Boolean(recognizedPlan),
         rows,
         selected,
+        sectionDetectionSource: definition?.sectionDetectionSource ?? null,
         sheetName: sheet.sheet,
         skippedReason: recognizedPlan
           ? selected ? null : "لا تحتوي الورقة على أسئلة من النطاق المحدد."
@@ -906,14 +1114,19 @@ export const analyzeWorkbookSheets = (
   const issues: ImportValidationIssue[] = [];
   const questions: ParsedWorkbookQuestion[] = [];
   const seenQuestions = new Map<number, ParsedWorkbookQuestion>();
+  const missingTopicSheets = new Set<string>();
   const plans = getSheetPlans(sheets, questionRange, importType);
   const sheetPlans = plans.selected;
   const structuralFailure = sheetPlans.length === 0;
   if (sheetPlans.length === 0) {
-    issues.push(issue(
-      "unsupported_workbook_structure",
-      `لم يُعثر على ورقة ببنية Excel مدعومة. الأوراق المكتشفة: ${sheets.map((sheet) => sheet.sheet).join("، ") || "لا توجد أوراق"}.`
-    ));
+    if (plans.detectionIssues.length > 0) {
+      issues.push(...plans.detectionIssues);
+    } else {
+      issues.push(issue(
+        "unsupported_workbook_structure",
+        `لم يُعثر على ورقة ببنية Excel مدعومة. الأوراق المكتشفة: ${sheets.map((sheet) => sheet.sheet).join("، ") || "لا توجد أوراق"}.`
+      ));
+    }
   }
   const sheetSummary = sheetPlans.map(({ canonicalName, definition }) => ({
     sheetName: canonicalName,
@@ -999,11 +1212,90 @@ export const analyzeWorkbookSheets = (
       const difficulty = Number.isInteger(difficultyValue) && difficultyValue >= 1 && difficultyValue <= 10
         ? difficultyValue
         : 1;
-      const metadata: Record<string, unknown> = {};
+      const resolvedTopic = categoryTopic?.displayNameAr ?? definition.topic;
+      const resolvedTopicId = categoryTopic?.slug ?? definition.topicId;
+      if (!resolvedTopic || !resolvedTopicId) {
+        missingTopicSheets.add(sheetName);
+      }
+      const sourceIdentifierValues = definition.sourceIdentifierIndexes
+        ? definition.sourceIdentifierIndexes.map((index) => text(row[index]) || null)
+        : null;
+      const comparisonValues = (definition.comparisonOperandIndexes ?? [])
+        .map((index) => text(row[index]) || null);
+      const comparisonImageValues = (definition.comparisonImageIndexes ?? [])
+        .map((index) => text(row[index]) || null);
+      const additionalCategory = definition.additionalCategoryIndex === undefined
+        ? null
+        : text(row[definition.additionalCategoryIndex]) || null;
+      const sourceSubtopic = definition.format === "quantitative-wide"
+        ? text(row[17]) || null
+        : definition.subtopicIndex === undefined
+          ? definition.subtopic
+          : text(row[definition.subtopicIndex]) || null;
+      const resolvedTopicDefinition = topicTaxonomy.find(
+        (candidate) => candidate.slug === resolvedTopicId
+      );
+      const canonicalSubtopic = sourceSubtopic && resolvedTopicDefinition
+        ? resolvedTopicDefinition.subtopics.find(
+            (candidate) => normalizedHeader(candidate.displayNameAr) === normalizedHeader(sourceSubtopic)
+          ) ?? null
+        : null;
+      const metadata: Record<string, unknown> = {
+        additionalCategory,
+        classification: {
+          detectedSection: definition.subject,
+          mainTopic: resolvedTopic || null,
+          mainTopicId: resolvedTopicId || null,
+          mainTopicSource: categoryTopic ? "column" : definition.topicSource ?? null,
+          subtopic: sourceSubtopic,
+          subtopicId: canonicalSubtopic?.slug ?? definition.subtopicId,
+          subtopicSource: definition.subtopicSource ?? null
+        },
+        comparisonImageValues,
+        comparisonImages: comparisonImageValues.filter(Boolean),
+        comparisonOperands: comparisonValues.filter(Boolean),
+        detectedFormat: definition.format,
+        detectedSection: definition.subject,
+        imageIndicator: definition.imageIndicatorIndex === undefined
+          ? definition.imageIndex === undefined
+            ? null
+            : text(row[definition.imageIndex]) || null
+          : text(row[definition.imageIndicatorIndex]) || null,
+        imageSourceValue: definition.imageIndex === undefined
+          ? null
+          : text(row[definition.imageIndex]) || null,
+        normalizedCorrectAnswer: correctAnswer,
+        normalizedQuestionNumber: questionNumber,
+        originalHeaders: (data[0] ?? []).map((value) => text(value) || null),
+        questionNumberSource: definition.questionNumberStrategy === "data-row"
+          ? { column: null, value: rowIndex, source: "row-order" }
+          : {
+              column: columnName(definition.questionNumberIndex ?? 0),
+              value: text(row[definition.questionNumberIndex ?? 0]) || null,
+              source: "column"
+            },
+        sourceColumns: row.map((value, index) => ({
+          column: columnName(index),
+          header: text(data[0]?.[index]) || null,
+          value: value ?? null
+        })),
+        sourceIdentifiers: sourceIdentifierValues
+          ? {
+              code: sourceIdentifierValues[2] ?? null,
+              primary: sourceIdentifierValues[0] ?? null,
+              secondary: sourceIdentifierValues[1] ?? null
+            }
+          : null,
+        sourceOptions: options,
+        sourceQuestionText: questionText || null,
+        sourceRowNumber: rowNumber,
+        sourceWorksheet: sheetName
+      };
       if (definition.format === "quantitative-wide") {
         Object.assign(metadata, {
           additionalCategory: text(row[11]) || null,
           chapter: text(row[17]) || null,
+          comparisonImageValues: [text(row[13]) || null, text(row[14]) || null, text(row[15]) || null],
           comparisonImages: [text(row[13]), text(row[14]), text(row[15])].filter(Boolean),
           comparisonOperands: [text(row[0]), text(row[1])].filter(Boolean),
           imageIndicator: text(row[9]) || null,
@@ -1011,25 +1303,23 @@ export const analyzeWorkbookSheets = (
           precisionDifficulty: text(row[10]) || null,
           weight: text(row[16]) || null
         });
-      } else if (definition.format === "quantitative-extended") {
+      } else if (
+        definition.format === "quantitative-extended" ||
+        definition.format === "quantitative-bank-first" ||
+        definition.format === "quantitative-a-r"
+      ) {
         const bankGroupIdentifier = definition.bankGroupIndex === undefined
           ? null
           : text(row[definition.bankGroupIndex]) || null;
         if (bankGroupIdentifier) selectedBankGroups.add(bankGroupIdentifier);
         Object.assign(metadata, {
-          additionalCategory: definition.subtopicIndex === undefined
+          additionalCategory: definition.additionalCategoryIndex === undefined && definition.subtopicIndex === undefined
             ? null
-            : text(row[definition.subtopicIndex]) || null,
+            : text(row[definition.additionalCategoryIndex ?? definition.subtopicIndex ?? 0]) || null,
           bankGroupIdentifier,
-          comparisonImages: (definition.comparisonImageIndexes ?? [])
-            .map((index) => text(row[index]))
-            .filter(Boolean),
-          comparisonOperands: (definition.comparisonOperandIndexes ?? [])
-            .map((index) => text(row[index]))
-            .filter(Boolean),
-          imageIndicator: definition.imageIndex === undefined
-            ? null
-            : text(row[definition.imageIndex]) || null,
+          comparisonImageValues,
+          comparisonImages: comparisonImageValues.filter(Boolean),
+          comparisonOperands: comparisonValues.filter(Boolean),
           internalIdentifiers: (definition.internalIdentifierIndexes ?? [])
             .map((index) => ({ column: columnName(index), value: text(row[index]) }))
             .filter((entry) => entry.value),
@@ -1065,7 +1355,11 @@ export const analyzeWorkbookSheets = (
           questionNumber, rowNumber, sheetName
         }));
       }
-      const comparisonQuestion = definition.format === "quantitative-extended" &&
+      const comparisonQuestion = (
+        definition.format === "quantitative-extended" ||
+        definition.format === "quantitative-bank-first" ||
+        definition.format === "quantitative-a-r"
+      ) &&
         (definition.comparisonOperandIndexes ?? []).some((index) => text(row[index]));
       options.forEach((option, optionIndex) => {
         if (comparisonQuestion) return;
@@ -1103,14 +1397,10 @@ export const analyzeWorkbookSheets = (
       const parsed: ParsedWorkbookQuestion = {
         questionNumber, sheetName, rowNumber, questionText, options, correctAnswer,
         subject: definition.subject,
-        topic: categoryTopic?.displayNameAr ?? definition.topic,
-        topicId: categoryTopic?.slug ?? definition.topicId,
-        subtopic: definition.format === "quantitative-wide"
-          ? text(row[17]) || null
-          : definition.subtopicIndex === undefined
-            ? definition.subtopic
-            : text(row[definition.subtopicIndex]) || null,
-        subtopicId: definition.subtopicId,
+        topic: resolvedTopic,
+        topicId: resolvedTopicId,
+        subtopic: sourceSubtopic,
+        subtopicId: canonicalSubtopic?.slug ?? definition.subtopicId,
         difficulty,
         metadata,
         embeddedImages,
@@ -1129,6 +1419,14 @@ export const analyzeWorkbookSheets = (
         { sheetName }
       ));
     }
+  }
+
+  for (const sheetName of missingTopicSheets) {
+    issues.push(issue(
+      "missing_main_topic",
+      `تم اكتشاف قسم الأسئلة في ورقة ${sheetName}، لكن تعذر تحديد الموضوع الرئيسي من اسم الورقة أو أعمدة التصنيف المعتمدة.`,
+      { sheetName }
+    ));
   }
 
   if (questionRange && !structuralFailure) {

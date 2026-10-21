@@ -1002,8 +1002,14 @@
   overscroll-behavior: contain;
 }
 
-.admin-diagnostic-rows { min-width: 1500px; }
+.admin-diagnostic-rows { min-width: 2550px; }
 .admin-diagnostic-rows td { max-width: 340px; }
+.admin-diagnostic-rows td small {
+  display: block;
+  margin-block-start: 4px;
+  color: var(--abqoor-muted);
+  font-size: 0.72rem;
+}
 .admin-diagnostic-rows code {
   display: block;
   direction: rtl;

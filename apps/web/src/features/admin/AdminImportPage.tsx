@@ -27,16 +27,31 @@ const diagnosticStatusLabels = {
 
 const diagnosticFieldLabels: Record<string, string> = {
   correctAnswer: "الإجابة الصحيحة",
+  additionalCategory: "الفئة الإضافية",
+  comparisonA: "المقارنة أ",
+  comparisonB: "المقارنة ب",
+  comparisonImageA: "صورة المقارنة أ",
+  comparisonImageB: "صورة المقارنة ب",
   difficulty: "الصعوبة",
+  imageIndicator: "مؤشر الصورة",
   optionA: "الخيار أ",
   optionB: "الخيار ب",
   optionC: "الخيار ج",
   optionD: "الخيار د",
   questionNumber: "رقم السؤال",
   questionText: "نص السؤال",
+  sourceIdentifierCode: "المعرف C",
+  sourceIdentifierPrimary: "المعرف A",
+  sourceIdentifierSecondary: "المعرف B",
   subtopic: "الموضوع الفرعي",
   topic: "الموضوع"
 };
+
+const diagnosticMediaLabels = {
+  matched: "مطابق",
+  missing: "غير مطابق",
+  not_attempted: "لم تُجر المطابقة"
+} as const;
 
 const formatDiagnosticValue = (value: unknown) => {
   if (value === null || value === undefined || value === "") return "فارغ";
@@ -521,17 +536,30 @@ export function AdminImportPage() {
                     <p className="admin-diagnostic-note">الصفوف الفارغة: {sheet.emptyRowCount.toLocaleString("ar-SA")}</p>
                     <div className="admin-table-wrap admin-diagnostic-rows-wrap">
                       <table className="admin-table admin-diagnostic-rows">
-                        <thead><tr><th>صف Excel</th><th>الحالة</th><th>رقم السؤال</th><th>السؤال</th><th>الخيارات</th><th>الإجابة</th><th>القسم والموضوع</th><th>البيانات الخام</th><th>التفاصيل</th></tr></thead>
+                        <thead><tr><th>صف Excel</th><th>الحالة</th><th>المعرفات A–C</th><th>القسم والتنسيق</th><th>رقم المطابقة</th><th>السؤال</th><th>المقارنة</th><th>الخيارات</th><th>مؤشر الصورة</th><th>الصعوبة</th><th>الموضوع الرئيسي</th><th>الموضوع الفرعي</th><th>الفئة الإضافية</th><th>الإجابة</th><th>صور المقارنة</th><th>مطابقة الوسائط</th><th>البيانات الخام</th><th>التفاصيل</th></tr></thead>
                         <tbody>
                           {sheet.rows.map((row) => (
                             <tr data-diagnostic-status={row.status} key={`${sheet.sheetName}-${row.excelRowNumber}`}>
                               <td>{row.excelRowNumber.toLocaleString("ar-SA")}</td>
                               <td><b>{diagnosticStatusLabels[row.status]}</b></td>
+                              <td>
+                                {row.sourceIdentifiers ? (
+                                  <code>A: {row.sourceIdentifiers.primary ?? "فارغ"}<br />B: {row.sourceIdentifiers.secondary ?? "فارغ"}<br />C: {row.sourceIdentifiers.code ?? "فارغ"}</code>
+                                ) : "غير متاح"}
+                              </td>
+                              <td>{row.detectedSection ? `${row.detectedSection === "quantitative" ? "كمي" : "لفظي"} · ${row.format ?? "غير محدد"}` : "غير محدد"}</td>
                               <td>{row.questionNumber?.toLocaleString("ar-SA") ?? "فارغ"}</td>
                               <td>{row.questionText ?? "فارغ"}</td>
+                              <td>{row.comparisonA ?? "فارغ"} / {row.comparisonB ?? "فارغ"}</td>
                               <td>{row.options?.join(" | ") ?? "فارغ"}</td>
+                              <td>{row.imageIndicator ?? "فارغ"}</td>
+                              <td>{row.difficulty?.toLocaleString("ar-SA") ?? "فارغ"}</td>
+                              <td>{row.topic ?? "غير محدد"}<small>{row.topicSource ? `المصدر: ${row.topicSource}` : "المصدر: غير محدد"}</small></td>
+                              <td>{row.subtopic ?? "فارغ"}<small>{row.subtopicSource ? `المصدر: ${row.subtopicSource}` : ""}</small></td>
+                              <td>{row.additionalCategory ?? "فارغ"}</td>
                               <td>{answerLabel(row.correctAnswer)}</td>
-                              <td>{row.subject ? `${row.subject === "quantitative" ? "كمي" : "لفظي"} ← ${row.topic ?? "دون موضوع"}${row.subtopic ? ` ← ${row.subtopic}` : ""}` : "غير محدد"}</td>
+                              <td>{row.comparisonImages.join(" | ") || "فارغ"}</td>
+                              <td><b>{diagnosticMediaLabels[row.mediaMatchStatus]}</b>{row.matchedPageNumber ? ` · صفحة ${row.matchedPageNumber.toLocaleString("ar-SA")}` : ""}{row.matchedSourceName ? ` · ${row.matchedSourceName}` : ""}</td>
                               <td><code>{row.rawValues.map(formatDiagnosticValue).join(" | ")}</code></td>
                               <td>{row.reason ?? (row.issues.map((issue) => issue.message).join(" · ") || "—")}</td>
                             </tr>

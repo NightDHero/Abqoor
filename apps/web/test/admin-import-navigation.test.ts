@@ -49,6 +49,10 @@ test("renders backend workbook diagnostics in a contained expandable preview", (
   assert.match(source, /JSON\.stringify\(detail\.diagnostics, null, 2\)/);
   assert.match(source, /sheet\.columnMappings/);
   assert.match(source, /row\.rawValues/);
+  assert.match(source, /row\.sourceIdentifiers/);
+  assert.match(source, /row\.comparisonA/);
+  assert.match(source, /row\.additionalCategory/);
+  assert.match(source, /row\.mediaMatchStatus/);
   assert.match(css, /\.admin-diagnostic-rows-wrap\s*\{[\s\S]*?max-height:\s*520px;[\s\S]*?overflow:\s*auto;/);
 });
 
