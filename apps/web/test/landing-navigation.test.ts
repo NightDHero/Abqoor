@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { test } from "node:test";
@@ -71,6 +73,20 @@ test("homepage keeps learning content in the program and restores the mock exam 
   assert.match(mockExamMarkup, /question-images\/Q-001\.png/);
   assert.match(mockExamMarkup, /حفظ والتالي/);
   assert.equal((mockExamMarkup.match(/aria-label="السؤال /g) ?? []).length, 16);
+});
+
+test("landing motion includes an accessible pointer spotlight and reduced-motion fallback", () => {
+  const markup = renderToStaticMarkup(createElement(LandingPage, { user: null }));
+  const css = readFileSync(
+    resolve(import.meta.dirname, "../src/public-home.css"),
+    "utf8"
+  );
+
+  assert.match(markup, /home-pointer-spotlight/);
+  assert.match(css, /width:\s*194px/);
+  assert.match(css, /pointer-events:\s*none/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.match(css, /\.home-pointer-spotlight\s*\{\s*display:\s*none/);
 });
 
 test("authentication and profile screens contain no phone identity controls", () => {

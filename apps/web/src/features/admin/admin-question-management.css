@@ -941,6 +941,90 @@
 .admin-import-preview-table b[data-valid="true"] { color: #62d9b8; }
 .admin-import-preview-table b[data-valid="false"] { color: #ff9aa5; }
 
+.admin-import-results-table { min-width: 980px; }
+
+.admin-import-results-table td small {
+  display: block;
+  margin-block-start: 4px;
+  color: var(--abqoor-muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.admin-import-results-table b[data-valid="true"] { color: #62d9b8; }
+.admin-import-results-table b[data-valid="false"] { color: #ff9aa5; }
+
+.admin-result-detail-toggle {
+  min-height: 34px;
+  padding: 5px 12px;
+}
+
+.admin-import-result-expanded > td {
+  background: rgb(0 0 0 / 13%);
+  padding: 0;
+}
+
+.admin-import-result-details {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.admin-import-result-details dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.admin-import-result-details dl > div,
+.admin-import-result-options span {
+  display: grid;
+  gap: 5px;
+  border-inline-start: 2px solid color-mix(in srgb, var(--brand-cyan) 55%, transparent);
+  background: rgb(255 255 255 / 3%);
+  padding: 10px 12px;
+}
+
+.admin-import-result-details dt {
+  color: var(--abqoor-muted);
+  font-size: 0.74rem;
+  font-weight: 850;
+}
+
+.admin-import-result-details dd { margin: 0; }
+
+.admin-import-result-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin-import-result-options b { color: var(--brand-cyan); }
+
+.admin-import-result-warnings {
+  margin: 0;
+  color: #ffb0b8;
+}
+
+.admin-import-source-columns summary {
+  cursor: pointer;
+  color: var(--abqoor-muted);
+  font-weight: 800;
+}
+
+.admin-import-source-columns pre {
+  max-height: 260px;
+  margin: 10px 0 0;
+  overflow: auto;
+  border: 1px solid var(--abqoor-border);
+  border-radius: 7px;
+  background: rgb(0 0 0 / 20%);
+  padding: 12px;
+  color: var(--abqoor-text);
+  font: 0.76rem/1.65 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
 .admin-import-diagnostics {
   display: grid;
   gap: 16px;
@@ -1058,6 +1142,7 @@
 }
 
 @media (max-width: 620px) {
+  .admin-import-result-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-workspace-header { align-items: flex-start; flex-direction: column; }
   .admin-form-grid,
   .admin-import-mode-selector,

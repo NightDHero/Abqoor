@@ -7,6 +7,7 @@ import type {
 } from "../../types/admin";
 import { answerLabel, importStatusLabels } from "./adminUtils";
 import { AdminShell } from "./AdminShell";
+import { ImportResultsTable } from "./ImportResultsTable";
 import {
   adminImportExcelLimitBytes,
   adminImportPdfLimitBytes,
@@ -80,8 +81,6 @@ export function AdminImportPage() {
   const [error, setError] = useState("");
   const [excelError, setExcelError] = useState("");
   const [pdfError, setPdfError] = useState("");
-  const [previewPage, setPreviewPage] = useState(1);
-  const previewPageSize = 25;
 
   useEffect(() => {
     if (detail?.job.status !== "importing") {
@@ -90,7 +89,7 @@ export function AdminImportPage() {
 
     const timer = window.setInterval(() => {
       void adminService
-        .getImportJob(detail.job.id)
+        .getImportJob(detail.job.id, true)
         .then((nextDetail) => {
           setDetail(nextDetail);
           if (nextDetail.job.status === "completed") {
@@ -117,7 +116,6 @@ export function AdminImportPage() {
     setDetail(null);
     setDecisions({});
     setShowConfirmation(false);
-    setPreviewPage(1);
     setMessage("");
     setError("");
   };
@@ -256,11 +254,6 @@ export function AdminImportPage() {
   const selectedMediaCount = mediaType === "pdf"
     ? Math.max(0, Number(pdfPageTo) - Number(pdfPageFrom) + 1)
     : images.length;
-  const previewPageCount = detail ? Math.max(1, Math.ceil(detail.items.length / previewPageSize)) : 1;
-  const previewItems = detail?.items.slice(
-    (previewPage - 1) * previewPageSize,
-    previewPage * previewPageSize
-  ) ?? [];
 
   return (
     <AdminShell
@@ -586,30 +579,7 @@ export function AdminImportPage() {
             </section>
           ) : null}
 
-          {detail.items.length > 0 ? (
-            <section className="admin-panel">
-              <header className="admin-panel-heading"><div><h2>الأسئلة المحللة</h2><p>النطاق المحدد فقط، بواقع {previewPageSize.toLocaleString("ar-SA")} سؤالاً في الصفحة.</p></div></header>
-              <div className="admin-table-wrap">
-                <table className="admin-table admin-import-preview-table">
-                  <thead><tr><th>السؤال</th><th>{job.sourceType === "pdf" ? "صفحة PDF" : "الصورة"}</th><th>القسم</th><th>الموضوع</th><th>الموضوع الفرعي</th><th>الإجابة</th><th>الحالة</th></tr></thead>
-                  <tbody>
-                    {previewItems.map((item) => (
-                      <tr key={item.questionId}>
-                        <td>{item.questionNumber.toLocaleString("ar-SA")}</td>
-                        <td>{item.pageNumber?.toLocaleString("ar-SA") ?? item.sourceImageName ?? "—"}</td>
-                        <td>{item.subject === "quantitative" ? "كمي" : "لفظي"}</td>
-                        <td>{item.topic}</td>
-                        <td>{item.subtopic ?? "بدون موضوع فرعي"}</td>
-                        <td>{answerLabel(item.correctAnswer)}</td>
-                        <td><b data-valid={item.validationStatus === "valid"}>{item.validationStatus === "valid" ? "جاهز" : item.errors[0]?.message ?? "خطأ"}</b></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {previewPageCount > 1 ? <nav className="admin-pagination" aria-label="صفحات معاينة الاستيراد"><button className="secondary" disabled={previewPage === 1} type="button" onClick={() => setPreviewPage((page) => page - 1)}>السابق</button><span>{previewPage.toLocaleString("ar-SA")} / {previewPageCount.toLocaleString("ar-SA")}</span><button className="secondary" disabled={previewPage === previewPageCount} type="button" onClick={() => setPreviewPage((page) => page + 1)}>التالي</button></nav> : null}
-            </section>
-          ) : null}
+          {detail.items.length > 0 ? <ImportResultsTable detail={detail} title="الأسئلة المحللة" /> : null}
 
           {duplicates.length > 0 && job.status === "ready" ? (
             <section className="admin-panel">

@@ -306,8 +306,10 @@ importerRouter.get("/questions", async (request, response) => {
   }
 });
 
-importerRouter.get("/jobs", asyncHandler(async (_request, response) => {
-  response.status(200).json(await getImportHistory());
+importerRouter.get("/jobs", asyncHandler(async (request, response) => {
+  const page = toPositiveInteger(request.query.page) ?? 1;
+  const pageSize = Math.min(toPositiveInteger(request.query.pageSize) ?? 25, 100);
+  response.status(200).json(await getImportHistory({ page, pageSize }));
 }));
 
 importerRouter.get("/jobs/:id", async (request, response) => {

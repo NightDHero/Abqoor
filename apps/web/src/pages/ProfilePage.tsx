@@ -48,9 +48,14 @@ export function ProfilePage({
   onProfileSaved: (user: User) => void;
   user: User;
 }) {
-  const [form, setForm] = useState<ProfileFormState>(() => createDefaultProfileForm());
-  const [bankConfig, setBankConfig] = useState<BankConfig | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const cachedProfile = profileService.getCachedProfile();
+  const cachedBank = bankService.getCachedConfig();
+  const [form, setForm] = useState<ProfileFormState>(() => createDefaultProfileForm(
+    cachedProfile?.data.profile,
+    cachedBank?.data.config.availableBankCount
+  ));
+  const [bankConfig, setBankConfig] = useState<BankConfig | null>(cachedBank?.data.config ?? null);
+  const [isLoading, setIsLoading] = useState(!(cachedProfile && cachedBank));
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");

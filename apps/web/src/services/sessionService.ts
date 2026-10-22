@@ -7,6 +7,7 @@ import type {
 } from "../types/session";
 import { apiRequest } from "./http";
 import { invalidateStudyProgressCache } from "../features/career/studyProgressCache";
+import { reviewBankService } from "./reviewBankService";
 
 export const sessionService = {
   startSession: (input: {
@@ -30,6 +31,7 @@ export const sessionService = {
       method: "POST"
     });
     invalidateStudyProgressCache();
+    reviewBankService.invalidate();
     return response;
   },
 

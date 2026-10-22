@@ -204,11 +204,19 @@ const findImportJobStatement = db.prepare<string, ImportJobRecord>(
    WHERE import_jobs.id = ?`
 );
 
-const listImportJobsStatement = db.prepare<[], ImportJobRecord>(`
+const listImportJobsStatement = db.prepare<
+  { limit: number; offset: number },
+  ImportJobRecord
+>(`
   SELECT import_jobs.*, question_banks.name AS bank_name
   FROM import_jobs
   LEFT JOIN question_banks ON question_banks.id = import_jobs.bank_id
   ORDER BY import_jobs.created_at DESC
+  LIMIT @limit OFFSET @offset
+`);
+
+const countImportJobsStatement = db.prepare<[], { count: number }>(`
+  SELECT CAST(COUNT(*) AS INTEGER) AS count FROM import_jobs
 `);
 
 const insertImportItemStatement = db.prepare(`
@@ -364,8 +372,14 @@ export const findImportJob = async (id: string) => {
   return record ? toImportJob(record) : null;
 };
 
-export const listImportJobs = async () =>
-  (await listImportJobsStatement.all()).map(toImportJob);
+export const listImportJobs = async (input: { page: number; pageSize: number }) =>
+  (await listImportJobsStatement.all({
+    limit: input.pageSize,
+    offset: (input.page - 1) * input.pageSize
+  })).map(toImportJob);
+
+export const countImportJobs = async () =>
+  (await countImportJobsStatement.get())?.count ?? 0;
 
 export const setImportJobSourcePdf = async (input: {
   id: string;

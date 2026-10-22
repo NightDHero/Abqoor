@@ -1,5 +1,7 @@
 import type { CorrectAnswer, QuestionAnswerResponse, QuestionListResponse } from "../types/question";
 import { apiRequest } from "./http";
+import { invalidateQueries, loadQuery, readQueryCache } from "./queryCache";
+import { reviewBankService } from "./reviewBankService";
 
 export type QuestionQuery = {
   subjectId?: "math" | "arabic";
@@ -26,12 +28,28 @@ const toQueryString = (query: QuestionQuery) => {
   return value ? `?${value}` : "";
 };
 
+const questionCacheMaxAgeMs = 5 * 60_000;
+const questionCacheKey = (query: QuestionQuery) =>
+  `questions:${toQueryString(query) || "all"}`;
+
 export const questionService = {
-  getQuestions: (query: QuestionQuery) =>
-    apiRequest<QuestionListResponse>(`/questions${toQueryString(query)}`),
-  evaluateAnswer: (questionId: string, answer: CorrectAnswer) =>
-    apiRequest<QuestionAnswerResponse>(`/questions/${encodeURIComponent(questionId)}/answer`, {
+  invalidate: () => invalidateQueries("questions:"),
+  getCachedQuestions: (query: QuestionQuery) =>
+    readQueryCache<QuestionListResponse>(questionCacheKey(query), questionCacheMaxAgeMs),
+  getQuestions: (query: QuestionQuery) => {
+    const queryString = toQueryString(query);
+    return loadQuery({
+      key: questionCacheKey(query),
+      loader: () => apiRequest<QuestionListResponse>(`/questions${queryString}`),
+      maxAgeMs: questionCacheMaxAgeMs
+    });
+  },
+  evaluateAnswer: async (questionId: string, answer: CorrectAnswer) => {
+    const response = await apiRequest<QuestionAnswerResponse>(`/questions/${encodeURIComponent(questionId)}/answer`, {
       body: JSON.stringify({ answer }),
       method: "POST"
-    })
+    });
+    reviewBankService.invalidate();
+    return response;
+  }
 };

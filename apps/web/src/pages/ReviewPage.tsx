@@ -125,13 +125,15 @@ function ReviewQuestionList({
 }
 
 export function ReviewPage() {
+  const initialCache = reviewBankService.getCachedReviewBank();
   const [reviewBank, setReviewBank] =
-    useState<ReviewBankResponse>(emptyReviewBank);
-  const [isLoading, setIsLoading] = useState(true);
+    useState<ReviewBankResponse>(initialCache?.data ?? emptyReviewBank);
+  const [isLoading, setIsLoading] = useState(!initialCache);
   const [error, setError] = useState("");
 
   const loadReviewBank = async () => {
-    setIsLoading(true);
+    const cached = reviewBankService.getCachedReviewBank();
+    setIsLoading(!cached);
     setError("");
 
     try {
@@ -154,7 +156,8 @@ export function ReviewPage() {
   const removeReviewItem = async (reviewItemId: string) => {
     try {
       await reviewBankService.removeQuestion(reviewItemId);
-      await loadReviewBank();
+      const cached = reviewBankService.getCachedReviewBank();
+      if (cached) setReviewBank(cached.data);
     } catch (caughtError) {
       setError(
         caughtError instanceof HttpError
@@ -170,7 +173,14 @@ export function ReviewPage() {
       title="بنك الأخطاء"
     >
       {isLoading ? <p className="status-message">جاري تحميل بنك المراجعة...</p> : null}
-      {error ? <p className="error-message">{error}</p> : null}
+      {error ? (
+        <div className="error-message" role="alert">
+          <span>{error}</span>
+          <button className="secondary" type="button" onClick={() => void loadReviewBank()}>
+            إعادة المحاولة
+          </button>
+        </div>
+      ) : null}
 
       <section className="review-overview" aria-label="ملخص بنك المراجعة">
         <SummaryMetric

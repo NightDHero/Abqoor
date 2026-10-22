@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { authService } from "../services/authService";
+import { clearQueryCache } from "../services/queryCache";
 import { clearStudyProgressCache } from "../features/career/studyProgressCache";
 import type { User } from "../types/auth";
 import { navigateTo } from "../utils/router";
@@ -20,6 +21,7 @@ export const useAuth = () => {
       clearStudyProgressCache(authenticatedUserIdRef.current);
     }
     if (!nextUserId) clearStudyProgressCache();
+    if (authenticatedUserIdRef.current !== nextUserId) clearQueryCache();
     authenticatedUserIdRef.current = nextUserId;
     setUserState(nextUser);
     setIsLoading(false);
@@ -43,6 +45,7 @@ export const useAuth = () => {
         if (canApplyBootstrapResult()) {
           authenticatedUserIdRef.current = null;
           clearStudyProgressCache();
+          clearQueryCache();
           setUserState(null);
         }
       } finally {

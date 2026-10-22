@@ -1,37 +1,46 @@
-import { useState, type ReactNode } from "react";
+import { lazy, Suspense, useState, type ComponentType, type ReactNode } from "react";
 import { AppShell } from "./components/layout/AppShell";
 import { ProtectedRoute } from "./components/routing/ProtectedRoute";
 import { RedirectTo } from "./components/routing/RedirectTo";
-import { AdminAccountsPage } from "./features/admin/AdminAccountsPage";
-import { AdminImportPage } from "./features/admin/AdminImportPage";
-import { AdminImportDetailPage } from "./features/admin/AdminImportDetailPage";
-import { AdminImportHistoryPage } from "./features/admin/AdminImportHistoryPage";
-import { AdminOverviewPage } from "./features/admin/AdminOverviewPage";
-import { AdminQuestionBankPage } from "./features/admin/AdminQuestionBankPage";
-import { AdminValidationPage } from "./features/admin/AdminValidationPage";
 import { AuthPage } from "./features/auth/AuthPage";
 import { PasswordRecoveryPage } from "./features/auth/PasswordRecoveryPage";
 import { ForcedPasswordChangePage } from "./features/auth/ForcedPasswordChangePage";
-import { ExamEntryDialog } from "./features/exam/ExamEntryDialog";
 import { useAuth } from "./hooks/useAuth";
 import { useRouter } from "./hooks/useRouter";
 import { useTheme } from "./hooks/useTheme";
-import { BrowsePage } from "./pages/BrowsePage";
-import { CareerPage } from "./pages/CareerPage";
-import { ExamPage } from "./pages/ExamPage";
+import type { User } from "./types/auth";
 import { LandingPage } from "./pages/LandingPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
-import { ProfilePage } from "./pages/ProfilePage";
-import { ReviewPage } from "./pages/ReviewPage";
 import { SetupProfilePage } from "./pages/SetupProfilePage";
-import { StudyPage } from "./pages/StudyPage";
-import { TopicWorldPage } from "./pages/TopicWorldPage";
 import {
   getBrowseRouteValue,
   getPracticeRouteValue,
   getTopicRouteValue,
   navigateTo
 } from "./utils/router";
+
+const lazyNamed = <T extends Record<string, unknown>, K extends keyof T>(
+  loader: () => Promise<T>,
+  name: K
+) => lazy(async () => ({ default: (await loader())[name] as ComponentType<any> }));
+
+const AdminAccountsPage = lazyNamed(() => import("./features/admin/AdminAccountsPage"), "AdminAccountsPage");
+const AdminImportPage = lazyNamed(() => import("./features/admin/AdminImportPage"), "AdminImportPage");
+const AdminImportDetailPage = lazyNamed(() => import("./features/admin/AdminImportDetailPage"), "AdminImportDetailPage");
+const AdminImportHistoryPage = lazyNamed(() => import("./features/admin/AdminImportHistoryPage"), "AdminImportHistoryPage");
+const AdminOverviewPage = lazyNamed(() => import("./features/admin/AdminOverviewPage"), "AdminOverviewPage");
+const AdminQuestionBankPage = lazyNamed(() => import("./features/admin/AdminQuestionBankPage"), "AdminQuestionBankPage");
+const AdminValidationPage = lazyNamed(() => import("./features/admin/AdminValidationPage"), "AdminValidationPage");
+const BrowsePage = lazyNamed(() => import("./pages/BrowsePage"), "BrowsePage");
+const CareerPage = lazyNamed(() => import("./pages/CareerPage"), "CareerPage");
+const ExamPage = lazyNamed(() => import("./pages/ExamPage"), "ExamPage");
+const ProfilePage = lazyNamed(() => import("./pages/ProfilePage"), "ProfilePage");
+const ReviewPage = lazyNamed(() => import("./pages/ReviewPage"), "ReviewPage");
+const StudyPage = lazyNamed(() => import("./pages/StudyPage"), "StudyPage");
+const TopicWorldPage = lazyNamed(() => import("./pages/TopicWorldPage"), "TopicWorldPage");
+const ExamEntryDialog = lazyNamed(() => import("./features/exam/ExamEntryDialog"), "ExamEntryDialog");
+
+const pageFallback = <p className="status-message">جاري تجهيز الصفحة...</p>;
 
 export default function App() {
   const { path } = useRouter();
@@ -129,7 +138,7 @@ export default function App() {
           currentPath={path}
           user={auth.user}
         >
-          {children}
+          <Suspense fallback={pageFallback}>{children}</Suspense>
         </AppShell>
       )}
     </ProtectedRoute>
@@ -142,7 +151,7 @@ export default function App() {
       ) : auth.user && !auth.user.profileCompleted ? (
         <RedirectTo path="/setup-profile" />
       ) : (
-        children
+        <Suspense fallback={pageFallback}>{children}</Suspense>
       )}
     </ProtectedRoute>
   );
@@ -220,7 +229,7 @@ export default function App() {
           user={auth.user}
           onLogout={auth.logout}
           onThemeChange={theme.setTheme}
-          onProfileSaved={(user) => auth.setUser(user)}
+          onProfileSaved={(user: User) => auth.setUser(user)}
         />
       ) : null
     );

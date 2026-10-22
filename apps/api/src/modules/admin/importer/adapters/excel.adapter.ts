@@ -1287,6 +1287,7 @@ export const analyzeWorkbookSheets = (
             }
           : null,
         sourceOptions: options,
+        sourceCorrectAnswer: text(row[definition.answerIndex]) || null,
         sourceQuestionText: questionText || null,
         sourceRowNumber: rowNumber,
         sourceWorksheet: sheetName

@@ -93,7 +93,12 @@ export function QuestionBrowser({
       {browser.isLoading ? (
         <p className="status-message">جاري تحميل الأسئلة...</p>
       ) : null}
-      {browser.error ? <p className="error-message">{browser.error}</p> : null}
+      {browser.error ? (
+        <div className="error-message" role="alert">
+          <span>{browser.error}</span>
+          <button className="secondary" type="button" onClick={browser.retry}>إعادة المحاولة</button>
+        </div>
+      ) : null}
 
       {!browser.isLoading && browser.filteredQuestions.length === 0 ? (
         <div className="workspace-empty-state">

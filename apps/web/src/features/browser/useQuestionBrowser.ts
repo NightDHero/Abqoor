@@ -24,7 +24,11 @@ export function useQuestionBrowser({
   subtopic?: string;
   topic: string;
 }) {
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const query = { subjectId: subject, subtopicId: subtopic, topicId: topic };
+  const initialCache = questionService.getCachedQuestions(query);
+  const [questions, setQuestions] = useState<Question[]>(
+    () => initialCache?.data.questions ?? []
+  );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [displayMode, setDisplayMode] = useState<BrowserDisplayMode>("question");
   const [searchText, setSearchText] = useState("");
@@ -37,14 +41,20 @@ export function useQuestionBrowser({
   const [submittingQuestionIds, setSubmittingQuestionIds] = useState<Set<string>>(
     new Set()
   );
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!initialCache);
   const [error, setError] = useState("");
+  const [reloadVersion, setReloadVersion] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
 
     const loadQuestions = async () => {
-      setIsLoading(true);
+      const cached = questionService.getCachedQuestions({
+        subjectId: subject,
+        subtopicId: subtopic,
+        topicId: topic
+      });
+      setIsLoading(!cached);
       setError("");
       setCurrentIndex(0);
       setAnswersByQuestionId({});
@@ -98,7 +108,7 @@ export function useQuestionBrowser({
     return () => {
       isMounted = false;
     };
-  }, [initialQuestionId, subject, subtopic, topic]);
+  }, [initialQuestionId, reloadVersion, subject, subtopic, topic]);
 
   const filteredQuestions = useMemo(
     () =>
@@ -197,6 +207,7 @@ export function useQuestionBrowser({
     goToQuestion,
     isLoading,
     questions,
+    retry: () => setReloadVersion((value) => value + 1),
     searchText,
     setDisplayMode,
     setSearchText,

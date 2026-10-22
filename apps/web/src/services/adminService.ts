@@ -3,13 +3,39 @@ import type {
   AdminAccount,
   AdminQuestionBankResponse,
   DuplicateAction,
-  ImportJob,
+  ImportHistoryResponse,
   ImportJobDetail,
   QuestionImportTaxonomy,
   ValidationQuestion,
   ValidationSummary
 } from "../types/admin";
 import { apiRequest } from "./http";
+import {
+  invalidateQueries,
+  loadQuery,
+  readQueryCache,
+  writeQueryCache
+} from "./queryCache";
+import { questionService } from "./questionService";
+
+const importHistoryCacheMaxAgeMs = 20_000;
+const importDetailCacheMaxAgeMs = 10_000;
+const importHistoryCacheKey = (page: number, pageSize: number) =>
+  `admin:imports:history:${page}:${pageSize}`;
+const importDetailCacheKey = (jobId: string) => `admin:imports:detail:${jobId}`;
+
+const cacheImportDetail = (detail: ImportJobDetail) => {
+  writeQueryCache(importDetailCacheKey(detail.job.id), detail);
+  if (detail.job.status === "completed" || detail.job.status === "rolled_back") {
+    questionService.invalidate();
+  }
+  return detail;
+};
+
+const recordImportMutation = (detail: ImportJobDetail) => {
+  invalidateQueries("admin:imports:history:");
+  return cacheImportDetail(detail);
+};
 
 export const adminService = {
   getValidationSummary: () =>
@@ -65,14 +91,36 @@ export const adminService = {
     return apiRequest<ImportJobDetail>("/admin/import/analyze", {
       body: formData,
       method: "POST"
-    });
+    }).then(recordImportMutation);
   },
   getImportTaxonomy: () =>
     apiRequest<QuestionImportTaxonomy>("/admin/import/taxonomy"),
-  getImportJobs: () =>
-    apiRequest<{ jobs: ImportJob[] }>("/admin/import/jobs"),
-  getImportJob: (jobId: string) =>
-    apiRequest<ImportJobDetail>(`/admin/import/jobs/${jobId}`),
+  getCachedImportJobs: (page = 1, pageSize = 25) =>
+    readQueryCache<ImportHistoryResponse>(
+      importHistoryCacheKey(page, pageSize),
+      importHistoryCacheMaxAgeMs
+    ),
+  getImportJobs: (page = 1, pageSize = 25) => loadQuery({
+    key: importHistoryCacheKey(page, pageSize),
+    loader: () => apiRequest<ImportHistoryResponse>(
+      `/admin/import/jobs?page=${page}&pageSize=${pageSize}`
+    ),
+    maxAgeMs: importHistoryCacheMaxAgeMs
+  }),
+  getCachedImportJob: (jobId: string) =>
+    readQueryCache<ImportJobDetail>(
+      importDetailCacheKey(jobId),
+      importDetailCacheMaxAgeMs
+    ),
+  getImportJob: async (jobId: string, force = false) => {
+    const detail = await loadQuery({
+      force,
+      key: importDetailCacheKey(jobId),
+      loader: () => apiRequest<ImportJobDetail>(`/admin/import/jobs/${jobId}`),
+      maxAgeMs: importDetailCacheMaxAgeMs
+    });
+    return cacheImportDetail(detail);
+  },
   confirmImport: (
     jobId: string,
     input: {
@@ -87,15 +135,15 @@ export const adminService = {
     apiRequest<ImportJobDetail>(`/admin/import/jobs/${jobId}/confirm`, {
       body: JSON.stringify(input),
       method: "POST"
-    }),
+    }).then(recordImportMutation),
   cancelImport: (jobId: string) =>
     apiRequest<ImportJobDetail>(`/admin/import/jobs/${jobId}/cancel`, {
       method: "POST"
-    }),
+    }).then(recordImportMutation),
   rollbackImport: (jobId: string) =>
     apiRequest<ImportJobDetail>(`/admin/import/jobs/${jobId}/rollback`, {
       method: "POST"
-    }),
+    }).then(recordImportMutation),
   getQuestionBank: (input: {
     page: number;
     pageSize?: number;

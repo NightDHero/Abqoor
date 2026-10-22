@@ -56,6 +56,28 @@ test("renders backend workbook diagnostics in a contained expandable preview", (
   assert.match(css, /\.admin-diagnostic-rows-wrap\s*\{[\s\S]*?max-height:\s*520px;[\s\S]*?overflow:\s*auto;/);
 });
 
+test("restores confirmation and complete persisted metadata from import history", () => {
+  const detailSource = readFileSync(
+    resolve(workspaceRoot, "apps/web/src/features/admin/AdminImportDetailPage.tsx"),
+    "utf8"
+  );
+  const resultsSource = readFileSync(
+    resolve(workspaceRoot, "apps/web/src/features/admin/ImportResultsTable.tsx"),
+    "utf8"
+  );
+
+  assert.match(detailSource, /المعاينة جاهزة للتأكيد/);
+  assert.match(detailSource, /adminService\.confirmImport/);
+  assert.match(detailSource, /قرارات الأسئلة المكررة/);
+  assert.match(detailSource, /إعادة تحليل الملفات/);
+  assert.match(resultsSource, /معرّفات المصدر A–C/);
+  assert.match(resultsSource, /الموضوع الرئيسي/);
+  assert.match(resultsSource, /الموضوع الفرعي/);
+  assert.match(resultsSource, /الفئة الإضافية/);
+  assert.match(resultsSource, /المقارنة أ/);
+  assert.match(resultsSource, /sourceColumns/);
+});
+
 test("places the website destination last for regular users and administrators", () => {
   for (const isAdmin of [false, true]) {
     const items = getNavigationItems(isAdmin);

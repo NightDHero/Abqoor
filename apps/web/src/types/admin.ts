@@ -82,6 +82,16 @@ export type ImportJob = {
   bankName: string | null;
 };
 
+export type ImportHistoryResponse = {
+  jobs: ImportJob[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+  };
+};
+
 export type ImportJobItem = {
   importJobId: string;
   questionNumber: number;

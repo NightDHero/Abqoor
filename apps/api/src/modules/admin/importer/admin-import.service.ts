@@ -16,6 +16,7 @@ import {
   readQuestionImageObject,
   restoreQuestionImageObjectBackup,
   stageQuestionImageObject,
+  stagedQuestionImageObjectExists,
   uploadVerifiedFileObject,
   uploadVerifiedObject,
   writeQuestionImageObject
@@ -45,6 +46,7 @@ import {
   cancelImportJob,
   completeImportAnalysis,
   completeImportJob,
+  countImportJobs,
   createImportJob,
   failImportJob,
   findImportJob,
@@ -850,6 +852,32 @@ export const confirmQuestionImport = async (
   }
 
   const decisions = planDuplicateActions(detail.items, request);
+  let stopped = false;
+  const itemsToImport = detail.items.filter((item) => {
+    const action = item.isDuplicate ? decisions.get(item.questionNumber) : null;
+    if (stopped || action === "skip") return false;
+    if (action === "stop") {
+      stopped = true;
+      return false;
+    }
+    return true;
+  });
+  const stagedAvailability = await Promise.all(
+    itemsToImport.map(async (item) => ({
+      exists: await stagedQuestionImageObjectExists(jobId, item.questionId),
+      questionNumber: item.questionNumber
+    }))
+  );
+  const missingStagedItems = stagedAvailability
+    .filter((item) => !item.exists)
+    .map((item) => item.questionNumber);
+  if (missingStagedItems.length > 0) {
+    throw new AdminImportError(
+      `ملفات المعاينة لم تعد متاحة للأسئلة: ${missingStagedItems.join("، ")}. أعد تحليل ملفات الرفع لإنشاء معاينة جديدة ثم أكدها.`,
+      410
+    );
+  }
+
   if (!(await markImportJobImporting(jobId))) {
     throw new AdminImportError("تم تغيير حالة الاستيراد. حدّث الصفحة وحاول مجدداً.", 409);
   }
@@ -966,7 +994,24 @@ export const rollbackQuestionImport = async (jobId: string) => {
   return getImportJobDetail(jobId);
 };
 
-export const getImportHistory = async () => ({ jobs: await listImportJobs() });
+export const getImportHistory = async (input: { page?: number; pageSize?: number } = {}) => {
+  const page = Math.max(1, input.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, input.pageSize ?? 25));
+  const [jobs, totalItems] = await Promise.all([
+    listImportJobs({ page, pageSize }),
+    countImportJobs()
+  ]);
+
+  return {
+    jobs,
+    pagination: {
+      page,
+      pageSize,
+      totalItems,
+      totalPages: Math.max(1, Math.ceil(totalItems / pageSize))
+    }
+  };
+};
 
 export const getQuestionImportTaxonomy = () => ({
   sections: (["math", "arabic"] as const).map((subject) => ({

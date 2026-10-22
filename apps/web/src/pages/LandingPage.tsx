@@ -27,6 +27,7 @@ export const getLandingProgramDestination = (user: User | null) => user
 
 export function LandingPage({ user }: { user: User | null }) {
   const pageRef = useRef<HTMLElement>(null);
+  const pointerSpotlightRef = useRef<HTMLDivElement>(null);
   const [activeSectionId, setActiveSectionId] = useState<HomeSectionId>(
     homeContent.navSections[0].id
   );
@@ -61,6 +62,41 @@ export function LandingPage({ user }: { user: User | null }) {
     );
 
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const page = pageRef.current;
+    const spotlight = pointerSpotlightRef.current;
+    const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (!page || !spotlight || !finePointer.matches || reducedMotion.matches) return;
+
+    let animationFrame = 0;
+    let pointerX = 0;
+    let pointerY = 0;
+    const renderPointer = () => {
+      spotlight.style.transform = `translate3d(${pointerX}px, ${pointerY}px, 0) translate(-50%, -50%)`;
+      spotlight.dataset.visible = "true";
+      animationFrame = 0;
+    };
+    const handlePointerMove = (event: PointerEvent) => {
+      pointerX = event.clientX;
+      pointerY = event.clientY;
+      if (!animationFrame) animationFrame = window.requestAnimationFrame(renderPointer);
+    };
+    const hidePointer = () => {
+      spotlight.dataset.visible = "false";
+    };
+
+    page.dataset.pointerSpotlight = "true";
+    page.addEventListener("pointermove", handlePointerMove, { passive: true });
+    page.addEventListener("pointerleave", hidePointer);
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      delete page.dataset.pointerSpotlight;
+      page.removeEventListener("pointermove", handlePointerMove);
+      page.removeEventListener("pointerleave", hidePointer);
+    };
   }, []);
 
   useEffect(() => {
@@ -124,6 +160,9 @@ export function LandingPage({ user }: { user: User | null }) {
 
   return (
     <main className="public-home" dir="rtl" ref={pageRef}>
+      <div className="home-pointer-spotlight" data-visible="false" ref={pointerSpotlightRef} aria-hidden="true">
+        <span />
+      </div>
       <div className="home-ambient-world" aria-hidden="true">
         <i />
         <i />

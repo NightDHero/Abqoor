@@ -7,13 +7,15 @@ import {
 } from "../../services/reviewBankService";
 
 export function useReviewBank() {
+  const initialCache = reviewBankService.getCachedReviewBank();
   const [reviewBank, setReviewBank] =
-    useState<ReviewBankResponse>(emptyReviewBank);
-  const [isLoading, setIsLoading] = useState(true);
+    useState<ReviewBankResponse>(initialCache?.data ?? emptyReviewBank);
+  const [isLoading, setIsLoading] = useState(!initialCache);
   const [error, setError] = useState("");
 
   const loadReviewBank = async () => {
-    setIsLoading(true);
+    const cached = reviewBankService.getCachedReviewBank();
+    setIsLoading(!cached);
     setError("");
 
     try {
@@ -45,7 +47,8 @@ export function useReviewBank() {
   ) => {
     try {
       await reviewBankService.addQuestion(questionId, source);
-      await loadReviewBank();
+      const cached = reviewBankService.getCachedReviewBank();
+      if (cached) setReviewBank(cached.data);
     } catch {
       setError("تعذر إضافة السؤال إلى بنك المراجعة.");
     }

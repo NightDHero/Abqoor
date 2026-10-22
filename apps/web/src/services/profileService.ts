@@ -6,13 +6,23 @@ import type {
 } from "../types/profile";
 import { apiRequest } from "./http";
 import { invalidateStudyProgressCache } from "../features/career/studyProgressCache";
+import { loadQuery, readQueryCache, writeQueryCache } from "./queryCache";
 
 type ProfileResponse = {
   profile: StudentProfile;
 };
 
+const profileCacheKey = "profile:current";
+const profileCacheMaxAgeMs = 60_000;
+
 export const profileService = {
-  getProfile: () => apiRequest<ProfileResponse>("/profile"),
+  getCachedProfile: () =>
+    readQueryCache<ProfileResponse>(profileCacheKey, profileCacheMaxAgeMs),
+  getProfile: () => loadQuery({
+    key: profileCacheKey,
+    loader: () => apiRequest<ProfileResponse>("/profile"),
+    maxAgeMs: profileCacheMaxAgeMs
+  }),
   previewSchedule: (input: {
     studyPlanBankCount: number;
     studyPlanStartDate: string;
@@ -30,6 +40,7 @@ export const profileService = {
       body: JSON.stringify(input),
       method: "PUT"
     });
+    writeQueryCache(profileCacheKey, response);
     invalidateStudyProgressCache();
     return response;
   }

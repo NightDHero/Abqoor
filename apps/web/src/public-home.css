@@ -40,7 +40,7 @@ html:has(.public-home) {
   --home-section-width: min(100% - clamp(30px, 7vw, 116px), 1480px);
   position: relative;
   min-height: 100svh;
-  overflow: visible;
+  overflow-x: clip;
   background: var(--home-page-background);
   color: var(--home-ink);
   font-family: var(--font-arabic-body);
@@ -87,6 +87,47 @@ html:has(.public-home) {
 
 .public-home button {
   color: inherit;
+}
+
+.home-pointer-spotlight {
+  position: fixed;
+  z-index: 55;
+  top: 0;
+  left: 0;
+  width: 194px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  opacity: 0;
+  background: radial-gradient(
+    circle,
+    rgb(184 243 245 / 14%) 0,
+    rgb(103 220 231 / 8%) 34%,
+    rgb(103 220 231 / 2%) 62%,
+    transparent 74%
+  );
+  pointer-events: none;
+  transition: opacity 160ms ease;
+  will-change: transform;
+}
+
+.home-pointer-spotlight[data-visible="true"] { opacity: 1; }
+
+.home-pointer-spotlight > span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8px rgb(255 255 255 / 70%);
+  transform: translate(-50%, -50%);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .public-home[data-pointer-spotlight="true"] { cursor: none; }
+  .public-home[data-pointer-spotlight="true"] :is(a, button, input, select, textarea) { cursor: pointer; }
+  .public-home[data-pointer-spotlight="true"] :is(p, h1, h2, h3, strong, li) { cursor: text; }
 }
 
 .public-home h1,
@@ -337,7 +378,7 @@ html:has(.public-home) {
 
 .home-section-questions {
   z-index: 0;
-  opacity: 0.28;
+  opacity: 0.38;
   mask-image: radial-gradient(
     ellipse at center,
     transparent 0 22%,
@@ -501,18 +542,22 @@ html:has(.public-home) {
 
 .home-floating-question.depth-far {
   z-index: 1;
-  opacity: 0.24;
+  opacity: 0.32;
   filter: blur(0.7px);
 }
 
 .home-floating-question.depth-middle {
   z-index: 2;
-  opacity: 0.52;
+  opacity: 0.6;
 }
 
 .home-floating-question.depth-near {
   z-index: 3;
-  opacity: 0.78;
+  opacity: 0.84;
+}
+
+.home-hero-copy.is-visible .home-primary-action {
+  animation: home-primary-focus 460ms cubic-bezier(0.22, 1, 0.36, 1) 360ms both;
 }
 
 .home-live-question {
@@ -1482,6 +1527,13 @@ html:has(.public-home) {
   }
 }
 
+@keyframes home-primary-focus {
+  from {
+    box-shadow: 0 10px 24px rgb(0 7 14 / 12%), 0 0 0 transparent;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
 @media (max-width: 1180px) {
   .home-hero,
   .home-program,
@@ -1541,7 +1593,7 @@ html:has(.public-home) {
   }
 
   .home-section-questions {
-    opacity: 0.18;
+    opacity: 0.25;
   }
 
   .home-mini-exam {
@@ -1702,9 +1754,12 @@ html:has(.public-home) {
   .home-floating-question,
   .home-answer-gap > span,
   .home-adaptive-node,
-  .home-advice-exams {
+  .home-advice-exams,
+  .home-hero-copy.is-visible .home-primary-action {
     animation: none;
   }
+
+  .home-pointer-spotlight { display: none; }
 
   .home-adaptive-node {
     opacity: 1;

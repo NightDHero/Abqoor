@@ -1093,6 +1093,7 @@ test("persists authoritative Excel metadata with the imported question", async (
     secondary: "GROUP-7"
   });
   assert.equal(metadata.additionalCategory, "تدريب تأسيسي");
+  assert.equal(metadata.sourceCorrectAnswer, "ب");
   assert.deepEqual(metadata.comparisonImages, [
     `cmp-a-${questionNumber}`,
     `cmp-b-${questionNumber}`
@@ -1565,19 +1566,57 @@ test("handles replace, skip, and stop for the exact 500 through 700 batch", asyn
   }
 });
 
-test("rolls back database and file changes when a commit fails", async () => {
+test("keeps a reopened preview ready when staged media is missing and allows retry", async () => {
   const first = 800103;
   const second = 800104;
   const job = await createReadyJob([first, second]);
   await mediaService.stageQuestionImageObject(job.id, `Q-${first}`, png);
 
-  await importService.confirmQuestionImport(job.id, {});
-  const failed = await waitForTerminalJob(job.id);
-  assert.equal(failed.job.status, "failed");
+  const reopened = await importService.getImportJobDetail(job.id);
+  assert.equal(reopened.job.status, "ready");
+  await assert.rejects(
+    importService.confirmQuestionImport(job.id, {}),
+    (error: unknown) => error instanceof importService.AdminImportError &&
+      error.statusCode === 410 &&
+      /أعد تحليل ملفات الرفع/.test(error.message)
+  );
+  assert.equal((await importService.getImportJobDetail(job.id)).job.status, "ready");
   assert.equal(await questionRepository.findQuestionById(`Q-${first}`), null);
   assert.equal(await questionRepository.findQuestionById(`Q-${second}`), null);
-  assert.equal(mediaService.questionImageExists(`Q-${first}`), false);
-  mediaService.removeImportMedia(job.id);
+
+  await mediaService.stageQuestionImageObject(job.id, `Q-${second}`, png);
+  await importService.confirmQuestionImport(job.id, {});
+  assert.equal((await waitForTerminalJob(job.id)).job.status, "completed");
+  await importService.rollbackQuestionImport(job.id);
+});
+
+test("accepts only one concurrent confirmation for the same ready preview", async () => {
+  const questionNumber = 800105;
+  const job = await createReadyJob([questionNumber]);
+  await mediaService.stageQuestionImageObject(job.id, `Q-${questionNumber}`, png);
+
+  const confirmations = await Promise.allSettled([
+    importService.confirmQuestionImport(job.id, {}),
+    importService.confirmQuestionImport(job.id, {})
+  ]);
+  assert.equal(confirmations.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(confirmations.filter((result) => result.status === "rejected").length, 1);
+  assert.equal((await waitForTerminalJob(job.id)).job.status, "completed");
+  await importService.rollbackQuestionImport(job.id);
+});
+
+test("paginates import history without dropping older jobs", async () => {
+  const firstPage = await importService.getImportHistory({ page: 1, pageSize: 5 });
+  const secondPage = await importService.getImportHistory({ page: 2, pageSize: 5 });
+
+  assert.ok(firstPage.jobs.length <= 5);
+  assert.ok(secondPage.jobs.length <= 5);
+  assert.equal(firstPage.pagination.pageSize, 5);
+  assert.equal(firstPage.pagination.totalItems >= firstPage.jobs.length, true);
+  assert.equal(
+    firstPage.jobs.some((job) => secondPage.jobs.some((candidate) => candidate.id === job.id)),
+    false
+  );
 });
 
 test("rejects storage upload and verification failures", async () => {
