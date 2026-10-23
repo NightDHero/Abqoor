@@ -82,7 +82,7 @@ html:has(.public-home) {
 
 .public-home button,
 .public-home a {
-  font: inherit;
+  font-family: inherit;
 }
 
 .public-home button {
@@ -91,7 +91,7 @@ html:has(.public-home) {
 
 .home-pointer-spotlight {
   position: fixed;
-  z-index: 55;
+  z-index: 0;
   top: 0;
   left: 0;
   width: 194px;
@@ -99,11 +99,11 @@ html:has(.public-home) {
   border-radius: 50%;
   opacity: 0;
   background: radial-gradient(
-    circle,
-    rgb(184 243 245 / 14%) 0,
-    rgb(103 220 231 / 8%) 34%,
-    rgb(103 220 231 / 2%) 62%,
-    transparent 74%
+    circle closest-side,
+    color-mix(in srgb, var(--home-cyan) 15%, transparent) 0,
+    color-mix(in srgb, var(--home-turquoise) 8%, transparent) 38%,
+    color-mix(in srgb, var(--home-cyan) 3%, transparent) 68%,
+    transparent 100%
   );
   pointer-events: none;
   transition: opacity 160ms ease;
@@ -116,7 +116,7 @@ html:has(.public-home) {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 5px;
+  width: 3px;
   aspect-ratio: 1;
   border-radius: 50%;
   background: #fff;
@@ -124,10 +124,8 @@ html:has(.public-home) {
   transform: translate(-50%, -50%);
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .public-home[data-pointer-spotlight="true"] { cursor: none; }
-  .public-home[data-pointer-spotlight="true"] :is(a, button, input, select, textarea) { cursor: pointer; }
-  .public-home[data-pointer-spotlight="true"] :is(p, h1, h2, h3, strong, li) { cursor: text; }
+@media (hover: none), (pointer: coarse) {
+  .home-pointer-spotlight { display: none; }
 }
 
 .public-home h1,
@@ -144,6 +142,7 @@ html:has(.public-home) {
   height: 2px;
   background: linear-gradient(90deg, var(--home-gold), var(--home-cyan));
   box-shadow: 0 0 18px rgb(103 220 231 / 28%);
+  transform: scaleX(0);
   transform-origin: right center;
 }
 
@@ -165,36 +164,6 @@ html:has(.public-home) {
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-}
-
-.home-ambient-world i {
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--home-cyan);
-  box-shadow: 0 0 18px rgb(103 220 231 / 72%);
-  animation: home-particle-rise 12s linear infinite;
-}
-
-.home-ambient-world i:nth-child(1) {
-  top: 9%;
-  right: 13%;
-  animation-delay: -2s;
-}
-
-.home-ambient-world i:nth-child(2) {
-  top: 31%;
-  left: 8%;
-  background: var(--home-gold);
-  box-shadow: 0 0 18px rgb(245 201 79 / 68%);
-  animation-delay: -7s;
-}
-
-.home-ambient-world i:nth-child(3) {
-  top: 64%;
-  right: 28%;
-  animation-delay: -10s;
 }
 
 .home-ambient-world > span {
@@ -325,6 +294,16 @@ html:has(.public-home) {
   transform: scaleX(1);
 }
 
+.public-home .home-site-link[data-passed="true"]::after {
+  opacity: 0.3;
+  transform: scaleX(1);
+}
+
+.public-home :is(a, button):focus-visible {
+  outline: 2px solid var(--home-cyan);
+  outline-offset: 4px;
+}
+
 .home-login-link {
   min-height: 42px;
   border: 1px solid color-mix(in srgb, var(--home-gold) 42%, transparent);
@@ -341,29 +320,19 @@ html:has(.public-home) {
   transform: translateY(-1px);
 }
 
-[data-reveal] {
-  opacity: 0;
-  transform: translateY(36px);
-  transition:
-    opacity 780ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 780ms cubic-bezier(0.22, 1, 0.36, 1);
+.public-home [data-reveal].is-visible {
+  animation: home-section-arrive 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-[data-reveal].is-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.home-hero-mark[data-reveal] {
-  transition-delay: 70ms;
-}
-
-.home-hero-copy[data-reveal] {
-  transition-delay: 150ms;
+.public-home [data-reveal]:focus-within {
+  animation: none;
 }
 
 .home-section {
+  --home-parallax: 0px;
+  --home-section-accent: var(--home-cyan);
   position: relative;
+  z-index: 1;
   display: grid;
   width: var(--home-section-width);
   margin-inline: auto;
@@ -378,12 +347,12 @@ html:has(.public-home) {
 
 .home-section-questions {
   z-index: 0;
-  opacity: 0.38;
+  opacity: 0.64;
   mask-image: radial-gradient(
     ellipse at center,
-    transparent 0 22%,
-    rgb(0 0 0 / 34%) 38%,
-    #000 100%
+    transparent 0 24%,
+    rgb(0 0 0 / 48%) 48%,
+    #000 88%
   );
 }
 
@@ -408,11 +377,43 @@ html:has(.public-home) {
   border-radius: 42%;
   background:
     radial-gradient(circle at 48% 42%, color-mix(in srgb, var(--home-panel-solid) 40%, transparent), transparent 52%),
-    radial-gradient(circle at 55% 52%, color-mix(in srgb, var(--home-cyan) 10%, transparent), transparent 60%);
+    radial-gradient(ellipse at 55% 52%, color-mix(in srgb, var(--home-section-accent) 12%, transparent), transparent 65%);
   filter: blur(18px);
-  opacity: 0.82;
+  opacity: 0.5;
+  transition: opacity 700ms ease;
   pointer-events: none;
   content: "";
+}
+
+.public-home .home-section[data-current="true"]::before {
+  opacity: 0.95;
+}
+
+.public-home :is(.home-program, .home-advice) {
+  --home-section-accent: var(--home-gold);
+}
+
+.public-home :is(.home-program-copy, .home-systems-heading, .home-advice-copy) h2::after {
+  display: block;
+  width: 56px;
+  height: 2px;
+  margin-block-start: 18px;
+  background: linear-gradient(90deg, transparent, var(--home-section-accent));
+  opacity: 0.35;
+  transform: scaleX(0.45);
+  transform-origin: right;
+  transition: transform 640ms ease, opacity 640ms ease;
+  content: "";
+}
+
+.public-home .home-systems-heading h2::after {
+  margin-inline: auto;
+  transform-origin: center;
+}
+
+.public-home .home-section[data-current="true"] h2::after {
+  opacity: 0.85;
+  transform: scaleX(1);
 }
 
 .home-hero-mark {
@@ -461,18 +462,19 @@ html:has(.public-home) {
 }
 
 .home-hero-copy h1 {
+  max-width: 15ch;
   padding-block: 0.08em 0.12em;
   color: var(--home-ink);
-  font-size: clamp(4rem, 9.6vw, 8.4rem);
+  font-size: 4.5rem;
   font-weight: 950;
-  line-height: 1.1;
+  line-height: 1.35;
   text-wrap: balance;
 }
 
 .home-hero-copy strong {
   color: var(--home-muted);
   font-family: var(--font-arabic-body);
-  font-size: clamp(1.12rem, 2.4vw, 2.15rem);
+  font-size: 1.375rem;
   font-weight: 850;
   line-height: 1.45;
 }
@@ -508,6 +510,10 @@ html:has(.public-home) {
     0 0 30px color-mix(in srgb, var(--home-cyan) 15%, transparent);
 }
 
+.public-home :is(.home-primary-action, .home-login-link) {
+  color: #03111c;
+}
+
 .home-secondary-action {
   border: 1px solid var(--home-line);
   background: color-mix(in srgb, var(--home-panel-solid) 58%, transparent);
@@ -526,6 +532,7 @@ html:has(.public-home) {
   inset: 0;
   overflow: hidden;
   pointer-events: none;
+  user-select: none;
 }
 
 .home-floating-question {
@@ -535,25 +542,41 @@ html:has(.public-home) {
   width: var(--question-width);
   opacity: 0.7;
   transform: rotate(var(--question-rotation));
-  animation: home-question-drift var(--question-duration) ease-in-out
+  translate: 0 var(--home-parallax);
+  animation: home-question-drift calc(var(--question-duration) * 1.8) ease-in-out
     var(--question-delay) infinite alternate;
-  will-change: transform;
+}
+
+.public-home .home-floating-question:nth-child(even) {
+  animation-name: home-question-rise;
 }
 
 .home-floating-question.depth-far {
   z-index: 1;
-  opacity: 0.32;
+  opacity: 0.46;
   filter: blur(0.7px);
+  translate: 0 calc(var(--home-parallax) * 0.45);
+  animation: none;
 }
 
 .home-floating-question.depth-middle {
   z-index: 2;
-  opacity: 0.6;
+  opacity: 0.7;
 }
 
 .home-floating-question.depth-near {
   z-index: 3;
-  opacity: 0.84;
+  opacity: 0.9;
+  translate: 0 calc(var(--home-parallax) * 1.2);
+}
+
+.public-home .home-section[data-in-view="false"] :is(.home-floating-question, .home-advice-exams) {
+  animation-play-state: paused;
+}
+
+.public-home .home-floating-field .home-live-question {
+  backdrop-filter: none;
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--home-deep) 12%, transparent);
 }
 
 .home-hero-copy.is-visible .home-primary-action {
@@ -610,7 +633,7 @@ html:has(.public-home) {
 }
 
 .home-answer-gap > span {
-  animation: home-answer-settle 3.6s ease-in-out infinite;
+  display: inline-block;
 }
 
 .home-analogy-question {
@@ -682,9 +705,9 @@ html:has(.public-home) {
 .home-advice-copy h2 {
   padding-block: 0.06em 0.1em;
   color: var(--home-ink);
-  font-size: clamp(3rem, 7vw, 7rem);
+  font-size: 3.25rem;
   font-weight: 950;
-  line-height: 1.12;
+  line-height: 1.4;
   text-wrap: balance;
 }
 
@@ -1055,9 +1078,9 @@ html:has(.public-home) {
   margin: 0;
   color: var(--home-ink);
   font-family: var(--font-arabic-display);
-  font-size: clamp(2.2rem, 4vw, 3.8rem);
+  font-size: 2rem;
   font-weight: 950;
-  line-height: 1.16;
+  line-height: 1.4;
   text-wrap: balance;
 }
 
@@ -1125,41 +1148,6 @@ html:has(.public-home) {
   min-height: 0;
 }
 
-.home-systems-browser .home-browser-world {
-  opacity: 0;
-  transform: translateX(24px);
-  transition:
-    opacity 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.home-systems-browser .home-browser-world-verbal {
-  transform: translateX(-24px);
-}
-
-.home-systems-browser.is-visible .home-browser-world {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.home-systems-browser.is-visible .home-browser-world-verbal {
-  transition-delay: 90ms;
-}
-
-.home-system-panel-adaptive[data-reveal] {
-  transform: translateX(28px);
-}
-
-.home-system-panel-exam[data-reveal] {
-  transform: translateX(-28px);
-  transition-delay: 110ms;
-}
-
-.home-system-panel-adaptive[data-reveal].is-visible,
-.home-system-panel-exam[data-reveal].is-visible {
-  transform: translateX(0);
-}
-
 .home-adaptive-showcase {
   display: grid;
   gap: clamp(24px, 4vw, 42px);
@@ -1198,10 +1186,11 @@ html:has(.public-home) {
   gap: 7px;
   justify-items: center;
   min-width: 0;
-  opacity: 0;
-  transform: translateY(16px) scale(0.94);
+}
+
+.public-home .home-system-panel-adaptive.is-visible .home-adaptive-node {
   animation: home-node-assemble 600ms cubic-bezier(0.22, 1, 0.36, 1)
-    calc(var(--node-index) * 70ms + 250ms) forwards;
+    calc(var(--node-index) * 55ms) both;
 }
 
 .home-adaptive-node > span {
@@ -1293,6 +1282,10 @@ html:has(.public-home) {
 
 .home-advice-copy .home-primary-action {
   margin-top: 4px;
+}
+
+.public-home .home-advice-copy.is-visible .home-primary-action {
+  animation: home-primary-focus 640ms cubic-bezier(0.22, 1, 0.36, 1) 160ms both;
 }
 
 .home-advice-cta-stage {
@@ -1468,20 +1461,10 @@ html:has(.public-home) {
   text-align: center;
 }
 
-@keyframes home-particle-rise {
-  0% {
-    opacity: 0;
-    transform: translateY(34px) scale(0.8);
-  }
-
-  30%,
-  78% {
-    opacity: 1;
-  }
-
-  100% {
-    opacity: 0;
-    transform: translateY(-110px) scale(1.2);
+@keyframes home-section-arrive {
+  from {
+    opacity: 0.72;
+    transform: translateY(18px);
   }
 }
 
@@ -1495,22 +1478,19 @@ html:has(.public-home) {
   }
 }
 
-@keyframes home-answer-settle {
-  0%,
-  72%,
-  100% {
-    transform: translateY(0);
+@keyframes home-question-rise {
+  from {
+    transform: translate3d(0, 14px, 0) rotate(var(--question-rotation));
   }
-
-  82% {
-    transform: translateY(-3px);
+  to {
+    transform: translate3d(4px, -22px, 0) rotate(var(--question-rotation));
   }
 }
 
 @keyframes home-node-assemble {
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
+  from {
+    opacity: 0.72;
+    transform: translateY(8px);
   }
 }
 
@@ -1550,6 +1530,11 @@ html:has(.public-home) {
   .home-advice-copy {
     justify-items: center;
     text-align: center;
+  }
+
+  .public-home .home-advice-copy h2::after {
+    margin-inline: auto;
+    transform-origin: center;
   }
 
   .home-systems-grid {
@@ -1593,7 +1578,16 @@ html:has(.public-home) {
   }
 
   .home-section-questions {
-    opacity: 0.25;
+    opacity: 0.48;
+  }
+
+  .public-home .home-floating-question {
+    width: min(240px, 62vw);
+  }
+
+  .public-home .home-floating-question:nth-child(even) {
+    left: auto;
+    right: -12%;
   }
 
   .home-mini-exam {
@@ -1664,11 +1658,16 @@ html:has(.public-home) {
     border-radius: 20px;
   }
 
-  .home-hero-copy h1,
   .home-program-copy h2,
   .home-systems-heading h2,
   .home-advice-copy h2 {
-    line-height: 1.16;
+    font-size: 2.25rem;
+    line-height: 1.4;
+  }
+
+  .public-home .home-hero-copy h1 {
+    font-size: 2.5rem;
+    line-height: 1.4;
   }
 
   .home-hero-actions {
@@ -1750,40 +1749,22 @@ html:has(.public-home) {
     scroll-behavior: auto;
   }
 
-  .home-ambient-world i,
-  .home-floating-question,
-  .home-answer-gap > span,
-  .home-adaptive-node,
-  .home-advice-exams,
-  .home-hero-copy.is-visible .home-primary-action {
-    animation: none;
-  }
-
   .home-pointer-spotlight { display: none; }
 
-  .home-adaptive-node {
-    opacity: 1;
-    transform: none;
+  .public-home *,
+  .public-home *::before,
+  .public-home *::after {
+    animation: none !important;
+    transition: none !important;
   }
 
-  .home-systems-browser .home-browser-world {
-    opacity: 1;
-    transform: none;
-    transition: none;
-  }
-
-  .home-system-panel-adaptive[data-reveal],
-  .home-system-panel-exam[data-reveal] {
-    transform: none;
-  }
-
-  [data-reveal] {
+  .public-home [data-reveal] {
     opacity: 1;
     transform: none;
     transition: none;
   }
 
-  .home-site-nav {
-    animation: none;
+  .public-home .home-floating-question {
+    translate: none;
   }
 }

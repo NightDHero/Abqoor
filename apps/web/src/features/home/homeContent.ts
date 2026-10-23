@@ -9,6 +9,7 @@ export const homeContent = {
   loginLabel: "تسجيل الدخول",
   hero: {
     title: "عبقور",
+    headline: "تأسس وتدرب قدرات.",
     description: "تدريب اختبار القدرات",
     primaryButton: "ادخل للبرنامج",
     secondaryButton: "سجل معانا",

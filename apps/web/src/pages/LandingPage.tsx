@@ -7,6 +7,7 @@ import {
   HomeMockExamShowcase
 } from "../features/home/HomeProductVisuals";
 import { homeContent } from "../features/home/homeContent";
+import { attachLandingPointer } from "../features/home/landingMotion";
 import {
   arrivalQuestionPlacements,
   recognitionQuestionPlacements,
@@ -28,112 +29,100 @@ export const getLandingProgramDestination = (user: User | null) => user
 export function LandingPage({ user }: { user: User | null }) {
   const pageRef = useRef<HTMLElement>(null);
   const pointerSpotlightRef = useRef<HTMLDivElement>(null);
+  const progressRef = useRef<HTMLSpanElement>(null);
   const [activeSectionId, setActiveSectionId] = useState<HomeSectionId>(
     homeContent.navSections[0].id
   );
-  const [scrollProgress, setScrollProgress] = useState(0);
 
   const programDestination = getLandingProgramDestination(user);
 
   useEffect(() => {
     const page = pageRef.current;
-    if (!page) {
+    if (!page || !("IntersectionObserver" in window)) {
       return;
     }
 
     const revealItems = page.querySelectorAll<HTMLElement>("[data-reveal]");
+    const sections = page.querySelectorAll<HTMLElement>(".home-section");
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting) {
+          if (entry.target.classList.contains("home-section")) {
+            (entry.target as HTMLElement).dataset.inView = String(entry.isIntersecting);
+          } else if (entry.isIntersecting) {
             entry.target.classList.add("is-visible");
+            observer.unobserve(entry.target);
           }
         });
       },
       {
-        rootMargin: "-7% 0px -10%",
-        threshold: 0.14
+        rootMargin: "0px 0px -5%",
+        threshold: 0
       }
     );
 
     revealItems.forEach((item) => observer.observe(item));
+    sections.forEach((section) => {
+      section.dataset.inView = "false";
+      observer.observe(section);
+    });
     page.querySelector<HTMLElement>(".home-hero-copy")?.classList.add(
       "is-visible"
     );
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      sections.forEach((section) => delete section.dataset.inView);
+    };
   }, []);
 
   useEffect(() => {
     const page = pageRef.current;
     const spotlight = pointerSpotlightRef.current;
-    const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (!page || !spotlight || !finePointer.matches || reducedMotion.matches) return;
-
-    let animationFrame = 0;
-    let pointerX = 0;
-    let pointerY = 0;
-    const renderPointer = () => {
-      spotlight.style.transform = `translate3d(${pointerX}px, ${pointerY}px, 0) translate(-50%, -50%)`;
-      spotlight.dataset.visible = "true";
-      animationFrame = 0;
-    };
-    const handlePointerMove = (event: PointerEvent) => {
-      pointerX = event.clientX;
-      pointerY = event.clientY;
-      if (!animationFrame) animationFrame = window.requestAnimationFrame(renderPointer);
-    };
-    const hidePointer = () => {
-      spotlight.dataset.visible = "false";
-    };
-
-    page.dataset.pointerSpotlight = "true";
-    page.addEventListener("pointermove", handlePointerMove, { passive: true });
-    page.addEventListener("pointerleave", hidePointer);
-    return () => {
-      cancelAnimationFrame(animationFrame);
-      delete page.dataset.pointerSpotlight;
-      page.removeEventListener("pointermove", handlePointerMove);
-      page.removeEventListener("pointerleave", hidePointer);
-    };
+    if (page && spotlight) return attachLandingPointer(page, spotlight);
   }, []);
 
   useEffect(() => {
+    const page = pageRef.current;
+    if (!page) return;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const sections = homeContent.navSections.map((section) => ({
+      id: section.id,
+      element: page.querySelector<HTMLElement>(`#${section.id}`)
+    }));
     let animationFrame = 0;
 
     const updateScrollState = () => {
-      cancelAnimationFrame(animationFrame);
+      if (animationFrame) return;
 
       animationFrame = window.requestAnimationFrame(() => {
-        const documentElement = document.documentElement;
-        const maxScroll = Math.max(
-          documentElement.scrollHeight - window.innerHeight,
-          1
-        );
+        animationFrame = 0;
+        const pageBounds = page.getBoundingClientRect();
+        const maxScroll = Math.max(pageBounds.height - window.innerHeight, 1);
         const nextProgress = Math.min(
-          Math.max(window.scrollY / maxScroll, 0),
+          Math.max(-pageBounds.top / maxScroll, 0),
           1
         );
         const activationPoint = window.innerHeight * 0.38;
-        const nextActive =
-          homeContent.navSections.reduce<HomeSectionId>(
-            (currentActive, section) => {
-              const element = document.getElementById(section.id);
-
-              if (
-                element &&
-                element.getBoundingClientRect().top <= activationPoint
-              ) {
-                return section.id;
-              }
-
-              return currentActive;
-            },
-            homeContent.navSections[0].id
-          );
-
-        setScrollProgress(nextProgress);
+        let nextActive: HomeSectionId = homeContent.navSections[0].id;
+        // Read all section geometry before writing animation styles.
+        const positions = sections.map((section) => ({
+          ...section,
+          bounds: section.element?.getBoundingClientRect()
+        }));
+        positions.forEach(({ id, element, bounds }) => {
+          if (!element || !bounds) return;
+          if (bounds.top <= activationPoint) nextActive = id;
+          const parallax = !reducedMotion.matches && finePointer.matches
+            ? Math.max(-24, Math.min(24, (window.innerHeight / 2 - bounds.top - bounds.height / 2) * 0.04))
+            : 0;
+          element.style.setProperty("--home-parallax", `${parallax}px`);
+        });
+        if (nextProgress >= 0.995) nextActive = homeContent.navSections.at(-1)!.id;
+        if (progressRef.current) {
+          progressRef.current.style.transform = `scaleX(${nextProgress})`;
+        }
         setActiveSectionId(nextActive);
       });
     };
@@ -141,19 +130,23 @@ export function LandingPage({ user }: { user: User | null }) {
     updateScrollState();
     window.addEventListener("scroll", updateScrollState, { passive: true });
     window.addEventListener("resize", updateScrollState);
+    reducedMotion.addEventListener("change", updateScrollState);
+    finePointer.addEventListener("change", updateScrollState);
 
     return () => {
       cancelAnimationFrame(animationFrame);
       window.removeEventListener("scroll", updateScrollState);
       window.removeEventListener("resize", updateScrollState);
+      reducedMotion.removeEventListener("change", updateScrollState);
+      finePointer.removeEventListener("change", updateScrollState);
     };
   }, []);
 
   const handleSectionNavigation =
     (sectionId: HomeSectionId) => (event: MouseEvent<HTMLAnchorElement>) => {
       event.preventDefault();
-      document.getElementById(sectionId)?.scrollIntoView({
-        behavior: "smooth",
+      pageRef.current?.querySelector<HTMLElement>(`#${sectionId}`)?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
         block: "start"
       });
     };
@@ -164,9 +157,6 @@ export function LandingPage({ user }: { user: User | null }) {
         <span />
       </div>
       <div className="home-ambient-world" aria-hidden="true">
-        <i />
-        <i />
-        <i />
         <span>س</span>
         <span>ص</span>
         <span>π</span>
@@ -183,9 +173,10 @@ export function LandingPage({ user }: { user: User | null }) {
         </a>
 
         <nav className="home-site-links" aria-label="تنقل الصفحة الرئيسية">
-          {homeContent.navSections.map((item) => (
+          {homeContent.navSections.map((item, index) => (
             <a
               aria-current={activeSectionId === item.id ? "true" : undefined}
+              data-passed={index < homeContent.navSections.findIndex((section) => section.id === activeSectionId)}
               className={
                 activeSectionId === item.id ? "home-site-link active" : "home-site-link"
               }
@@ -209,7 +200,7 @@ export function LandingPage({ user }: { user: User | null }) {
         <div className="home-scroll-progress-frame" aria-hidden="true">
           <span
             className="home-scroll-progress"
-            style={{ transform: `scaleX(${scrollProgress})` }}
+            ref={progressRef}
           />
         </div>
       </header>
@@ -217,6 +208,7 @@ export function LandingPage({ user }: { user: User | null }) {
       <section
         className="home-section home-hero"
         id="home-hero"
+        data-current={activeSectionId === "home-hero"}
         aria-labelledby="home-hero-title"
       >
         <FloatingQuestionField
@@ -230,7 +222,7 @@ export function LandingPage({ user }: { user: User | null }) {
 
         <div className="home-hero-copy" data-reveal>
           <p>{homeContent.hero.smallText}</p>
-          <h1 id="home-hero-title">{homeContent.hero.title}</h1>
+          <h1 id="home-hero-title">{homeContent.hero.headline}</h1>
           <strong>{homeContent.hero.description}</strong>
           <div className="home-hero-actions">
             <button
@@ -254,6 +246,7 @@ export function LandingPage({ user }: { user: User | null }) {
       <section
         className="home-section home-program"
         id="home-program"
+        data-current={activeSectionId === "home-program"}
         aria-labelledby="home-program-title"
       >
         <FloatingQuestionField
@@ -281,6 +274,7 @@ export function LandingPage({ user }: { user: User | null }) {
       <section
         className="home-section home-systems"
         id="home-systems"
+        data-current={activeSectionId === "home-systems"}
         aria-labelledby="home-systems-title"
       >
         <FloatingQuestionField
@@ -311,6 +305,7 @@ export function LandingPage({ user }: { user: User | null }) {
       <section
         className="home-section home-advice"
         id="home-advice"
+        data-current={activeSectionId === "home-advice"}
         aria-labelledby="home-advice-title"
       >
         <div className="home-advice-copy" data-reveal>
