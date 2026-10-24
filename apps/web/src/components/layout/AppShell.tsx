@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { User } from "../../types/auth";
 import { AppNavigation } from "./AppNavigation";
+import { ProductTour } from "../tutorial/ProductTour";
 
 export function AppShell({
   children,
@@ -39,6 +40,13 @@ export function AppShell({
     <div className={shellClassName} dir="rtl">
       <AppNavigation currentPath={currentPath} isAdmin={user?.isAdmin} />
       <main className={mainClassName}>{children}</main>
+      {user ? (
+        <ProductTour
+          currentPath={currentPath}
+          key={user.id}
+          userId={user.id}
+        />
+      ) : null}
     </div>
   );
 }

@@ -19,6 +19,7 @@ import { profileService } from "../services/profileService";
 import type { ThemePreference } from "../theme/theme";
 import type { User } from "../types/auth";
 import type { BankConfig, WeakerSection } from "../types/profile";
+import { requestTutorialReplay } from "../features/tutorial/tutorialConfig";
 
 const themePreferenceOptions: Array<{ label: string; value: ThemePreference }> = [
   { label: "فاتح", value: "light" },
@@ -184,6 +185,14 @@ export function ProfilePage({
 
         <div className="action-row"><button type="submit" disabled={isSaving || isLoading || !bankConfig || Boolean(liveValidationError)}>{isSaving ? "جاري الحفظ..." : "حفظ التغييرات الآن"}</button></div>
       </form>
+
+      <section className="profile-section profile-account-actions" aria-labelledby="tutorial-section">
+        <div>
+          <h2 id="tutorial-section">مساعدة عبقور</h2>
+          <p>ارجع للجولة المختصرة وتعرّف على طريقك داخل البرنامج.</p>
+        </div>
+        <button className="secondary" type="button" onClick={requestTutorialReplay}>جولة تعريفية</button>
+      </section>
 
       <section className="profile-section profile-account-actions" aria-labelledby="account-actions-section"><div><h2 id="account-actions-section">إجراءات الحساب</h2><p>يمكنك إنهاء الجلسة الحالية بأمان من هذا الجهاز.</p></div><button className="profile-sign-out" type="button" onClick={() => void onLogout()}>تسجيل الخروج</button></section>
     </PageContainer>

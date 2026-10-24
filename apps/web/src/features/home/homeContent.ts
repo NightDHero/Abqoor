@@ -15,11 +15,8 @@ export const homeContent = {
   },
   hero: {
     title: "عبقور",
-    headline: "تأسس وتدرب قدرات.",
-    description: "تدريب اختبار القدرات",
-    primaryButton: "ادخل للبرنامج",
-    secondaryButton: "سجل معانا",
-    smallText: "اهلا وسهلا"
+    primaryButton: "ادخل عبقور",
+    secondaryButton: "سجل معانا"
   },
   journey: [
     {
@@ -68,7 +65,6 @@ export const homeContent = {
   advice: {
     title: "نصيحة وحدة",
     text:
-      "ننصحك تختبر ٥ اختبارات محاكية عشان تفتح سائل وتبدي مذاكرة اقسامها وتطور نفسك باسرع وقت.",
-    cta: "تسجيل ببرنامج عبقور"
+      "ننصحك تختبر ٥ اختبارات محاكية عشان تفتح سائل وتبدي مذاكرة اقسامها وتطور نفسك باسرع وقت."
   }
 } as const;

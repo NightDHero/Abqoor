@@ -40,9 +40,12 @@ test("landing destinations preserve authenticated and onboarding behavior", () =
 
 test("landing entry buttons render immediately without a disabled bootstrap state", () => {
   const markup = renderToStaticMarkup(createElement(LandingPage, { user: null }));
-  assert.match(markup, /<h1 id="home-hero-title">تأسس وتدرب قدرات\.<\/h1>/);
+  assert.match(markup, /<h1 class="home-cinematic-hero-logo" id="home-hero-title"><img alt="عبقور - برنامج تدريب القدرات"/);
+  assert.equal(markup.includes("تأسس وتدرب قدرات. أهلاً وسهلاً"), false);
+  assert.match(markup, /href="\/login"[^>]*>ادخل عبقور<\/a>/);
+  assert.match(markup, /href="\/register"[^>]*>سجل معانا<\/a>/);
   assert.doesNotMatch(markup.match(/<div class="home-ambient-world"[^>]*>(.*?)<\/div>/)?.[1] ?? "", /<i/);
-  const entryButtons = markup.match(/<button[^>]+home-(?:primary|secondary)-action[^>]*>/g) ?? [];
+  const entryButtons = markup.match(/<a[^>]+home-(?:primary|secondary)-action[^>]*>/g) ?? [];
 
   assert.ok(entryButtons.length >= 2);
   assert.equal(entryButtons.some((button) => /\sdisabled(?:=|\s|>)/.test(button)), false);

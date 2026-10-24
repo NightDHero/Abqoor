@@ -3,7 +3,6 @@ import { env } from "../../config/env";
 import { SystemIcon } from "../../components/ui/SystemIcon";
 import { CareerTopicIcon } from "../career/CareerTopicIcon";
 import { arabicTopics, mathTopics } from "../career/careerData";
-import { navigateTo } from "../../utils/router";
 import { homeContent } from "./homeContent";
 import {
   analogyQuestions,
@@ -278,46 +277,34 @@ export function HomeBrowserShowcase() {
         <header>
           <h3>الكمي</h3>
         </header>
-        <div className="home-browser-topic-grid">
-          {mathTopics.map((topic, index) => (
-            <a
+        <ul className="home-browser-topic-grid">
+          {mathTopics.map((topic) => (
+            <li
               className="home-browser-topic"
-              href={topic.route}
               key={topic.id}
-              onClick={(event) => {
-                event.preventDefault();
-                navigateTo(topic.route);
-              }}
-              style={{ "--topic-index": index } as CSSProperties}
             >
               <CareerTopicIcon subject="math" topicSlug={topic.routeSlug} />
               <span>{topic.name}</span>
-            </a>
+            </li>
           ))}
-        </div>
+        </ul>
       </section>
 
       <section className="home-browser-world home-browser-world-verbal">
         <header>
           <h3>اللفظي</h3>
         </header>
-        <div className="home-browser-topic-grid">
-          {arabicTopics.map((topic, index) => (
-            <a
+        <ul className="home-browser-topic-grid">
+          {arabicTopics.map((topic) => (
+            <li
               className="home-browser-topic"
-              href={topic.practiceRoute}
               key={topic.id}
-              onClick={(event) => {
-                event.preventDefault();
-                navigateTo(topic.practiceRoute);
-              }}
-              style={{ "--topic-index": index } as CSSProperties}
             >
               <CareerTopicIcon subject="arabic" topicSlug={topic.routeSlug} />
               <span>{topic.name}</span>
-            </a>
+            </li>
           ))}
-        </div>
+        </ul>
       </section>
     </div>
   );

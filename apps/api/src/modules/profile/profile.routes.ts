@@ -7,11 +7,16 @@ import {
   saveStudentProfile
 } from "./profile.service.js";
 import type { UpdateStudentProfileInput } from "./profile.types.js";
+import {
+  getTutorialProgress,
+  saveTutorialProgress,
+  TutorialProgressError
+} from "./tutorial-progress.service.js";
 
 export const profileRouter = Router();
 
 const handleProfileError = (error: unknown, response: Response) => {
-  if (error instanceof ProfileError) {
+  if (error instanceof ProfileError || error instanceof TutorialProgressError) {
     response.status(error.statusCode).json({ message: error.message });
     return;
   }
@@ -23,6 +28,29 @@ profileRouter.get("/", requireAuth, async (request, response) => {
   try {
     response.status(200).json({
       profile: await getStudentProfile(request.user?.id ?? "")
+    });
+  } catch (error) {
+    handleProfileError(error, response);
+  }
+});
+
+profileRouter.get("/tutorial", requireAuth, async (request, response) => {
+  try {
+    response.status(200).json({
+      tutorial: await getTutorialProgress(request.user?.id ?? "")
+    });
+  } catch (error) {
+    handleProfileError(error, response);
+  }
+});
+
+profileRouter.put("/tutorial", requireAuth, async (request, response) => {
+  try {
+    response.status(200).json({
+      tutorial: await saveTutorialProgress(
+        request.user?.id ?? "",
+        (request.body ?? {}) as { currentStep?: unknown; status?: unknown }
+      )
     });
   } catch (error) {
     handleProfileError(error, response);
