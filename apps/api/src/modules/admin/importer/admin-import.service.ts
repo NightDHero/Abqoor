@@ -1186,7 +1186,9 @@ export const getAdminQuestionBank = async (input: {
       questionImageUrl: getAuthorizedQuestionImageUrl(question.id),
       questionNumber: typeof question.bankQuestionNumber === "number"
         ? question.bankQuestionNumber
-        : Number(question.id.replace(/^Q-/, ""))
+        : typeof question.importedQuestionNumber === "number"
+          ? question.importedQuestionNumber
+          : Number(/^Q-(\d+)$/.exec(question.id)?.[1] ?? 0)
     }))
   };
 };

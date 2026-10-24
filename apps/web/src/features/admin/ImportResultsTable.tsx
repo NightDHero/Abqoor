@@ -25,6 +25,26 @@ const asTextList = (value: unknown) =>
     : [];
 
 const sourceIdentifiers = (item: ImportJobItem) => {
+  if (asText(item.metadata.detectedFormat) === "quantitative-bank-first") {
+    const bankSectionNumber = asText(item.metadata.bankSectionNumber);
+    const sourceQuestionNumber = asText(item.metadata.sourceQuestionNumber);
+    const unknownSourceFields = Array.isArray(item.metadata.unknownSourceFields)
+      ? item.metadata.unknownSourceFields
+      : [];
+    const unknownColumnC = unknownSourceFields
+      .map(asRecord)
+      .find((field) => field?.column === "C");
+    const unknownColumnCValue = unknownColumnC?.value === null || unknownColumnC?.value === undefined
+      ? null
+      : String(unknownColumnC.value);
+
+    return [
+      bankSectionNumber ? `رقم القسم A: ${bankSectionNumber}` : null,
+      sourceQuestionNumber ? `رقم السؤال B: ${sourceQuestionNumber}` : null,
+      unknownColumnCValue ? `حقل C غير معروف: ${unknownColumnCValue}` : null
+    ].filter((value): value is string => Boolean(value));
+  }
+
   const identifiers = asRecord(item.metadata.sourceIdentifiers);
   return identifiers
     ? ["primary", "secondary", "code"]
@@ -50,12 +70,15 @@ function ImportResultDetails({ item }: { item: ImportJobItem }) {
   const passage = asText(item.metadata.passage);
   const passageId = asText(item.metadata.passageId);
   const identifiers = sourceIdentifiers(item);
+  const correctOptionIndex = item.correctAnswer
+    ? ["A", "B", "C", "D"].indexOf(item.correctAnswer)
+    : -1;
 
   return (
     <div className="admin-import-result-details">
       <dl>
         <div><dt>نص السؤال</dt><dd>{item.questionText || "غير متوفر"}</dd></div>
-        <div><dt>معرّفات المصدر A–C</dt><dd dir="ltr">{identifiers.join(" · ") || "غير متوفرة"}</dd></div>
+        <div><dt>بيانات الترقيم من المصدر</dt><dd>{identifiers.join(" · ") || "غير متوفرة"}</dd></div>
         <div><dt>المصدر الأصلي</dt><dd>{item.sheetName} · صف Excel {item.excelRowNumber.toLocaleString("ar-SA")}</dd></div>
         <div><dt>الصعوبة</dt><dd>{item.difficulty.toLocaleString("ar-SA")}</dd></div>
         <div><dt>الفئة الإضافية</dt><dd>{additionalCategory ?? "غير محددة"}</dd></div>
@@ -68,7 +91,15 @@ function ImportResultDetails({ item }: { item: ImportJobItem }) {
       </dl>
       <div className="admin-import-result-options" aria-label="خيارات الإجابة">
         {item.options.map((option, index) => (
-          <span key={`${item.questionId}-option-${index}`}><b>{optionLabels[index]}</b>{option || "فارغ"}</span>
+          <span
+            aria-label={correctOptionIndex === index ? `الإجابة الصحيحة ${optionLabels[index]}` : undefined}
+            data-correct={correctOptionIndex === index}
+            key={`${item.questionId}-option-${index}`}
+          >
+            <b>{optionLabels[index]}</b>
+            {option || "فارغ"}
+            {correctOptionIndex === index ? <small>الإجابة الصحيحة</small> : null}
+          </span>
         ))}
       </div>
       {item.errors.length > 0 ? (
@@ -120,7 +151,7 @@ export function ImportResultsTable({
               return (
                 <Fragment key={item.questionId}>
                   <tr>
-                    <td><b>{item.questionNumber.toLocaleString("ar-SA")}</b>{identifiers.length ? <small dir="ltr">{identifiers.join(" · ")}</small> : null}</td>
+                    <td><b>{item.questionNumber.toLocaleString("ar-SA")}</b>{identifiers.length ? <small dir="auto">{identifiers.join(" · ")}</small> : null}</td>
                     <td>{item.pageNumber ? `PDF ${item.pageNumber.toLocaleString("ar-SA")}` : item.sourceImageName ?? "بدون وسيط"}<small>{item.sheetName} · صف {item.excelRowNumber.toLocaleString("ar-SA")}</small></td>
                     <td>{item.subject === "quantitative" ? "كمي" : "لفظي"}</td>
                     <td>{item.topic || "غير محدد"}</td>

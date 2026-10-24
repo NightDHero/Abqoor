@@ -38,12 +38,17 @@ export function LandingPage({ user }: { user: User | null }) {
 
   useEffect(() => {
     const page = pageRef.current;
-    if (!page || !("IntersectionObserver" in window)) {
+    if (!page) {
       return;
     }
 
     const revealItems = page.querySelectorAll<HTMLElement>("[data-reveal]");
     const sections = page.querySelectorAll<HTMLElement>(".home-section");
+    if (!("IntersectionObserver" in window)) {
+      revealItems.forEach((item) => item.classList.add("is-visible"));
+      return;
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -66,13 +71,14 @@ export function LandingPage({ user }: { user: User | null }) {
       section.dataset.inView = "false";
       observer.observe(section);
     });
-    page.querySelector<HTMLElement>(".home-hero-copy")?.classList.add(
-      "is-visible"
-    );
+    page.querySelector<HTMLElement>(".home-hero-mark")?.classList.add("is-visible");
+    page.querySelector<HTMLElement>(".home-hero-copy")?.classList.add("is-visible");
+    page.dataset.motionReady = "true";
 
     return () => {
       observer.disconnect();
       sections.forEach((section) => delete section.dataset.inView);
+      delete page.dataset.motionReady;
     };
   }, []);
 
@@ -123,6 +129,10 @@ export function LandingPage({ user }: { user: User | null }) {
         if (progressRef.current) {
           progressRef.current.style.transform = `scaleX(${nextProgress})`;
         }
+        page.style.setProperty("--home-scroll-progress", `${nextProgress}`);
+        page.style.setProperty("--home-light-shift", `${nextProgress * 80}px`);
+        page.style.setProperty("--home-light-shift-reverse", `${nextProgress * -80}px`);
+        page.dataset.activeSection = nextActive;
         setActiveSectionId(nextActive);
       });
     };
@@ -156,11 +166,40 @@ export function LandingPage({ user }: { user: User | null }) {
       <div className="home-pointer-spotlight" data-visible="false" ref={pointerSpotlightRef} aria-hidden="true">
         <span />
       </div>
+      <div className="home-atmosphere" aria-hidden="true">
+        <span className="home-atmosphere-band home-atmosphere-band-cyan" />
+        <span className="home-atmosphere-band home-atmosphere-band-gold" />
+        <span className="home-atmosphere-band home-atmosphere-band-navy" />
+        <span className="home-atmosphere-haze" />
+        <span className="home-atmosphere-particle" />
+        <span className="home-atmosphere-particle" />
+        <span className="home-atmosphere-particle" />
+        <span className="home-atmosphere-particle" />
+        <span className="home-atmosphere-particle" />
+        <span className="home-atmosphere-particle" />
+        <span className="home-atmosphere-particle" />
+        <span className="home-atmosphere-particle" />
+      </div>
       <div className="home-ambient-world" aria-hidden="true">
         <span>س</span>
         <span>ص</span>
         <span>π</span>
       </div>
+
+      <nav className="home-journey-guide" aria-label="مراحل رحلة عبقور">
+        {homeContent.navSections.map((item, index) => (
+          <a
+            aria-current={activeSectionId === item.id ? "step" : undefined}
+            className={activeSectionId === item.id ? "active" : undefined}
+            href={`#${item.id}`}
+            key={item.id}
+            onClick={handleSectionNavigation(item.id)}
+          >
+            <span>{String(index + 1).padStart(2, "0")}</span>
+            <strong>{item.label}</strong>
+          </a>
+        ))}
+      </nav>
 
       <header className="home-site-nav">
         <a
@@ -217,10 +256,16 @@ export function LandingPage({ user }: { user: User | null }) {
         />
 
         <div className="home-hero-mark" data-reveal>
+          <div className="home-hero-orbit" aria-hidden="true">
+            <span>كمي</span>
+            <span>لفظي</span>
+            <span>تقدّم</span>
+          </div>
           <img alt="عبقور" src={homeContent.logoPath} />
         </div>
 
         <div className="home-hero-copy" data-reveal>
+          <span className="home-stage-kicker">{homeContent.stages["home-hero"]}</span>
           <p>{homeContent.hero.smallText}</p>
           <h1 id="home-hero-title">{homeContent.hero.headline}</h1>
           <strong>{homeContent.hero.description}</strong>
@@ -255,8 +300,23 @@ export function LandingPage({ user }: { user: User | null }) {
         />
 
         <div className="home-program-copy" data-reveal>
+          <span className="home-stage-kicker">{homeContent.stages["home-program"]}</span>
           <h2 id="home-program-title">{homeContent.program.title}</h2>
           <p>{homeContent.program.intro}</p>
+
+          <div className="home-journey-map" aria-label="رحلتك في عبقور">
+            <ol>
+              {homeContent.journey.map((step, index) => (
+                <li key={step.title}>
+                  <span>{String(index + 1).padStart(2, "0")}</span>
+                  <div>
+                    <strong>{step.title}</strong>
+                    <p>{step.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
 
           <div className="home-learning-list">
             <h3>{homeContent.program.learningTitle}</h3>
@@ -283,6 +343,7 @@ export function LandingPage({ user }: { user: User | null }) {
         />
 
         <header className="home-systems-heading" data-reveal>
+          <span className="home-stage-kicker">{homeContent.stages["home-systems"]}</span>
           <h2 id="home-systems-title">{homeContent.systems.title}</h2>
           <p>{homeContent.systems.intro}</p>
         </header>
@@ -309,6 +370,7 @@ export function LandingPage({ user }: { user: User | null }) {
         aria-labelledby="home-advice-title"
       >
         <div className="home-advice-copy" data-reveal>
+          <span className="home-stage-kicker">{homeContent.stages["home-advice"]}</span>
           <h2 id="home-advice-title">{homeContent.advice.title}</h2>
           <p>{homeContent.advice.text}</p>
           <div className="home-advice-cta-stage">

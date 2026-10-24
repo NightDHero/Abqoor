@@ -8,6 +8,10 @@ import type {
 } from "../../types/admin";
 import { answerLabel, formatAdminDate } from "./adminUtils";
 import { AdminShell } from "./AdminShell";
+import {
+  getQuestionBankPageCount,
+  shouldShowQuestionBankEmptyState
+} from "./adminQuestionBankState";
 
 const emptyResult: AdminQuestionBankResponse = {
   banks: [],
@@ -52,13 +56,22 @@ export function AdminQuestionBankPage() {
           sort
         })
         .then(setResult)
-        .catch(() => setError("تعذر تحميل بنك الأسئلة."))
+        .catch((requestError: unknown) => setError(
+          requestError instanceof Error && requestError.message
+            ? requestError.message
+            : "تعذر تحميل بنك الأسئلة."
+        ))
         .finally(() => setIsLoading(false));
     }, 180);
     return () => window.clearTimeout(timer);
   }, [bankId, mode, page, query, sort]);
 
-  const pageCount = Math.max(1, Math.ceil(result.total / result.pageSize));
+  const pageCount = getQuestionBankPageCount(result.total, result.pageSize);
+  const showEmptyState = shouldShowQuestionBankEmptyState({
+    error,
+    isLoading,
+    questionCount: result.questions.length
+  });
 
   return (
     <AdminShell
@@ -255,21 +268,24 @@ export function AdminQuestionBankPage() {
               <option value="desc">رقم السؤال ↓</option>
             </select>
           </label>
-          <span>{result.total.toLocaleString("ar-SA")} سؤال</span>
+          <span>{error ? "العدد غير متاح" : `${result.total.toLocaleString("ar-SA")} سؤال`}</span>
         </div>
 
         {error ? <p className="admin-alert error">{error}</p> : null}
         {isLoading ? <p className="admin-empty">جاري تحميل الأسئلة...</p> : null}
-        {!isLoading && result.questions.length === 0 ? <p className="admin-empty">لا توجد أسئلة مطابقة.</p> : null}
+        {showEmptyState ? <p className="admin-empty">لا توجد أسئلة مطابقة.</p> : null}
 
-        {result.questions.length > 0 ? (
+        {!error && result.questions.length > 0 ? (
           <div className="admin-table-wrap">
             <table className="admin-table">
               <thead><tr><th>رقم السؤال</th>{mode === "aqsam" ? <th>البنك</th> : null}<th>الصورة</th><th>التصنيف</th><th>الإجابة</th><th>الرفع</th></tr></thead>
               <tbody>
                 {result.questions.map((question) => (
                   <tr key={question.id}>
-                    <td><strong dir="ltr">{question.id}</strong></td>
+                    <td>
+                      <strong>{question.questionNumber.toLocaleString("ar-SA")}</strong>
+                      <small dir="ltr">{question.id}</small>
+                    </td>
                     {mode === "aqsam" ? <td><strong>{question.bankName ?? "غير محدد"}</strong></td> : null}
                     <td>{question.imageExists ? <img alt={`السؤال ${question.questionNumber}`} loading="lazy" src={`${env.apiUrl}${question.questionImageUrl}`} /> : <span className="admin-missing">مفقودة</span>}</td>
                     <td>
@@ -288,11 +304,11 @@ export function AdminQuestionBankPage() {
           </div>
         ) : null}
 
-        <div className="admin-pagination">
+        {!error ? <div className="admin-pagination">
           <button className="secondary" disabled={page <= 1} type="button" onClick={() => setPage((current) => current - 1)}>السابق</button>
           <span>صفحة {page.toLocaleString("ar-SA")} من {pageCount.toLocaleString("ar-SA")}</span>
           <button className="secondary" disabled={page >= pageCount} type="button" onClick={() => setPage((current) => current + 1)}>التالي</button>
-        </div>
+        </div> : null}
       </section>
     </AdminShell>
   );

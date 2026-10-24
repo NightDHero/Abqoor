@@ -546,7 +546,7 @@ export const listAdminQuestions = async (input: {
   if (input.bankId) conditions.push("questions.bank_id = @bankId");
   if (numericQuery) {
     conditions.push(
-      "questions.bank_question_number = @questionNumber OR questions.id = @questionId"
+      "questions.bank_question_number = @questionNumber OR import_job_items.question_number = @questionNumber OR questions.id = @questionId"
     );
   }
   const where = `WHERE ${conditions.map((condition) => `(${condition})`).join(" AND ")}`;
@@ -563,6 +563,7 @@ export const listAdminQuestions = async (input: {
     SELECT
       questions.id,
       questions.bank_question_number AS bankQuestionNumber,
+      import_job_items.question_number AS importedQuestionNumber,
       questions.question_scope AS questionScope,
       questions.bank_id AS bankId,
       question_banks.name AS bankName,
@@ -580,13 +581,32 @@ export const listAdminQuestions = async (input: {
       import_jobs.created_by AS importedBy
     FROM questions
     LEFT JOIN import_jobs ON import_jobs.id = questions.import_job_id
+    LEFT JOIN import_job_items
+      ON import_job_items.import_job_id = questions.import_job_id
+      AND import_job_items.question_id = questions.id
     LEFT JOIN question_banks ON question_banks.id = questions.bank_id
     ${where}
-    ORDER BY COALESCE(questions.bank_question_number, CAST(SUBSTR(questions.id, 3) AS INTEGER)) ${order}
+    ORDER BY
+      CASE
+        WHEN COALESCE(questions.bank_question_number, import_job_items.question_number) IS NULL THEN 1
+        ELSE 0
+      END ASC,
+      COALESCE(questions.bank_question_number, import_job_items.question_number) ${order},
+      CASE
+        WHEN COALESCE(questions.bank_question_number, import_job_items.question_number) IS NULL
+          THEN LENGTH(questions.id)
+        ELSE 0
+      END ${order},
+      questions.id ${order}
     LIMIT @limit OFFSET @offset
   `).all(params);
   const count = await db.prepare(`
-    SELECT CAST(COUNT(*) AS INTEGER) AS count FROM questions ${where}
+    SELECT CAST(COUNT(*) AS INTEGER) AS count
+    FROM questions
+    LEFT JOIN import_job_items
+      ON import_job_items.import_job_id = questions.import_job_id
+      AND import_job_items.question_id = questions.id
+    ${where}
   `).get(params) as { count: number };
 
   return {

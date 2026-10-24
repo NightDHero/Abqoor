@@ -70,12 +70,13 @@ test("restores confirmation and complete persisted metadata from import history"
   assert.match(detailSource, /adminService\.confirmImport/);
   assert.match(detailSource, /قرارات الأسئلة المكررة/);
   assert.match(detailSource, /إعادة تحليل الملفات/);
-  assert.match(resultsSource, /معرّفات المصدر A–C/);
+  assert.match(resultsSource, /بيانات الترقيم من المصدر/);
   assert.match(resultsSource, /الموضوع الرئيسي/);
   assert.match(resultsSource, /الموضوع الفرعي/);
   assert.match(resultsSource, /الفئة الإضافية/);
   assert.match(resultsSource, /المقارنة أ/);
   assert.match(resultsSource, /sourceColumns/);
+  assert.match(resultsSource, /data-correct=/);
 });
 
 test("places the website destination last for regular users and administrators", () => {

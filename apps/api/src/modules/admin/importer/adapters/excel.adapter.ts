@@ -321,11 +321,6 @@ const createBankFirstQuantitativeDefinition = (
   ],
   imageIndex: 10,
   imageIndicatorIndex: 11,
-  internalIdentifierIndexes: [
-    1,
-    2,
-    ...Array.from({ length: Math.max(0, headerLength - 18) }, (_, index) => index + 18)
-  ],
   optionIndexes: [6, 7, 8, 9],
   questionNumberIndex: 1,
   questionTextIndex: 3,
@@ -1212,11 +1207,6 @@ export const analyzeWorkbookSheets = (
       const difficulty = Number.isInteger(difficultyValue) && difficultyValue >= 1 && difficultyValue <= 10
         ? difficultyValue
         : 1;
-      const resolvedTopic = categoryTopic?.displayNameAr ?? definition.topic;
-      const resolvedTopicId = categoryTopic?.slug ?? definition.topicId;
-      if (!resolvedTopic || !resolvedTopicId) {
-        missingTopicSheets.add(sheetName);
-      }
       const sourceIdentifierValues = definition.sourceIdentifierIndexes
         ? definition.sourceIdentifierIndexes.map((index) => text(row[index]) || null)
         : null;
@@ -1232,22 +1222,44 @@ export const analyzeWorkbookSheets = (
         : definition.subtopicIndex === undefined
           ? definition.subtopic
           : text(row[definition.subtopicIndex]) || null;
-      const resolvedTopicDefinition = topicTaxonomy.find(
-        (candidate) => candidate.slug === resolvedTopicId
-      );
-      const canonicalSubtopic = sourceSubtopic && resolvedTopicDefinition
-        ? resolvedTopicDefinition.subtopics.find(
+      const bankFirstCategoryMatch = definition.format === "quantitative-bank-first" && sourceSubtopic
+        ? topicTaxonomy
+            .filter((candidate) => candidate.subject === "math")
+            .map((topic) => ({
+              subtopic: topic.subtopics.find(
+                (candidate) => normalizedHeader(candidate.displayNameAr) === normalizedHeader(sourceSubtopic)
+              ) ?? null,
+              topic
+            }))
+            .find(({ subtopic, topic }) =>
+              Boolean(subtopic) || normalizedHeader(topic.displayNameAr) === normalizedHeader(sourceSubtopic)
+            ) ?? null
+        : null;
+      const bankFirstDirectTopic = bankFirstCategoryMatch && !bankFirstCategoryMatch.subtopic
+        ? bankFirstCategoryMatch.topic
+        : null;
+      const resolvedTopicDefinition = bankFirstCategoryMatch?.topic ?? categoryTopic ??
+        topicTaxonomy.find((candidate) => candidate.slug === definition.topicId) ?? null;
+      const resolvedTopic = resolvedTopicDefinition?.displayNameAr ?? definition.topic;
+      const resolvedTopicId = resolvedTopicDefinition?.slug ?? definition.topicId;
+      if (!resolvedTopic || !resolvedTopicId) {
+        missingTopicSheets.add(sheetName);
+      }
+      const canonicalSubtopic = bankFirstCategoryMatch?.subtopic ??
+        (sourceSubtopic && resolvedTopicDefinition && !bankFirstDirectTopic
+          ? resolvedTopicDefinition.subtopics.find(
             (candidate) => normalizedHeader(candidate.displayNameAr) === normalizedHeader(sourceSubtopic)
           ) ?? null
-        : null;
+          : null);
+      const resolvedSubtopic = bankFirstDirectTopic ? null : sourceSubtopic;
       const metadata: Record<string, unknown> = {
         additionalCategory,
         classification: {
           detectedSection: definition.subject,
           mainTopic: resolvedTopic || null,
           mainTopicId: resolvedTopicId || null,
-          mainTopicSource: categoryTopic ? "column" : definition.topicSource ?? null,
-          subtopic: sourceSubtopic,
+          mainTopicSource: bankFirstCategoryMatch || categoryTopic ? "column" : definition.topicSource ?? null,
+          subtopic: resolvedSubtopic,
           subtopicId: canonicalSubtopic?.slug ?? definition.subtopicId,
           subtopicSource: definition.subtopicSource ?? null
         },
@@ -1324,11 +1336,28 @@ export const analyzeWorkbookSheets = (
           internalIdentifiers: (definition.internalIdentifierIndexes ?? [])
             .map((index) => ({ column: columnName(index), value: text(row[index]) }))
             .filter((entry) => entry.value),
-          technicalColumns: row.slice(18, 25).map((value, index) => ({
-            column: columnName(index + 18),
-            value: text(value) || null
-          }))
+          technicalColumns: definition.format === "quantitative-bank-first"
+            ? undefined
+            : row.slice(18, 25).map((value, index) => ({
+                column: columnName(index + 18),
+                value: text(value) || null
+              }))
         });
+        if (definition.format === "quantitative-bank-first") {
+          Object.assign(metadata, {
+            bankSectionNumber: text(row[0]) || null,
+            sourceQuestionNumber: text(row[1]) || null,
+            sourceCategory: text(row[13]) || null,
+            unknownSourceFields: [
+              { column: "C", header: text(data[0]?.[2]) || null, value: row[2] ?? null },
+              ...row.slice(18).map((value, index) => ({
+                column: columnName(index + 18),
+                header: text(data[0]?.[index + 18]) || null,
+                value: value ?? null
+              }))
+            ]
+          });
+        }
       }
       if (definition.answerTextIndex !== undefined) {
         metadata.answerText = text(row[definition.answerTextIndex]) || null;
@@ -1400,7 +1429,7 @@ export const analyzeWorkbookSheets = (
         subject: definition.subject,
         topic: resolvedTopic,
         topicId: resolvedTopicId,
-        subtopic: sourceSubtopic,
+        subtopic: resolvedSubtopic,
         subtopicId: canonicalSubtopic?.slug ?? definition.subtopicId,
         difficulty,
         metadata,

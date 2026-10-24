@@ -7,6 +7,12 @@ export const homeContent = {
     { id: "home-advice", label: "نصيحة" }
   ],
   loginLabel: "تسجيل الدخول",
+  stages: {
+    "home-hero": "١ / البداية",
+    "home-program": "٢ / رحلتك",
+    "home-systems": "٣ / أدواتك",
+    "home-advice": "٤ / خطوتك الجاية"
+  },
   hero: {
     title: "عبقور",
     headline: "تأسس وتدرب قدرات.",
@@ -15,6 +21,28 @@ export const homeContent = {
     secondaryButton: "سجل معانا",
     smallText: "اهلا وسهلا"
   },
+  journey: [
+    {
+      title: "اعرف طريقك",
+      text: "برنامج قدرات يبدأ مع مستواك ووقتك"
+    },
+    {
+      title: "تدرّب كمي ولفظي",
+      text: "أسئلة من القسمين اللي تختبر فيها فعلاً"
+    },
+    {
+      title: "افهم مستواك",
+      text: "تتعرف على جوانب قوتك وضعفك"
+    },
+    {
+      title: "واصل تقدّمك",
+      text: "تحافظ على انضباطك وتكمل من مكانك"
+    },
+    {
+      title: "ابدأ خطتك",
+      text: "ادخل للبرنامج وابدأ أول خطوة"
+    }
+  ],
   program: {
     title: "هذا البرنامج",
     intro:

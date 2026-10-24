@@ -2,26 +2,46 @@ export function attachLandingPointer(page: HTMLElement, spotlight: HTMLElement) 
   const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   let animationFrame = 0;
-  let pointerX = 0;
-  let pointerY = 0;
+  let targetX = 0;
+  let targetY = 0;
+  let currentX = 0;
+  let currentY = 0;
+  let hasPosition = false;
 
   const hidePointer = () => {
     window.cancelAnimationFrame(animationFrame);
     animationFrame = 0;
+    hasPosition = false;
     spotlight.dataset.visible = "false";
   };
   const renderPointer = () => {
-    spotlight.style.transform = `translate3d(${pointerX}px, ${pointerY}px, 0) translate(-50%, -50%)`;
+    const distanceX = targetX - currentX;
+    const distanceY = targetY - currentY;
+    currentX += distanceX * 0.2;
+    currentY += distanceY * 0.2;
+    spotlight.style.transform = `translate3d(${currentX}px, ${currentY}px, 0) translate(-50%, -50%)`;
     spotlight.dataset.visible = "true";
     animationFrame = 0;
+    if (Math.abs(distanceX) > 0.25 || Math.abs(distanceY) > 0.25) {
+      animationFrame = window.requestAnimationFrame(renderPointer);
+    } else {
+      currentX = targetX;
+      currentY = targetY;
+      spotlight.style.transform = `translate3d(${currentX}px, ${currentY}px, 0) translate(-50%, -50%)`;
+    }
   };
   const handlePointerMove = (event: PointerEvent) => {
     if (!finePointer.matches || reducedMotion.matches || event.pointerType === "touch") {
       hidePointer();
       return;
     }
-    pointerX = event.clientX;
-    pointerY = event.clientY;
+    targetX = event.clientX;
+    targetY = event.clientY;
+    if (!hasPosition) {
+      currentX = targetX;
+      currentY = targetY;
+      hasPosition = true;
+    }
     if (!animationFrame) animationFrame = window.requestAnimationFrame(renderPointer);
   };
 

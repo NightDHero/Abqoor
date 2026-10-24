@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { attachLandingPointer } from "../src/features/home/landingMotion.js";
 
-test("pointer aura batches movement, follows the latest position, and cleans up", () => {
+test("pointer aura batches movement, follows with lag, and cleans up", () => {
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
   const originalDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
   class MediaQuery extends EventTarget { constructor(public matches: boolean) { super(); } }
@@ -26,11 +26,14 @@ test("pointer aura batches movement, follows the latest position, and cleans up"
   try {
     const cleanup = attachLandingPointer(page as HTMLElement, spotlight as unknown as HTMLElement);
     move(10, 20);
-    move(70, 80);
     assert.equal(frames.size, 1);
     flush();
-    assert.match(spotlight.style.transform, /translate3d\(70px, 80px, 0\)/);
+    assert.match(spotlight.style.transform, /translate3d\(10px, 20px, 0\)/);
     assert.equal(spotlight.dataset.visible, "true");
+    move(70, 80);
+    flush();
+    assert.match(spotlight.style.transform, /translate3d\(22px, 32px, 0\)/);
+    assert.equal(frames.size, 1);
     page.dispatchEvent(new Event("pointerleave"));
     assert.equal(spotlight.dataset.visible, "false");
     move(40, 50, "touch");

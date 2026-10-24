@@ -710,9 +710,31 @@ test("maps the labeled bank-first quantitative workbook using its local question
     "تقني S", "تقني T", "تقني U", "تقني V", "0"
   ];
   const row = (bankGroup: number, questionNumber: number, globalNumber: number) => [
-    bankGroup, questionNumber, globalNumber + 1, `سؤال ${questionNumber}`, "", "",
-    "١", "٢", "٣", "٤", "", "لا", 3, "الحساب", "", "أ",
-    "", "", "", "", "", "", globalNumber
+    bankGroup,
+    questionNumber,
+    globalNumber + 1,
+    questionNumber === 25
+      ? "ما مجموع القيم : ٦٠٠ + ٤٠ + ٧ + ٦٠٠٠٠٠٠ + ٥٠٠٠٠٠ + ٢٠٠٠٠ + ٣٠٠٠"
+      : `سؤال ${questionNumber}`,
+    "",
+    "",
+    "٣٦٤٧٦",
+    "٦٥٢٣٦٤٧",
+    "٧٤٣٦",
+    "١٨٧٨٨٥",
+    "",
+    "لا",
+    questionNumber === 25 ? 1 : 3,
+    "العمليات الأساسية",
+    "",
+    "ب",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    globalNumber
   ];
   const analysis = excelAdapter.analyzeWorkbookSheets([{
     sheet: "بنك هندسة",
@@ -725,8 +747,9 @@ test("maps the labeled bank-first quantitative workbook using its local question
 
   assert.equal(analysis.questions.length, 48);
   assert.equal(analysis.issues.length, 0);
-  assert.equal(analysis.questions[0]?.topicId, "geometry");
-  assert.equal(analysis.questions[0]?.subtopic, "الحساب");
+  assert.equal(analysis.questions[0]?.topicId, "arithmetic");
+  assert.equal(analysis.questions[0]?.subtopic, "العمليات الأساسية");
+  assert.equal(analysis.questions[0]?.subtopicId, "basic-operations");
   assert.deepEqual(
     analysis.questions.map((question) => question.questionNumber),
     Array.from({ length: 48 }, (_, index) => index + 1)
@@ -735,6 +758,38 @@ test("maps the labeled bank-first quantitative workbook using its local question
     analysis.diagnostics.sheets[0]?.rows.filter((row) => row.status === "skipped").length,
     48
   );
+  const concreteQuestion = analysis.questions.find((question) => question.questionNumber === 25);
+  assert.equal(concreteQuestion?.difficulty, 1);
+  assert.equal(concreteQuestion?.correctAnswer, "B");
+  assert.equal(concreteQuestion?.options[1], "٦٥٢٣٦٤٧");
+  assert.equal(concreteQuestion?.metadata.bankSectionNumber, "1");
+  assert.equal(concreteQuestion?.metadata.sourceQuestionNumber, "25");
+  assert.equal(concreteQuestion?.metadata.sourceCategory, "العمليات الأساسية");
+  assert.equal(concreteQuestion?.metadata.additionalCategory, null);
+  assert.equal(concreteQuestion?.metadata.imageIndicator, "لا");
+  assert.deepEqual(concreteQuestion?.metadata.internalIdentifiers, []);
+  assert.deepEqual(
+    (concreteQuestion?.metadata.unknownSourceFields as Array<Record<string, unknown>>)
+      .filter((field) => field.column === "C" || field.column === "W")
+      .map((field) => ({ column: field.column, value: field.value })),
+    [{ column: "C", value: 26 }, { column: "W", value: 25 }]
+  );
+});
+
+test("uses a bank-first top-level category without inventing a subtopic", () => {
+  const analysis = excelAdapter.analyzeWorkbookSheets([{
+    sheet: "بنك هندسة",
+    data: [[
+      "البنك", "رقم السؤال", "", "السؤال", "المقارنة أ", "المقارنة ب",
+      "أ", "ب", "ج", "د", "الصورة", "هل يحتاج صوره؟", "صعوبة السؤال",
+      "فئة السؤال", "فئة اضافية", "الإجابة", "صورة مقارنة أ", "صورة مقارنة ب"
+    ], [1, 25, 26, "سؤال", "", "", "١", "٢", "٣", "٤", "", "لا", 1, "الحساب", "", "ب", "", ""]]
+  }], { from: 25, to: 25 }, "general");
+
+  assert.equal(analysis.issues.length, 0);
+  assert.equal(analysis.questions[0]?.topicId, "arithmetic");
+  assert.equal(analysis.questions[0]?.subtopic, null);
+  assert.equal(analysis.questions[0]?.subtopicId, null);
 });
 
 test("parses Arabic question numbers when a standard general sheet identifies its topic", () => {
@@ -956,6 +1011,62 @@ test("keeps Aqsam banks idempotent and separate from general questions", async (
 
   await importService.cancelQuestionImport(retry.job.id);
   await importService.rollbackQuestionImport(first.job.id);
+});
+
+test("loads question-bank results, empty searches, and one page at a time", async () => {
+  const request = {
+    createdBy: "admin@example.com",
+    questionRange: { from: 9301, to: 9303 },
+    importType: "aqsam" as const,
+    bankKey: "pagination-regression-bank",
+    bankName: "بنك اختبار الصفحات",
+    excel: {
+      buffer: createWorkbookBuffer(validWideQuantitativeSheets([9301, 9302, 9303])),
+      mimetype: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      originalname: "pagination.xlsx"
+    },
+    images: [9301, 9302, 9303].map((questionNumber) => ({
+      buffer: png,
+      mimetype: "image/png",
+      originalname: `${questionNumber}.png`
+    }))
+  };
+
+  const analyzed = await importService.analyzeQuestionImport(request);
+  await importService.confirmQuestionImport(analyzed.job.id, {});
+  const completed = await waitForTerminalJob(analyzed.job.id);
+  assert.equal(completed.job.status, "completed");
+
+  const firstPage = await importService.getAdminQuestionBank({
+    bankId: completed.job.bankId ?? undefined,
+    mode: "aqsam",
+    page: 1,
+    pageSize: 2,
+    sort: "asc"
+  });
+  const secondPage = await importService.getAdminQuestionBank({
+    bankId: completed.job.bankId ?? undefined,
+    mode: "aqsam",
+    page: 2,
+    pageSize: 2,
+    sort: "asc"
+  });
+  const emptySearch = await importService.getAdminQuestionBank({
+    bankId: completed.job.bankId ?? undefined,
+    mode: "aqsam",
+    page: 1,
+    pageSize: 2,
+    query: "999999",
+    sort: "asc"
+  });
+
+  assert.equal(firstPage.total, 3);
+  assert.deepEqual(firstPage.questions.map((question) => question.questionNumber), [9301, 9302]);
+  assert.deepEqual(secondPage.questions.map((question) => question.questionNumber), [9303]);
+  assert.equal(emptySearch.total, 0);
+  assert.deepEqual(emptySearch.questions, []);
+
+  await importService.rollbackQuestionImport(analyzed.job.id);
 });
 
 test("creates a quantitative import without manual classification fields", async () => {

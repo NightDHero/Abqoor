@@ -12,6 +12,7 @@
     "db:migrate-sqlite-to-postgres": "tsx scripts/migrate-sqlite-to-postgres.ts",
     "storage:backfill-images": "tsx scripts/backfill-question-images.ts",
     "storage:smoke-r2": "tsx scripts/r2-smoke-test.ts",
+    "audit:production-import": "tsx scripts/audit-production-import.ts --dry-run",
     "test": "tsx --test --test-concurrency=1 test/**/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
