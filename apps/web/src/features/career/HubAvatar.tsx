@@ -73,6 +73,7 @@ export function HubAvatar({
             </div>
           </header>
           <button
+            data-prefetch-route="/profile"
             role="menuitem"
             type="button"
             onClick={() => navigateFromMenu("/profile")}
@@ -80,6 +81,7 @@ export function HubAvatar({
             ملفي
           </button>
           <button
+            data-prefetch-route="/profile#settings"
             role="menuitem"
             type="button"
             onClick={() => navigateFromMenu("/profile#settings")}
@@ -95,6 +97,7 @@ export function HubAvatar({
           </button>
           {isAdmin ? (
             <button
+              data-prefetch-route="/admin"
               role="menuitem"
               type="button"
               onClick={() => navigateFromMenu("/admin")}

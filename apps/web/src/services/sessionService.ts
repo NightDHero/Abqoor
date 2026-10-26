@@ -8,6 +8,9 @@ import type {
 import { apiRequest } from "./http";
 import { invalidateStudyProgressCache } from "../features/career/studyProgressCache";
 import { reviewBankService } from "./reviewBankService";
+import { loadQuery } from "./queryCache";
+
+const sessionResultCacheMaxAgeMs = 5 * 60_000;
 
 export const sessionService = {
   startSession: (input: {
@@ -35,8 +38,11 @@ export const sessionService = {
     return response;
   },
 
-  getResult: (sessionId: string) =>
-    apiRequest<SessionResult>(`/sessions/${sessionId}/result`),
+  getResult: (sessionId: string) => loadQuery({
+    key: `sessions:result:${sessionId}`,
+    loader: () => apiRequest<SessionResult>(`/sessions/${sessionId}/result`),
+    maxAgeMs: sessionResultCacheMaxAgeMs
+  }),
 
   getProgress: (timeZone?: string, month?: string) => {
     const params = new URLSearchParams();

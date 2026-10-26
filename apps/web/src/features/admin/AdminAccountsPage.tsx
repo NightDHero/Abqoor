@@ -13,15 +13,18 @@ const sourceLabels: Record<AdminAccount["source"], string> = {
 };
 
 export function AdminAccountsPage() {
-  const [admins, setAdmins] = useState<AdminAccount[]>([]);
+  const initialCache = adminService.getCachedAdminAccounts();
+  const [admins, setAdmins] = useState<AdminAccount[]>(initialCache?.data.admins ?? []);
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!initialCache);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
 
   const loadAdmins = async () => {
+    const cached = adminService.getCachedAdminAccounts();
+    if (cached) setAdmins(cached.data.admins);
     const response = await adminService.getAdminAccounts();
     setAdmins(response.admins);
   };

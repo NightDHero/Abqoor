@@ -536,6 +536,10 @@
   align-items: stretch;
 }
 
+.study-progress-overview-grid-loading {
+  grid-template-areas: "progress";
+}
+
 .study-progress-journey {
   container-type: inline-size;
   position: relative;
@@ -1316,6 +1320,10 @@
     grid-template-areas: "progress plan";
   }
 
+  .study-progress-overview-grid-loading {
+    grid-template-areas: "progress plan";
+  }
+
   .study-progress-overview-grid > .study-progress-journey {
     height: auto;
     min-height: 560px;
@@ -1328,8 +1336,21 @@
 
 .study-progress-journey-loading {
   min-height: 280px;
-  align-content: center;
-  justify-items: center;
+  align-content: stretch;
+  text-align: center;
+}
+
+.study-progress-loading-state {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: 160px;
+  place-items: center;
+  text-align: center;
+}
+
+.study-progress-loading-state .study-progress-empty {
+  width: 100%;
   text-align: center;
 }
 

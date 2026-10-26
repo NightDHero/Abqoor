@@ -12,15 +12,21 @@ const toImageSrc = (question: ValidationQuestion) =>
     : `${env.apiUrl}${question.question_image_url}`;
 
 export function AdminValidationPage() {
-  const [summary, setSummary] = useState<ValidationSummary | null>(null);
-  const [questions, setQuestions] = useState<ValidationQuestion[]>([]);
+  const initialSummary = adminService.getCachedValidationSummary();
+  const initialQuestions = adminService.getCachedValidationQuestions();
+  const [summary, setSummary] = useState<ValidationSummary | null>(
+    initialSummary?.data ?? null
+  );
+  const [questions, setQuestions] = useState<ValidationQuestion[]>(
+    initialQuestions?.data.questions ?? []
+  );
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!initialSummary || !initialQuestions);
 
   useEffect(() => {
     const loadValidationData = async () => {
       setError("");
-      setIsLoading(true);
+      setIsLoading(!adminService.getCachedValidationSummary() || !adminService.getCachedValidationQuestions());
 
       try {
         const [summaryData, questionsData] = await Promise.all([

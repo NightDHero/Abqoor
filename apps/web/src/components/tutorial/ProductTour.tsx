@@ -225,6 +225,11 @@ export function ProductTour({
     width: `${panelPosition.width}px`
   } as CSSProperties;
   const isLastStep = currentStep === productTourSteps.length - 1;
+  const previousRoute = productTourSteps[Math.max(0, currentStep - 1)]?.route;
+  const nextRoute = productTourSteps[Math.min(
+    productTourSteps.length - 1,
+    currentStep + 1
+  )]?.route;
 
   return (
     <div className="product-tour" dir="rtl">
@@ -268,6 +273,7 @@ export function ProductTour({
           <div className="product-tour-actions">
             <button
               className="product-tour-previous"
+              data-prefetch-route={previousRoute}
               disabled={currentStep === 0}
               type="button"
               onClick={() => goToStep(currentStep - 1)}
@@ -276,6 +282,7 @@ export function ProductTour({
             </button>
             <button
               className="product-tour-next"
+              data-prefetch-route={nextRoute}
               type="button"
               onClick={() => isLastStep ? complete() : goToStep(currentStep + 1)}
             >

@@ -24,10 +24,14 @@ const activeUploadStatuses: ImportJobStatus[] = [
 const toArabicNumber = (value: number) => value.toLocaleString("ar-SA");
 
 export function AdminOverviewPage() {
-  const [jobs, setJobs] = useState<ImportJob[]>([]);
-  const [questionCount, setQuestionCount] = useState(0);
-  const [adminCount, setAdminCount] = useState(0);
-  const [bankCount, setBankCount] = useState(0);
+  const cachedHistory = adminService.getCachedImportJobs();
+  const cachedQuestionBank = adminService.getCachedQuestionBank({ page: 1, pageSize: 1 });
+  const cachedAccounts = adminService.getCachedAdminAccounts();
+  const cachedBankConfig = bankService.getCachedConfig();
+  const [jobs, setJobs] = useState<ImportJob[]>(cachedHistory?.data.jobs ?? []);
+  const [questionCount, setQuestionCount] = useState(cachedQuestionBank?.data.total ?? 0);
+  const [adminCount, setAdminCount] = useState(cachedAccounts?.data.admins.length ?? 0);
+  const [bankCount, setBankCount] = useState(cachedBankConfig?.data.config.availableBankCount ?? 0);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -106,6 +110,7 @@ export function AdminOverviewPage() {
         {overview.entries.map((entry) => (
           <button
             className="admin-overview-entry"
+            data-prefetch-route={entry.route}
             key={entry.route}
             type="button"
             onClick={() => navigateTo(entry.route)}

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import { preloadQuestionWindow } from "../../utils/questionAssets";
 import { ExamActionBar } from "./ExamActionBar";
 import { ExamQuestionView } from "./ExamQuestionView";
 import { ExamReferenceTopBar } from "./ExamReferenceTopBar";
 import { ExamResultView } from "./ExamResultView";
 import { ExamSidebar } from "./ExamSidebar";
 import { SectionReviewPanel } from "./SectionReviewPanel";
+import { toExamImageSrc } from "./examUtils";
 import { useExamMode } from "./useExamMode";
 
 export function ExamMode({
@@ -45,6 +47,15 @@ export function ExamMode({
     exam.result,
     onAutoStartConsumed
   ]);
+
+  useEffect(() => {
+    void preloadQuestionWindow(
+      exam.currentSection?.questions ?? [],
+      exam.currentIndex,
+      toExamImageSrc,
+      3
+    );
+  }, [exam.currentIndex, exam.currentSection?.questions]);
 
   if (exam.result) {
     return (

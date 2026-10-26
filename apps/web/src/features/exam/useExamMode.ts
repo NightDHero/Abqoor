@@ -38,11 +38,14 @@ const updateQuestionInExam = (
 });
 
 export function useExamMode() {
+  const cachedStructure = examService.getCachedStructure();
   const [exam, setExam] = useState<ExamAttempt | null>(null);
   const [result, setResult] = useState<ExamResult | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
-  const [structure, setStructure] = useState<ExamStructure | null>(null);
+  const [structure, setStructure] = useState<ExamStructure | null>(
+    cachedStructure?.data.structure ?? null
+  );
   const [isStarting, setIsStarting] = useState(false);
   const [isLoadingSavedExam, setIsLoadingSavedExam] = useState(true);
   const [isCompletingSection, setIsCompletingSection] = useState(false);

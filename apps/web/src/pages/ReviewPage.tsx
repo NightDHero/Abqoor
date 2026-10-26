@@ -106,6 +106,7 @@ function ReviewQuestionList({
                 </dl>
                 <div className="review-item-actions">
                   <button
+                    data-prefetch-route={getQuestionPath(item)}
                     type="button"
                     onClick={() => navigateTo(getQuestionPath(item))}
                   >

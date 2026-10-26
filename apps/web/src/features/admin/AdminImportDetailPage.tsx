@@ -122,7 +122,7 @@ export function AdminImportDetailPage({ jobId }: { jobId: string }) {
           <p>{error}</p>
           <div className="admin-confirm-actions">
             <button className="secondary" type="button" onClick={() => void loadDetail(true)}>إعادة المحاولة</button>
-            {job?.status === "ready" ? <button type="button" onClick={() => navigateTo("/admin/import")}>إعادة تحليل الملفات</button> : null}
+            {job?.status === "ready" ? <button data-prefetch-route="/admin/import" type="button" onClick={() => navigateTo("/admin/import")}>إعادة تحليل الملفات</button> : null}
           </div>
         </div>
       ) : null}
@@ -163,7 +163,7 @@ export function AdminImportDetailPage({ jobId }: { jobId: string }) {
               <h2>{canConfirm ? "المعاينة جاهزة للتأكيد" : "المعاينة تحتاج معالجة"}</h2>
               <p>{canConfirm ? "تمت استعادة المعاينة المحفوظة ويمكن متابعة الرفع من هنا." : "عالج أخطاء التحقق أو أعد تحليل الملفات قبل التأكيد."}</p>
               <div className="admin-confirm-actions">
-                <button className="secondary" type="button" onClick={() => navigateTo("/admin/import")}>رفع وتحليل جديد</button>
+                <button className="secondary" data-prefetch-route="/admin/import" type="button" onClick={() => navigateTo("/admin/import")}>رفع وتحليل جديد</button>
                 <button disabled={!canConfirm || isSubmitting} type="button" onClick={() => setShowConfirmation(true)}>تأكيد الرفع</button>
               </div>
             </section>

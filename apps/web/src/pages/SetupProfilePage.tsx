@@ -68,11 +68,23 @@ export function SetupProfilePage({
   onProfileCompleted: (user: User) => void;
   user: User;
 }) {
-  const [form, setForm] = useState<ProfileFormState>(() => createDefaultProfileForm());
-  const [bankConfig, setBankConfig] = useState<BankConfig | null>(null);
+  const cachedProfile = profileService.getCachedProfile();
+  const cachedBank = bankService.getCachedConfig();
+  const [form, setForm] = useState<ProfileFormState>(() => createDefaultProfileForm(
+    cachedProfile?.data.profile,
+    cachedBank?.data.config.availableBankCount
+  ));
+  const [bankConfig, setBankConfig] = useState<BankConfig | null>(
+    cachedBank?.data.config ?? null
+  );
   const [stepIndex, setStepIndex] = useState(0);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-  const [isUsernameOnlySetup, setIsUsernameOnlySetup] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(
+    !(cachedProfile && cachedBank)
+  );
+  const [isUsernameOnlySetup, setIsUsernameOnlySetup] = useState(Boolean(
+    cachedProfile?.data.profile.profileCompleted &&
+    !cachedProfile.data.profile.username
+  ));
   const [stepInteracted, setStepInteracted] = useState(false);
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);

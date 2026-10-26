@@ -318,6 +318,36 @@ input[type="file"] {
   margin: 0;
 }
 
+.route-loading-state {
+  display: grid;
+  gap: 12px;
+  min-height: min(58vh, 520px);
+  place-content: center;
+  justify-items: center;
+  text-align: center;
+}
+
+.route-loading-state > span {
+  width: 30px;
+  height: 30px;
+  border: 3px solid rgb(103 220 231 / 18%);
+  border-top-color: var(--brand-cyan, #67dce7);
+  border-radius: 50%;
+  animation: route-loading-spin 700ms linear infinite;
+}
+
+@keyframes route-loading-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-loading-state > span {
+    animation: none;
+  }
+}
+
 .error-message {
   color: #000;
   font-weight: 700;

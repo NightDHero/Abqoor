@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { env } from "../../config/env";
 import { adminService } from "../../services/adminService";
+import { shouldAvoidSpeculativePreloading } from "../../utils/networkPreferences";
 import type {
   AdminQuestionBankResponse,
   AdminQuestionSubjectCount,
@@ -32,38 +33,62 @@ const sectionLabel = (subject: string) =>
   subject === "quantitative" ? "الكمي" : "اللفظي";
 
 export function AdminQuestionBankPage() {
+  const initialCache = adminService.getCachedQuestionBank({
+    mode: "general",
+    page: 1,
+    pageSize: 50,
+    sort: "asc"
+  });
   const [mode, setMode] = useState<"general" | "aqsam">("general");
   const [bankId, setBankId] = useState("");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<"asc" | "desc">("asc");
-  const [result, setResult] = useState(emptyResult);
-  const [isLoading, setIsLoading] = useState(true);
+  const [result, setResult] = useState(initialCache?.data ?? emptyResult);
+  const [isLoading, setIsLoading] = useState(!initialCache);
   const [error, setError] = useState("");
   const [selectedTopicKey, setSelectedTopicKey] = useState("");
+  const requestVersionRef = useRef(0);
 
   useEffect(() => {
+    const requestVersion = ++requestVersionRef.current;
+    const request = {
+      bankId: bankId || undefined,
+      mode,
+      page,
+      pageSize: 50,
+      query,
+      sort
+    };
+    const cached = adminService.getCachedQuestionBank(request);
+    if (cached) setResult(cached.data);
+    setIsLoading(!cached);
+    setError("");
+
     const timer = window.setTimeout(() => {
-      setIsLoading(true);
-      setError("");
       void adminService
-        .getQuestionBank({
-          bankId: bankId || undefined,
-          mode,
-          page,
-          pageSize: 50,
-          query,
-          sort
+        .getQuestionBank(request)
+        .then((response) => {
+          if (requestVersionRef.current === requestVersion) setResult(response);
         })
-        .then(setResult)
-        .catch((requestError: unknown) => setError(
-          requestError instanceof Error && requestError.message
-            ? requestError.message
-            : "تعذر تحميل بنك الأسئلة."
-        ))
-        .finally(() => setIsLoading(false));
+        .catch((requestError: unknown) => {
+          if (requestVersionRef.current !== requestVersion) return;
+          setError(
+            requestError instanceof Error && requestError.message
+              ? requestError.message
+              : "تعذر تحميل بنك الأسئلة."
+          );
+        })
+        .finally(() => {
+          if (requestVersionRef.current === requestVersion) setIsLoading(false);
+        });
     }, 180);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      if (requestVersionRef.current === requestVersion) {
+        requestVersionRef.current += 1;
+      }
+    };
   }, [bankId, mode, page, query, sort]);
 
   const pageCount = getQuestionBankPageCount(result.total, result.pageSize);
@@ -72,6 +97,39 @@ export function AdminQuestionBankPage() {
     isLoading,
     questionCount: result.questions.length
   });
+
+  useEffect(() => {
+    if (isLoading || error || page >= pageCount) return;
+
+    void adminService.getQuestionBank({
+      bankId: bankId || undefined,
+      mode,
+      page: page + 1,
+      pageSize: 50,
+      query,
+      sort
+    }).catch(() => undefined);
+  }, [bankId, error, isLoading, mode, page, pageCount, query, sort]);
+
+  useEffect(() => {
+    if (
+      isLoading ||
+      error ||
+      page !== 1 ||
+      query.trim() ||
+      bankId ||
+      shouldAvoidSpeculativePreloading()
+    ) {
+      return;
+    }
+
+    void adminService.getQuestionBank({
+      mode: mode === "general" ? "aqsam" : "general",
+      page: 1,
+      pageSize: 50,
+      sort
+    }).catch(() => undefined);
+  }, [bankId, error, isLoading, mode, page, query, sort]);
 
   return (
     <AdminShell

@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { authService } from "../services/authService";
-import { clearQueryCache } from "../services/queryCache";
+import {
+  clearQueryCache,
+  setQueryCacheScope
+} from "../services/queryCache";
 import { clearStudyProgressCache } from "../features/career/studyProgressCache";
 import type { User } from "../types/auth";
 import { navigateTo } from "../utils/router";
@@ -21,7 +24,9 @@ export const useAuth = () => {
       clearStudyProgressCache(authenticatedUserIdRef.current);
     }
     if (!nextUserId) clearStudyProgressCache();
-    if (authenticatedUserIdRef.current !== nextUserId) clearQueryCache();
+    setQueryCacheScope(
+      nextUser ? `user:${nextUser.id}:admin:${nextUser.isAdmin ? "1" : "0"}` : "anonymous"
+    );
     authenticatedUserIdRef.current = nextUserId;
     setUserState(nextUser);
     setIsLoading(false);
@@ -38,6 +43,9 @@ export const useAuth = () => {
       try {
         const response = await authService.getCurrentUser();
         if (canApplyBootstrapResult()) {
+          setQueryCacheScope(
+            `user:${response.user.id}:admin:${response.user.isAdmin ? "1" : "0"}`
+          );
           authenticatedUserIdRef.current = response.user.id;
           setUserState(response.user);
         }
@@ -45,6 +53,7 @@ export const useAuth = () => {
         if (canApplyBootstrapResult()) {
           authenticatedUserIdRef.current = null;
           clearStudyProgressCache();
+          setQueryCacheScope("anonymous");
           clearQueryCache();
           setUserState(null);
         }

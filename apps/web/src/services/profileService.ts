@@ -30,11 +30,14 @@ export const profileService = {
     weeklyRestDay: StudyRestDay;
     weeklyReviewDay: StudyRestDay;
     verbalStudyDays: StudyRestDay[];
-  }) =>
-    apiRequest<{ plan: StudyPlanPreview }>("/profile/schedule-preview", {
+  }) => loadQuery({
+    key: `profile:schedule-preview:${JSON.stringify(input)}`,
+    loader: () => apiRequest<{ plan: StudyPlanPreview }>("/profile/schedule-preview", {
       body: JSON.stringify(input),
       method: "POST"
     }),
+    maxAgeMs: 30_000
+  }),
   saveProfile: async (input: StudentProfileInput) => {
     const response = await apiRequest<ProfileResponse>("/profile", {
       body: JSON.stringify(input),

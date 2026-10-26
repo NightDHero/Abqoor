@@ -48,6 +48,7 @@ export function TopicWorld({
               masteryPercent={item.masteryPercent}
               name={item.name}
               onActivate={() => navigateTo(destination)}
+              prefetchRoute={destination}
               icon={
                 isSubtopic ? null : (
                   <CareerTopicIcon

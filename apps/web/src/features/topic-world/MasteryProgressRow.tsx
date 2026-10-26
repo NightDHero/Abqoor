@@ -6,6 +6,7 @@ export function MasteryProgressRow({
   masteryPercent,
   name,
   onActivate,
+  prefetchRoute,
   variant
 }: {
   animationIndex: number;
@@ -13,11 +14,13 @@ export function MasteryProgressRow({
   masteryPercent: number;
   name: string;
   onActivate: () => void;
+  prefetchRoute?: string;
   variant: "topic" | "subtopic";
 }) {
   return (
     <button
       className={`mastery-progress-row mastery-progress-row-${variant}`}
+      data-prefetch-route={prefetchRoute}
       style={
         {
           "--mastery-progress": `${masteryPercent}%`,

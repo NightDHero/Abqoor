@@ -6,9 +6,21 @@ import type {
   ExamStructureResponse
 } from "../types/exam";
 import { apiRequest } from "./http";
+import { invalidateQueries, loadQuery, readQueryCache } from "./queryCache";
+
+const examStructureCacheKey = "exams:structure";
+const examHistoryCacheKey = "exams:history";
+const examStructureCacheMaxAgeMs = 10 * 60_000;
+const examHistoryCacheMaxAgeMs = 60_000;
 
 export const examService = {
-  getStructure: () => apiRequest<ExamStructureResponse>("/exams/structure"),
+  getCachedStructure: () =>
+    readQueryCache<ExamStructureResponse>(examStructureCacheKey, examStructureCacheMaxAgeMs),
+  getStructure: () => loadQuery({
+    key: examStructureCacheKey,
+    loader: () => apiRequest<ExamStructureResponse>("/exams/structure"),
+    maxAgeMs: examStructureCacheMaxAgeMs
+  }),
 
   startExam: () =>
     apiRequest<ExamAttemptResponse>("/exams/start", {
@@ -52,7 +64,18 @@ export const examService = {
     apiRequest<CompleteExamSectionResponse>(
       `/exams/attempts/${input.examId}/sections/${input.sectionNumber}/complete`,
       { method: "POST" }
-    ),
+    ).then((response) => {
+      if (response.result ?? response.exam.result) {
+        invalidateQueries(examHistoryCacheKey);
+      }
+      return response;
+    }),
 
-  getHistory: () => apiRequest<ExamHistoryResponse>("/exams/history")
+  getCachedHistory: () =>
+    readQueryCache<ExamHistoryResponse>(examHistoryCacheKey, examHistoryCacheMaxAgeMs),
+  getHistory: () => loadQuery({
+    key: examHistoryCacheKey,
+    loader: () => apiRequest<ExamHistoryResponse>("/exams/history"),
+    maxAgeMs: examHistoryCacheMaxAgeMs
+  })
 };

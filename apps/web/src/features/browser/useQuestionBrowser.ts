@@ -3,9 +3,11 @@ import { HttpError } from "../../services/http";
 import { questionService } from "../../services/questionService";
 import type { CorrectAnswer, Question } from "../../types/question";
 import type { RouteSubject } from "../../utils/router";
+import { preloadQuestionWindow } from "../../utils/questionAssets";
 import {
   matchesQuestionSearch,
-  sortByImporterOrder
+  sortByImporterOrder,
+  toMediaSrc
 } from "./browserUtils";
 
 export type BrowserDisplayMode = "question" | "immersive";
@@ -125,6 +127,10 @@ export function useQuestionBrowser({
   }, [currentIndex, filteredQuestions.length]);
 
   const currentQuestion = filteredQuestions[currentIndex] ?? null;
+
+  useEffect(() => {
+    void preloadQuestionWindow(filteredQuestions, currentIndex, toMediaSrc, 3);
+  }, [currentIndex, filteredQuestions]);
 
   const answerQuestionById = async (
     questionId: string,

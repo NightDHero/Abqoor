@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ImmersiveQuestionFeed } from "../../components/ui/ImmersiveQuestionFeed";
+import { preloadQuestionWindow } from "../../utils/questionAssets";
 import { StudyQuestion } from "./StudyQuestion";
 import { StudyResult } from "./StudyResult";
 import { StudyWorldSelector } from "./StudyWorldSelector";
@@ -24,6 +25,16 @@ export function StudyMode({
     autoStartedPlanKey.current = planKey;
     void study.start(subjectId, planDate);
   }, [planDate, study, subjectId]);
+
+  useEffect(() => {
+    void preloadQuestionWindow(
+      study.questions,
+      study.currentIndex,
+      toStudyImageSrc,
+      3
+    );
+  }, [study.currentIndex, study.questions]);
+
   const renderModeSwitch = () => (
     <div className="study-view-switch" aria-label="طريقة عرض سحب">
       <button

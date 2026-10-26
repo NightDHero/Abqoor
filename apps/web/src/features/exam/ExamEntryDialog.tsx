@@ -38,9 +38,15 @@ export function ExamEntryDialog({
   displayMode?: "overlay" | "page";
   onStart: () => void;
 }) {
+  const cachedHistory = examService.getCachedHistory();
+  const cachedStructure = examService.getCachedStructure();
   const [isLaunching, setIsLaunching] = useState(false);
-  const [examHistory, setExamHistory] = useState<ExamResult[]>([]);
-  const [structure, setStructure] = useState<ExamStructure | null>(null);
+  const [examHistory, setExamHistory] = useState<ExamResult[]>(
+    cachedHistory?.data.examResults.slice(0, 3) ?? []
+  );
+  const [structure, setStructure] = useState<ExamStructure | null>(
+    cachedStructure?.data.structure ?? null
+  );
 
   useEffect(() => {
     if (!isLaunching) {

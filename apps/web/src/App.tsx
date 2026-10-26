@@ -6,8 +6,10 @@ import { AuthPage } from "./features/auth/AuthPage";
 import { PasswordRecoveryPage } from "./features/auth/PasswordRecoveryPage";
 import { ForcedPasswordChangePage } from "./features/auth/ForcedPasswordChangePage";
 import { useAuth } from "./hooks/useAuth";
+import { useRoutePreloading } from "./hooks/useRoutePreloading";
 import { useRouter } from "./hooks/useRouter";
 import { useTheme } from "./hooks/useTheme";
+import { routeModules } from "./services/routePreload";
 import type { User } from "./types/auth";
 import { LandingPage } from "./pages/LandingPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
@@ -24,28 +26,34 @@ const lazyNamed = <T extends Record<string, unknown>, K extends keyof T>(
   name: K
 ) => lazy(async () => ({ default: (await loader())[name] as ComponentType<any> }));
 
-const AdminAccountsPage = lazyNamed(() => import("./features/admin/AdminAccountsPage"), "AdminAccountsPage");
-const AdminImportPage = lazyNamed(() => import("./features/admin/AdminImportPage"), "AdminImportPage");
-const AdminImportDetailPage = lazyNamed(() => import("./features/admin/AdminImportDetailPage"), "AdminImportDetailPage");
-const AdminImportHistoryPage = lazyNamed(() => import("./features/admin/AdminImportHistoryPage"), "AdminImportHistoryPage");
-const AdminOverviewPage = lazyNamed(() => import("./features/admin/AdminOverviewPage"), "AdminOverviewPage");
-const AdminQuestionBankPage = lazyNamed(() => import("./features/admin/AdminQuestionBankPage"), "AdminQuestionBankPage");
-const AdminValidationPage = lazyNamed(() => import("./features/admin/AdminValidationPage"), "AdminValidationPage");
-const BrowsePage = lazyNamed(() => import("./pages/BrowsePage"), "BrowsePage");
-const CareerPage = lazyNamed(() => import("./pages/CareerPage"), "CareerPage");
-const ExamPage = lazyNamed(() => import("./pages/ExamPage"), "ExamPage");
-const ProfilePage = lazyNamed(() => import("./pages/ProfilePage"), "ProfilePage");
-const ReviewPage = lazyNamed(() => import("./pages/ReviewPage"), "ReviewPage");
-const StudyPage = lazyNamed(() => import("./pages/StudyPage"), "StudyPage");
-const TopicWorldPage = lazyNamed(() => import("./pages/TopicWorldPage"), "TopicWorldPage");
-const ExamEntryDialog = lazyNamed(() => import("./features/exam/ExamEntryDialog"), "ExamEntryDialog");
+const AdminAccountsPage = lazyNamed(routeModules.adminAccounts, "AdminAccountsPage");
+const AdminImportPage = lazyNamed(routeModules.adminImport, "AdminImportPage");
+const AdminImportDetailPage = lazyNamed(routeModules.adminImportDetail, "AdminImportDetailPage");
+const AdminImportHistoryPage = lazyNamed(routeModules.adminImportHistory, "AdminImportHistoryPage");
+const AdminOverviewPage = lazyNamed(routeModules.adminOverview, "AdminOverviewPage");
+const AdminQuestionBankPage = lazyNamed(routeModules.adminQuestionBank, "AdminQuestionBankPage");
+const AdminValidationPage = lazyNamed(routeModules.adminValidation, "AdminValidationPage");
+const BrowsePage = lazyNamed(routeModules.browse, "BrowsePage");
+const CareerPage = lazyNamed(routeModules.career, "CareerPage");
+const ExamPage = lazyNamed(routeModules.exam, "ExamPage");
+const ProfilePage = lazyNamed(routeModules.profile, "ProfilePage");
+const ReviewPage = lazyNamed(routeModules.review, "ReviewPage");
+const StudyPage = lazyNamed(routeModules.study, "StudyPage");
+const TopicWorldPage = lazyNamed(routeModules.topicWorld, "TopicWorldPage");
+const ExamEntryDialog = lazyNamed(routeModules.examEntry, "ExamEntryDialog");
 
-const pageFallback = <p className="status-message">جاري تجهيز الصفحة...</p>;
+const pageFallback = (
+  <div className="route-loading-state" role="status">
+    <span aria-hidden="true" />
+    <p className="status-message">جاري تجهيز الصفحة...</p>
+  </div>
+);
 
 export default function App() {
   const { path } = useRouter();
   const auth = useAuth();
   const theme = useTheme();
+  useRoutePreloading({ currentPath: path, user: auth.user });
   const [isExamRuntimeActive, setIsExamRuntimeActive] = useState(false);
   const [shouldAutoStartExam, setShouldAutoStartExam] = useState(false);
   const browseValue = getBrowseRouteValue(path);

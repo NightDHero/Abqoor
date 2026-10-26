@@ -3,6 +3,7 @@ import type { StudyProgressResponse } from "../../types/session";
 export const studyProgressFreshnessMs = 60_000;
 
 type CacheRecord = {
+  accessedAt: number;
   data: StudyProgressResponse;
   invalidated: boolean;
   updatedAt: number;
@@ -15,6 +16,7 @@ type UserCache = {
 
 const cacheByUser = new Map<string, UserCache>();
 const generationByUser = new Map<string, number>();
+export const studyProgressMaximumEntriesPerUser = 8;
 
 const getGeneration = (userId: string) => generationByUser.get(userId) ?? 0;
 
@@ -43,6 +45,7 @@ export const readStudyProgressCache = (
 ) => {
   const record = cacheByUser.get(userId)?.records.get(cacheKey);
   if (!record) return null;
+  record.accessedAt = now;
 
   return {
     data: record.data,
@@ -57,11 +60,26 @@ export const writeStudyProgressCache = (
   data: StudyProgressResponse,
   now = Date.now()
 ) => {
-  getUserCache(userId).records.set(cacheKey, {
+  const records = getUserCache(userId).records;
+  records.set(cacheKey, {
+    accessedAt: now,
     data,
     invalidated: false,
     updatedAt: now
   });
+
+  while (records.size > studyProgressMaximumEntriesPerUser) {
+    let oldestKey = "";
+    let oldestAccess = Number.POSITIVE_INFINITY;
+    for (const [key, record] of records) {
+      if (record.accessedAt < oldestAccess) {
+        oldestAccess = record.accessedAt;
+        oldestKey = key;
+      }
+    }
+    if (!oldestKey) break;
+    records.delete(oldestKey);
+  }
 };
 
 export const loadStudyProgressCache = (

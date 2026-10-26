@@ -20,14 +20,48 @@ import { questionService } from "./questionService";
 
 const importHistoryCacheMaxAgeMs = 20_000;
 const importDetailCacheMaxAgeMs = 10_000;
+const adminAccountsCacheMaxAgeMs = 60_000;
+const questionBankCacheMaxAgeMs = 30_000;
+const validationCacheMaxAgeMs = 30_000;
+const taxonomyCacheMaxAgeMs = 5 * 60_000;
+const adminAccountsCacheKey = "admin:accounts";
+const validationSummaryCacheKey = "admin:validation:summary";
+const validationQuestionsCacheKey = "admin:validation:questions";
+const importTaxonomyCacheKey = "admin:imports:taxonomy";
 const importHistoryCacheKey = (page: number, pageSize: number) =>
   `admin:imports:history:${page}:${pageSize}`;
 const importDetailCacheKey = (jobId: string) => `admin:imports:detail:${jobId}`;
+
+const questionBankRequest = (input: {
+  page: number;
+  pageSize?: number;
+  query?: string;
+  sort?: "asc" | "desc";
+  mode?: "general" | "aqsam";
+  bankId?: string;
+}) => {
+  const params = new URLSearchParams({
+    page: String(input.page),
+    pageSize: String(input.pageSize ?? 50),
+    sort: input.sort ?? "asc"
+  });
+  params.set("mode", input.mode ?? "general");
+  if (input.bankId) params.set("bankId", input.bankId);
+  if (input.query?.trim()) params.set("query", input.query.trim());
+
+  const query = params.toString();
+  return {
+    cacheKey: `admin:questions:${query}`,
+    path: `/admin/import/questions?${query}`
+  };
+};
 
 const cacheImportDetail = (detail: ImportJobDetail) => {
   writeQueryCache(importDetailCacheKey(detail.job.id), detail);
   if (detail.job.status === "completed" || detail.job.status === "rolled_back") {
     questionService.invalidate();
+    invalidateQueries("admin:questions:");
+    invalidateQueries("admin:validation:");
   }
   return detail;
 };
@@ -38,25 +72,46 @@ const recordImportMutation = (detail: ImportJobDetail) => {
 };
 
 export const adminService = {
-  getValidationSummary: () =>
-    apiRequest<ValidationSummary>("/admin/validation/summary"),
-  getValidationQuestions: () =>
-    apiRequest<{ questions: ValidationQuestion[] }>(
+  getCachedValidationSummary: () =>
+    readQueryCache<ValidationSummary>(validationSummaryCacheKey, validationCacheMaxAgeMs),
+  getValidationSummary: () => loadQuery({
+    key: validationSummaryCacheKey,
+    loader: () => apiRequest<ValidationSummary>("/admin/validation/summary"),
+    maxAgeMs: validationCacheMaxAgeMs
+  }),
+  getCachedValidationQuestions: () =>
+    readQueryCache<{ questions: ValidationQuestion[] }>(
+      validationQuestionsCacheKey,
+      validationCacheMaxAgeMs
+    ),
+  getValidationQuestions: () => loadQuery({
+    key: validationQuestionsCacheKey,
+    loader: () => apiRequest<{ questions: ValidationQuestion[] }>(
       "/admin/validation/questions"
     ),
-  getAdminAccounts: () =>
-    apiRequest<AdminAccountsResponse>("/admin/accounts"),
+    maxAgeMs: validationCacheMaxAgeMs
+  }),
+  getCachedAdminAccounts: () =>
+    readQueryCache<AdminAccountsResponse>(adminAccountsCacheKey, adminAccountsCacheMaxAgeMs),
+  getAdminAccounts: () => loadQuery({
+    key: adminAccountsCacheKey,
+    loader: () => apiRequest<AdminAccountsResponse>("/admin/accounts"),
+    maxAgeMs: adminAccountsCacheMaxAgeMs
+  }),
   createAdminAccount: (input: {
     email: string;
   }) =>
     apiRequest<{ admin: AdminAccount }>("/admin/accounts", {
       body: JSON.stringify(input),
       method: "POST"
+    }).then((response) => {
+      invalidateQueries(adminAccountsCacheKey);
+      return response;
     }),
   removeAdminAccount: (userId: string) =>
     apiRequest<AdminAccountsResponse>(`/admin/accounts/${userId}`, {
       method: "DELETE"
-    }),
+    }).then((response) => writeQueryCache(adminAccountsCacheKey, response)),
   analyzeImport: (input: {
     excel: File;
     questionFrom: string;
@@ -93,8 +148,13 @@ export const adminService = {
       method: "POST"
     }).then(recordImportMutation);
   },
-  getImportTaxonomy: () =>
-    apiRequest<QuestionImportTaxonomy>("/admin/import/taxonomy"),
+  getCachedImportTaxonomy: () =>
+    readQueryCache<QuestionImportTaxonomy>(importTaxonomyCacheKey, taxonomyCacheMaxAgeMs),
+  getImportTaxonomy: () => loadQuery({
+    key: importTaxonomyCacheKey,
+    loader: () => apiRequest<QuestionImportTaxonomy>("/admin/import/taxonomy"),
+    maxAgeMs: taxonomyCacheMaxAgeMs
+  }),
   getCachedImportJobs: (page = 1, pageSize = 25) =>
     readQueryCache<ImportHistoryResponse>(
       importHistoryCacheKey(page, pageSize),
@@ -144,6 +204,17 @@ export const adminService = {
     apiRequest<ImportJobDetail>(`/admin/import/jobs/${jobId}/rollback`, {
       method: "POST"
     }).then(recordImportMutation),
+  getCachedQuestionBank: (input: {
+    page: number;
+    pageSize?: number;
+    query?: string;
+    sort?: "asc" | "desc";
+    mode?: "general" | "aqsam";
+    bankId?: string;
+  }) => readQueryCache<AdminQuestionBankResponse>(
+    questionBankRequest(input).cacheKey,
+    questionBankCacheMaxAgeMs
+  ),
   getQuestionBank: (input: {
     page: number;
     pageSize?: number;
@@ -152,18 +223,11 @@ export const adminService = {
     mode?: "general" | "aqsam";
     bankId?: string;
   }) => {
-    const params = new URLSearchParams({
-      page: String(input.page),
-      pageSize: String(input.pageSize ?? 50),
-      sort: input.sort ?? "asc"
+    const request = questionBankRequest(input);
+    return loadQuery({
+      key: request.cacheKey,
+      loader: () => apiRequest<AdminQuestionBankResponse>(request.path),
+      maxAgeMs: questionBankCacheMaxAgeMs
     });
-    params.set("mode", input.mode ?? "general");
-    if (input.bankId) params.set("bankId", input.bankId);
-    if (input.query?.trim()) {
-      params.set("query", input.query.trim());
-    }
-    return apiRequest<AdminQuestionBankResponse>(
-      `/admin/import/questions?${params.toString()}`
-    );
   }
 };

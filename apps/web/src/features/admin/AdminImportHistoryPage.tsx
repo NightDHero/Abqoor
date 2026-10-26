@@ -32,6 +32,11 @@ export function AdminImportHistoryPage() {
     loadHistory(page);
   }, []);
 
+  useEffect(() => {
+    if (isLoading || page >= history.pagination.totalPages) return;
+    void adminService.getImportJobs(page + 1, pageSize).catch(() => undefined);
+  }, [history.pagination.totalPages, isLoading, page]);
+
   const goToPage = (nextPage: number) => {
     setPage(nextPage);
     loadHistory(nextPage);
@@ -44,7 +49,7 @@ export function AdminImportHistoryPage() {
       {!isLoading && history.jobs.length === 0 ? <p className="admin-empty">لا توجد عمليات رفع بعد.</p> : null}
       <div className="admin-history-list full">
         {history.jobs.map((job) => (
-          <button className="admin-history-row" key={job.id} type="button" onClick={() => navigateTo(`/admin/imports/${job.id}`)}>
+          <button className="admin-history-row" data-prefetch-route={`/admin/imports/${job.id}`} key={job.id} type="button" onClick={() => navigateTo(`/admin/imports/${job.id}`)}>
             <span><strong>رفع #{job.id.slice(0, 8)}</strong><small><b>{formatRelativeAdminDays(job.createdAt)}</b> · {formatAdminDate(job.createdAt)} · {job.createdBy}</small></span>
             <span><b>{job.totalQuestions.toLocaleString("ar-SA")}</b><small>سؤال</small></span>
             <span><b>{job.createdCount.toLocaleString("ar-SA")}</b><small>جديد</small></span>

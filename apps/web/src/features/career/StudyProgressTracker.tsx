@@ -360,6 +360,7 @@ function TodayPlanAction({ progress }: { progress: StudyProgressResponse }) {
       aria-label={`${actionLabel}: ${title}، ${progressLabel}`}
       className="study-progress-today-plan-card study-progress-plan-action"
       data-plan-kind={day.planKind}
+      data-prefetch-route={actionDestination}
       type="button"
       onClick={() => navigateTo(actionDestination)}
     >
@@ -448,6 +449,7 @@ function PastUnfinishedPlan({ day }: { day: PastUnfinishedStudyPlanDay }) {
     <button
       aria-label={`${dateParts.fullDate}، ${day.planSubjectLabel}، ${status}، ${progressLabel}`}
       className="study-progress-past-plan"
+      data-prefetch-route={`/study?subject=${day.planSubjectId}&planDate=${day.date}`}
       type="button"
       onClick={() =>
         navigateTo(`/study?subject=${day.planSubjectId}&planDate=${day.date}`)
@@ -812,16 +814,20 @@ export function StudyProgressTracker({
           </div>
         </>
       ) : (
-        <section
-          className="study-progress-journey study-progress-journey-progress study-progress-journey-loading"
-          aria-labelledby="study-progress-title"
-        >
-          <header className="study-progress-header">
-            <h2 id="study-progress-title">تقدم الدراسة</h2>
-          </header>
-          {isLoading ? <p className="study-progress-empty">جاري تحميل التقدم...</p> : null}
-          {error ? <p className="study-progress-empty">{error}</p> : null}
-        </section>
+        <div className="study-progress-overview-grid study-progress-overview-grid-loading">
+          <section
+            className="study-progress-journey study-progress-journey-progress study-progress-journey-loading"
+            aria-labelledby="study-progress-title"
+          >
+            <header className="study-progress-header">
+              <h2 id="study-progress-title">تقدم الدراسة</h2>
+            </header>
+            <div className="study-progress-loading-state" role="status">
+              {isLoading ? <p className="study-progress-empty">جاري تحميل التقدم...</p> : null}
+              {error ? <p className="study-progress-empty">{error}</p> : null}
+            </div>
+          </section>
+        </div>
       )}
     </section>
   );
