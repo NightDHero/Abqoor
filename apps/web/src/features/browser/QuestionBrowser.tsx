@@ -99,6 +99,9 @@ export function QuestionBrowser({
           <button className="secondary" type="button" onClick={browser.retry}>إعادة المحاولة</button>
         </div>
       ) : null}
+      {reviewBank.error ? (
+        <div className="error-message" role="alert">{reviewBank.error}</div>
+      ) : null}
 
       {!browser.isLoading && browser.filteredQuestions.length === 0 ? (
         <div className="workspace-empty-state">

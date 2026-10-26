@@ -78,6 +78,10 @@ export type QuestionForStudent = Omit<
   | "sourcePage"
 >;
 
+export type PracticeQuestionForStudent = QuestionForStudent & {
+  correctAnswer?: CorrectAnswer;
+};
+
 export type QuestionWriteInput = {
   id: string;
   questionImageUrl: string;
@@ -161,3 +165,11 @@ export const toQuestionForStudent = (
     questionImageUrl: getAuthorizedQuestionImageUrl(question.id)
   };
 };
+
+export const toPracticeQuestionForStudent = (
+  question: Question,
+  canRevealAnswer: boolean
+): PracticeQuestionForStudent => ({
+  ...toQuestionForStudent(question),
+  ...(canRevealAnswer ? { correctAnswer: question.correctAnswer } : {})
+});

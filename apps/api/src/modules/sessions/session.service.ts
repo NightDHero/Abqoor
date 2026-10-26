@@ -5,6 +5,7 @@ import {
   getQuestions,
   isCorrectAnswer
 } from "../questions/question.service.js";
+import { listActiveExamQuestionIds } from "../questions/question.repository.js";
 import type { CorrectAnswer, Question } from "../questions/question.types.js";
 import {
   getStudyScheduleDay,
@@ -26,7 +27,10 @@ import {
   runSessionLifecycleTransaction,
   saveSessionAnswerAndThen
 } from "./session.repository.js";
-import type { SessionRecord } from "./session.repository.js";
+import type {
+  SessionAnswerRecord,
+  SessionRecord
+} from "./session.repository.js";
 import { recordExamResultAfterCompletion } from "./session-analytics.service.js";
 import type {
   InternalSessionQuestion,
@@ -59,6 +63,7 @@ const toSessionQuestion = (question: Question): InternalSessionQuestion => ({
   id: question.id,
   questionImageUrl: getAuthorizedQuestionImageUrl(question.id),
   correctAnswer: question.correctAnswer,
+  explanationVideoUrl: question.explanationVideoUrl,
   subject: question.subject,
   subjectId: question.subjectId,
   topic: question.topic,
@@ -68,9 +73,14 @@ const toSessionQuestion = (question: Question): InternalSessionQuestion => ({
   difficultyScore: question.difficultyScore
 });
 
-const toPublicQuestion = (question: InternalSessionQuestion): SessionQuestion => ({
+const toPublicQuestion = (
+  question: InternalSessionQuestion,
+  canRevealAnswer: boolean
+): SessionQuestion => ({
   id: question.id,
   questionImageUrl: question.questionImageUrl,
+  ...(canRevealAnswer ? { correctAnswer: question.correctAnswer } : {}),
+  explanationVideoUrl: question.explanationVideoUrl,
   subject: question.subject,
   subjectId: question.subjectId,
   topic: question.topic,
@@ -151,6 +161,18 @@ const getSessionQuestionIds = (questionOrder: string) => {
   const selectedQuestionIds = parseQuestionOrder(questionOrder);
   return selectedQuestionIds.length > 0 ? selectedQuestionIds : bootstrapQuestionIds;
 };
+
+const toExistingAnswerResponse = (
+  answer: SessionAnswerRecord,
+  correctAnswer: CorrectAnswer
+): SessionAnswer => ({
+  activeDurationSeconds: answer.active_duration_seconds,
+  answeredAt: answer.created_at,
+  correctAnswer,
+  isCorrect: answer.is_correct === 1,
+  questionId: answer.question_id,
+  userAnswer: answer.user_answer
+});
 
 const buildQuestionHistory = async (userId: string) => {
   const history = new Map<string, { attempts: number; lastIsCorrect: boolean }>();
@@ -246,6 +268,9 @@ const toStartSessionResponse = async (
   resumed: boolean
 ) => {
   const questions = await getOrderedSessionQuestions(session);
+  const protectedQuestionIds = new Set(
+    await listActiveExamQuestionIds(session.user_id)
+  );
   const answers = (await findSessionAnswers(session.session_id)).map((answer) => ({
     activeDurationSeconds: answer.active_duration_seconds,
     answeredAt: answer.created_at,
@@ -258,7 +283,9 @@ const toStartSessionResponse = async (
 
   return {
     answers,
-    questions: questions.map(toPublicQuestion),
+    questions: questions.map((question) =>
+      toPublicQuestion(question, !protectedQuestionIds.has(question.id))
+    ),
     resumed,
     sessionId: session.session_id,
     status: session.status,
@@ -441,11 +468,35 @@ export const submitSessionAnswer = async (
 
   const session = await getOwnedSession(input.sessionId, userId);
 
+  const sessionQuestionIds = getSessionQuestionIds(session.question_order);
+  if (!sessionQuestionIds.includes(input.questionId)) {
+    throw new SessionError("Question is not part of this session.", 404);
+  }
+
+  const existingAnswer = await findSessionAnswer(
+    session.session_id,
+    input.questionId
+  );
+  if (existingAnswer) {
+    if (existingAnswer.user_answer !== input.userAnswer) {
+      throw new SessionError("Question has already been answered.", 409);
+    }
+
+    const existingQuestion = await getQuestion(input.questionId);
+    if (!existingQuestion) {
+      throw new SessionError("Question is not part of this session.", 404);
+    }
+
+    return {
+      sessionId: session.session_id,
+      ...toExistingAnswerResponse(existingAnswer, existingQuestion.correctAnswer)
+    };
+  }
+
   if (session.status === "completed") {
     throw new SessionError("Completed sessions cannot be modified.", 409);
   }
 
-  const sessionQuestionIds = getSessionQuestionIds(session.question_order);
   const currentResult = await calculateResult(
     session.session_id,
     sessionQuestionIds.length
@@ -456,14 +507,6 @@ export const submitSessionAnswer = async (
       completeSessionIfReady(session, sessionQuestionIds.length)
     );
     throw new SessionError("Completed sessions cannot be modified.", 409);
-  }
-
-  if (!sessionQuestionIds.includes(input.questionId)) {
-    throw new SessionError("Question is not part of this session.", 404);
-  }
-
-  if (await findSessionAnswer(session.session_id, input.questionId)) {
-    throw new SessionError("Question has already been answered.", 409);
   }
 
   const storedQuestion = await getQuestion(input.questionId);
@@ -505,6 +548,16 @@ export const submitSessionAnswer = async (
   );
 
   if (!saved) {
+    const racedAnswer = await findSessionAnswer(
+      session.session_id,
+      input.questionId
+    );
+    if (racedAnswer?.user_answer === userAnswer) {
+      return {
+        sessionId: session.session_id,
+        ...toExistingAnswerResponse(racedAnswer, question.correctAnswer)
+      };
+    }
     throw new SessionError("Question has already been answered.", 409);
   }
 

@@ -799,11 +799,12 @@ test("prevents duplicate study answer mutation and cross-user session access", a
   });
   assert.equal(startResponse.status, 201);
   const started = (await startResponse.json()) as {
-    questions: Array<{ id: string }>;
+    questions: Array<{ correctAnswer?: string; id: string }>;
     sessionId: string;
   };
   const firstQuestionId = started.questions[0]?.id;
   assert.ok(firstQuestionId);
+  assert.equal(started.questions[0]?.correctAnswer, "A");
 
   const firstSubmit = await fetch(`${baseUrl}/sessions/submit`, {
     body: JSON.stringify({
@@ -819,6 +820,25 @@ test("prevents duplicate study answer mutation and cross-user session access", a
     method: "POST"
   });
   assert.equal(firstSubmit.status, 200);
+
+  const retrySubmit = await fetch(`${baseUrl}/sessions/submit`, {
+    body: JSON.stringify({
+      activeDurationSeconds: 20,
+      questionId: firstQuestionId,
+      sessionId: started.sessionId,
+      userAnswer: "B"
+    }),
+    headers: {
+      "content-type": "application/json",
+      cookie: ownerLogin.cookie
+    },
+    method: "POST"
+  });
+  assert.equal(retrySubmit.status, 200);
+  assert.equal(
+    ((await retrySubmit.json()) as { userAnswer: string }).userAnswer,
+    "B"
+  );
 
   const duplicateSubmit = await fetch(`${baseUrl}/sessions/submit`, {
     body: JSON.stringify({

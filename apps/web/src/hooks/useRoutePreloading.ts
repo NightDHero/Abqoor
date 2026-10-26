@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import {
   preloadRoute,
   warmAuthorizedRouteCode,
-  warmAuthorizedRouteData
+  warmAuthorizedRouteData,
+  warmTopicDirectoryData
 } from "../services/routePreload";
 import type { User } from "../types/auth";
 import { shouldAvoidSpeculativePreloading } from "../utils/networkPreferences";
@@ -67,6 +68,7 @@ export const useRoutePreloading = ({
     const idleWindow = window as IdleWindow;
     let active = true;
     const warm = () => {
+      void warmTopicDirectoryData(currentPath, () => active);
       void warmAuthorizedRouteCode(user, () => active)
         .then(() => warmAuthorizedRouteData(user, currentPath, () => active));
     };

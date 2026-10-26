@@ -1,6 +1,8 @@
 export type CorrectAnswer = "A" | "B" | "C" | "D";
 
 export type SessionQuestion = {
+  correctAnswer?: CorrectAnswer;
+  explanationVideoUrl?: string;
   id: string;
   questionImageUrl: string;
   subject: string;

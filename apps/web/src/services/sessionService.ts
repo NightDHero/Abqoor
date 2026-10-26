@@ -8,7 +8,7 @@ import type {
 import { apiRequest } from "./http";
 import { invalidateStudyProgressCache } from "../features/career/studyProgressCache";
 import { reviewBankService } from "./reviewBankService";
-import { loadQuery } from "./queryCache";
+import { invalidateQueries, loadQuery } from "./queryCache";
 
 const sessionResultCacheMaxAgeMs = 5 * 60_000;
 
@@ -33,6 +33,7 @@ export const sessionService = {
       body: JSON.stringify(input),
       method: "POST"
     });
+    invalidateQueries(`sessions:result:${input.sessionId}`);
     invalidateStudyProgressCache();
     reviewBankService.invalidate();
     return response;

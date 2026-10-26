@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { clearStudyProgressCache } from "../src/features/career/studyProgressCache.js";
-import { prefetchRouteData } from "../src/services/routePreload.js";
+import {
+  prefetchRouteData,
+  warmTopicDirectoryData
+} from "../src/services/routePreload.js";
 import { clearQueryCache, setQueryCacheScope } from "../src/services/queryCache.js";
+import { questionService } from "../src/services/questionService.js";
 import type { User } from "../src/types/auth.js";
 
 const user: User = {
@@ -134,6 +138,136 @@ test("profile intent prepares its reusable config and exact schedule preview", a
       "/banks/config",
       "/profile",
       "/profile/schedule-preview"
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+    setQueryCacheScope("anonymous");
+  }
+});
+
+test("a topic directory prepares its likely subtopics before navigation", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: string[] = [];
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input));
+    calls.push(`${url.pathname}${url.search}`);
+    return new Response(JSON.stringify(responseFor(url.pathname)), {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    });
+  };
+
+  try {
+    setQueryCacheScope("topic-prefetch-student");
+    clearQueryCache();
+    await prefetchRouteData("/topic/math/arithmetic", user);
+    assert.deepEqual(calls.sort(), [
+      "/questions?subjectId=math&topicId=arithmetic&subtopicId=basic-operations",
+      "/review"
+    ]);
+
+    calls.length = 0;
+    await warmTopicDirectoryData("/topic/math/arithmetic");
+    assert.deepEqual(calls.sort(), [
+      "/questions?subjectId=math&topicId=arithmetic&subtopicId=fractions-decimals",
+      "/questions?subjectId=math&topicId=arithmetic&subtopicId=ratios-proportions"
+    ]);
+
+    calls.length = 0;
+    await prefetchRouteData(
+      "/browse/math/arithmetic/fractions-decimals",
+      user
+    );
+    assert.equal(calls.length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    setQueryCacheScope("anonymous");
+  }
+});
+
+test("topic preloading prepares the legacy verbal fallback before navigation", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: string[] = [];
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input));
+    const path = `${url.pathname}${url.search}`;
+    calls.push(path);
+
+    const response = url.pathname === "/review"
+      ? { savedQuestions: [], wrongQuestions: [] }
+      : path === "/questions?subjectId=arabic"
+        ? {
+            questions: [{
+              correctAnswer: "A",
+              difficulty: 1,
+              id: "legacy-verbal-question",
+              questionImageUrl: "/question-images/legacy-verbal-question.webp",
+              subject: "verbal",
+              subjectId: "arabic",
+              topic: "غير مصنف"
+            }]
+          }
+        : { questions: [] };
+
+    return new Response(JSON.stringify(response), {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    });
+  };
+
+  try {
+    setQueryCacheScope("legacy-topic-prefetch-student");
+    clearQueryCache();
+    await prefetchRouteData("/topic/arabic", user);
+    assert.deepEqual(calls.sort(), [
+      "/questions?subjectId=arabic",
+      "/questions?subjectId=arabic&topicId=verbal-analogy",
+      "/review"
+    ]);
+
+    calls.length = 0;
+    await prefetchRouteData("/browse/arabic/verbal-analogy", user);
+    assert.equal(calls.length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    setQueryCacheScope("anonymous");
+  }
+});
+
+test("question cache keys retain difficulty-specific collections", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: string[] = [];
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input));
+    calls.push(`${url.pathname}${url.search}`);
+    return new Response(JSON.stringify({ questions: [] }), {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    });
+  };
+
+  try {
+    setQueryCacheScope("question-filter-student");
+    clearQueryCache();
+    await questionService.getQuestions({
+      difficulty: 2,
+      subjectId: "math",
+      topicId: "arithmetic"
+    });
+    await questionService.getQuestions({
+      difficulty: 4,
+      subjectId: "math",
+      topicId: "arithmetic"
+    });
+    await questionService.getQuestions({
+      difficulty: 2,
+      subjectId: "math",
+      topicId: "arithmetic"
+    });
+
+    assert.deepEqual(calls, [
+      "/questions?subjectId=math&topicId=arithmetic&difficulty=2",
+      "/questions?subjectId=math&topicId=arithmetic&difficulty=4"
     ]);
   } finally {
     globalThis.fetch = originalFetch;

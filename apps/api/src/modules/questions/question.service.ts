@@ -6,6 +6,7 @@ import {
 import {
   findQuestionById,
   isQuestionInActiveExam,
+  listActiveExamQuestionIds,
   listQuestions,
   upsertQuestion
 } from "./question.repository.js";
@@ -14,7 +15,7 @@ import {
   questionSources,
   subjects,
   toQuestion,
-  toQuestionForStudent,
+  toPracticeQuestionForStudent,
   type CorrectAnswer,
   type QuestionFilters,
   type QuestionWriteInput,
@@ -132,12 +133,26 @@ export const getQuestion = async (id: string) => {
   return question ? toQuestion(question) : null;
 };
 
-export const getStudentQuestions = async (filters: QuestionFilters) =>
-  (await getQuestions(filters)).map(toQuestionForStudent);
+export const getStudentQuestions = async (
+  userId: string,
+  filters: QuestionFilters
+) => {
+  const protectedQuestionIds = new Set(await listActiveExamQuestionIds(userId));
+  return (await getQuestions(filters)).map((question) =>
+    toPracticeQuestionForStudent(
+      question,
+      !protectedQuestionIds.has(question.id)
+    )
+  );
+};
 
-export const getStudentQuestion = async (id: string) => {
+export const getStudentQuestion = async (userId: string, id: string) => {
   const question = await getQuestion(id);
-  return question ? toQuestionForStudent(question) : null;
+  if (!question) return null;
+  return toPracticeQuestionForStudent(
+    question,
+    !(await isQuestionInActiveExam(userId, id))
+  );
 };
 
 export const evaluateStudentAnswer = async (

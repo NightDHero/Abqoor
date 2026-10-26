@@ -45,7 +45,7 @@ questionRouter.get("/", asyncHandler(async (request, response) => {
     return;
   }
 
-  const questions = await getStudentQuestions({
+  const questions = await getStudentQuestions(request.user?.id ?? "", {
     subject: subject,
     subjectId: typeof subjectId === "string" ? subjectId : undefined,
     topic: typeof topic === "string" ? topic : undefined,
@@ -59,7 +59,10 @@ questionRouter.get("/", asyncHandler(async (request, response) => {
 }));
 
 questionRouter.get("/:id", asyncHandler(async (request, response) => {
-  const question = await getStudentQuestion(String(request.params.id));
+  const question = await getStudentQuestion(
+    request.user?.id ?? "",
+    String(request.params.id)
+  );
 
   if (!question) {
     response.status(404).json({ message: "Question not found." });

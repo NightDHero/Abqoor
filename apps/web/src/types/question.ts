@@ -1,6 +1,7 @@
 export type CorrectAnswer = "A" | "B" | "C" | "D";
 
 export type Question = {
+  correctAnswer?: CorrectAnswer;
   id: string;
   questionImageUrl: string;
   subject: "quantitative" | "verbal";
@@ -11,6 +12,10 @@ export type Question = {
   subtopicId?: string;
   difficulty: number;
   difficultyScore?: number;
+  estimatedTimeSeconds?: number;
+  explanationVideoUrl?: string;
+  skillTags?: string[];
+  importanceWeight?: number;
   answerImageUrls?: Partial<Record<CorrectAnswer, string>>;
   optionImageUrls?: Partial<Record<CorrectAnswer, string>>;
 };

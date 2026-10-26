@@ -9,9 +9,16 @@ import type {
   SubmitAnswerResponse
 } from "../../types/session";
 import { getWeakTopics } from "./studyUtils";
+import { createImmediateStudyAnswer } from "./studyAnswer";
 
 const studyQuestionLimit = 15;
 const maxActiveDurationSecondsPerAnswer = 24 * 60 * 60;
+type StudyAnswerSubmission = {
+  activeDurationSeconds: number;
+  questionId: string;
+  sessionId: string;
+  userAnswer: CorrectAnswer;
+};
 
 const readErrorMessage = (caughtError: unknown, fallback: string) =>
   caughtError instanceof HttpError ? caughtError.message : fallback;
@@ -141,9 +148,16 @@ export function useStudySession() {
   const [result, setResult] = useState<SessionResult | null>(null);
   const [error, setError] = useState("");
   const [isStarting, setIsStarting] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittingQuestionIds, setSubmittingQuestionIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [failedAnswerQuestionIds, setFailedAnswerQuestionIds] = useState<string[]>([]);
   const [isLoadingResult, setIsLoadingResult] = useState(false);
   const [isSavingReview, setIsSavingReview] = useState(false);
+  const answeredQuestionIdsRef = useRef(new Set<string>());
+  const failedSubmissionsRef = useRef(new Map<string, StudyAnswerSubmission>());
+  const pendingSubmissionsRef = useRef(new Map<string, Promise<boolean>>());
+  const sessionGenerationRef = useRef(0);
 
   const currentQuestion = questions[currentIndex] ?? null;
   const currentResponse = currentQuestion
@@ -174,6 +188,7 @@ export function useStudySession() {
     subjectId?: "math" | "arabic",
     planDate?: string
   ) => {
+    sessionGenerationRef.current += 1;
     setIsStarting(true);
     setError("");
     setResult(null);
@@ -181,6 +196,11 @@ export function useStudySession() {
     setQuestions([]);
     setResponsesByQuestionId({});
     setManualReviewQuestionIds([]);
+    setSubmittingQuestionIds(new Set());
+    setFailedAnswerQuestionIds([]);
+    answeredQuestionIdsRef.current.clear();
+    failedSubmissionsRef.current.clear();
+    pendingSubmissionsRef.current.clear();
     activeQuestionTimer.reset();
 
     try {
@@ -193,6 +213,9 @@ export function useStudySession() {
       setQuestions(response.questions);
       const restoredResponses = Object.fromEntries(
         response.answers.map((answer) => [answer.questionId, answer])
+      );
+      answeredQuestionIdsRef.current = new Set(
+        response.answers.map((answer) => answer.questionId)
       );
       setResponsesByQuestionId(restoredResponses);
       const firstUnansweredIndex = response.questions.findIndex(
@@ -209,7 +232,63 @@ export function useStudySession() {
     }
   };
 
-  const answerQuestionById = async (
+  const persistAnswer = (input: StudyAnswerSubmission) => {
+    const existing = pendingSubmissionsRef.current.get(input.questionId);
+    if (existing) return existing;
+
+    const generation = sessionGenerationRef.current;
+    failedSubmissionsRef.current.delete(input.questionId);
+    setFailedAnswerQuestionIds((existingIds) =>
+      existingIds.filter((questionId) => questionId !== input.questionId)
+    );
+    setError("");
+    setSubmittingQuestionIds((existingIds) =>
+      new Set(existingIds).add(input.questionId)
+    );
+
+    const request = sessionService.submitAnswer(input)
+      .then((response) => {
+        if (sessionGenerationRef.current === generation) {
+          setResponsesByQuestionId((existingResponses) => ({
+            ...existingResponses,
+            [input.questionId]: response
+          }));
+        }
+        return true;
+      })
+      .catch((caughtError: unknown) => {
+        if (sessionGenerationRef.current === generation) {
+          failedSubmissionsRef.current.set(input.questionId, input);
+          setFailedAnswerQuestionIds((existingIds) =>
+            existingIds.includes(input.questionId)
+              ? existingIds
+              : [...existingIds, input.questionId]
+          );
+          setError(readErrorMessage(
+            caughtError,
+            "ظهرت الإجابة، لكن تعذر حفظها. أعد المحاولة قبل إنهاء الجلسة."
+          ));
+        }
+        return false;
+      })
+      .finally(() => {
+        if (pendingSubmissionsRef.current.get(input.questionId) === request) {
+          pendingSubmissionsRef.current.delete(input.questionId);
+        }
+        if (sessionGenerationRef.current === generation) {
+          setSubmittingQuestionIds((existingIds) => {
+            const next = new Set(existingIds);
+            next.delete(input.questionId);
+            return next;
+          });
+        }
+      });
+
+    pendingSubmissionsRef.current.set(input.questionId, request);
+    return request;
+  };
+
+  const answerQuestionById = (
     questionId: string,
     answer: CorrectAnswer
   ) => {
@@ -218,33 +297,36 @@ export function useStudySession() {
     if (
       !sessionId ||
       !question ||
-      responsesByQuestionId[question.id]
+      answeredQuestionIdsRef.current.has(question.id)
     ) {
       return false;
     }
 
-    setIsSubmitting(true);
+    answeredQuestionIdsRef.current.add(question.id);
     setError("");
+    const submission: StudyAnswerSubmission = {
+      activeDurationSeconds: activeQuestionTimer.getDurationSeconds(question.id),
+      questionId: question.id,
+      sessionId,
+      userAnswer: answer
+    };
 
-    try {
-      const response = await sessionService.submitAnswer({
-        activeDurationSeconds: activeQuestionTimer.getDurationSeconds(question.id),
-        questionId: question.id,
-        sessionId,
-        userAnswer: answer
-      });
-
+    const optimisticResponse = createImmediateStudyAnswer({
+      activeDurationSeconds: submission.activeDurationSeconds,
+      answer,
+      question,
+      sessionId
+    });
+    if (optimisticResponse) {
       setResponsesByQuestionId((existing) => ({
         ...existing,
-        [question.id]: response
+        [question.id]: optimisticResponse
       }));
+      void persistAnswer(submission);
       return true;
-    } catch (caughtError) {
-      setError(readErrorMessage(caughtError, "تعذر إرسال الإجابة."));
-      return false;
-    } finally {
-      setIsSubmitting(false);
     }
+
+    return persistAnswer(submission);
   };
 
   const answerQuestion = async (answer: CorrectAnswer) => {
@@ -294,12 +376,22 @@ export function useStudySession() {
     setError("");
 
     try {
+      await Promise.allSettled([...pendingSubmissionsRef.current.values()]);
+      if (failedSubmissionsRef.current.size > 0) {
+        setError("تعذر حفظ بعض الإجابات. أعد المحاولة قبل عرض النتيجة.");
+        return;
+      }
       setResult(await sessionService.getResult(sessionId));
     } catch (caughtError) {
       setError(readErrorMessage(caughtError, "تعذر تحميل نتيجة الجلسة."));
     } finally {
       setIsLoadingResult(false);
     }
+  };
+
+  const retryAnswer = (questionId: string) => {
+    const submission = failedSubmissionsRef.current.get(questionId);
+    return submission ? persistAnswer(submission) : Promise.resolve(true);
   };
 
   const goToPrevious = () => {
@@ -341,15 +433,21 @@ export function useStudySession() {
     isLoadingResult,
     isSavingReview,
     isStarting,
-    isSubmitting,
+    isSubmitting: submittingQuestionIds.size > 0,
+    isCurrentQuestionSubmitting: currentQuestion
+      ? submittingQuestionIds.has(currentQuestion.id)
+      : false,
     manualReviewQuestionIds,
+    failedAnswerQuestionIds,
     questions,
     responsesByQuestionId,
     result,
     loadResult,
     saveQuestion,
     saveCurrentQuestion,
+    retryAnswer,
     start,
+    submittingQuestionIds,
     weakTopics
   };
 }

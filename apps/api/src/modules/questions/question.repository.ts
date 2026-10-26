@@ -245,6 +245,16 @@ const activeExamQuestionStatement = db.prepare<
     AND official_exam_questions.question_id = @questionId
   LIMIT 1
 `);
+const activeExamQuestionIdsStatement = db.prepare<
+  { userId: string },
+  { question_id: string }
+>(`
+  SELECT official_exam_questions.question_id
+  FROM official_exam_questions
+  INNER JOIN official_exams ON official_exams.id = official_exam_questions.exam_id
+  WHERE official_exams.user_id = @userId
+    AND official_exams.status = 'active'
+`);
 
 export const findQuestionById = async (id: string) => {
   return (await findQuestionByIdStatement.get(id)) ?? null;
@@ -366,3 +376,8 @@ export const countQuestionReferences = async (id: string) => {
 
 export const isQuestionInActiveExam = async (userId: string, questionId: string) =>
   Boolean(await activeExamQuestionStatement.get({ questionId, userId }));
+
+export const listActiveExamQuestionIds = async (userId: string) =>
+  (await activeExamQuestionIdsStatement.all({ userId })).map(
+    (record) => record.question_id
+  );

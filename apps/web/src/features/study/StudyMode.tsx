@@ -94,6 +94,17 @@ export function StudyMode({
       ) : null}
 
       {study.error ? <p className="error-message">{study.error}</p> : null}
+      {study.failedAnswerQuestionIds.length > 0 ? (
+        <button
+          className="secondary"
+          type="button"
+          onClick={() => {
+            void study.retryAnswer(study.failedAnswerQuestionIds[0]);
+          }}
+        >
+          إعادة حفظ الإجابة
+        </button>
+      ) : null}
 
       {study.isActive && study.currentQuestion ? (
         <>
@@ -107,7 +118,7 @@ export function StudyMode({
 
                   return {
                     correctAnswer: response?.correctAnswer,
-                    isSubmitting: study.isSubmitting,
+                    isSubmitting: study.submittingQuestionIds.has(questionId),
                     selectedAnswer: response?.userAnswer
                   };
                 }}
@@ -141,7 +152,7 @@ export function StudyMode({
               isInReview={study.isCurrentQuestionInManualReview}
               isLastQuestion={study.isLastQuestion}
               isSavingReview={study.isSavingReview}
-              isSubmitting={study.isSubmitting}
+              isSubmitting={study.isCurrentQuestionSubmitting}
               modeSwitch={renderModeSwitch()}
               onAnswer={(answer) => {
                 void study.answerQuestion(answer);

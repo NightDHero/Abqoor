@@ -1,7 +1,9 @@
 import type { CorrectAnswer, Subject } from "../questions/question.types.js";
 
 export type SessionQuestion = {
+  correctAnswer?: CorrectAnswer;
   id: string;
+  explanationVideoUrl?: string;
   questionImageUrl: string;
   subject: Subject;
   subjectId?: string;
@@ -12,7 +14,7 @@ export type SessionQuestion = {
   difficultyScore?: number;
 };
 
-export type InternalSessionQuestion = SessionQuestion & {
+export type InternalSessionQuestion = Omit<SessionQuestion, "correctAnswer"> & {
   correctAnswer: CorrectAnswer;
 };
 

@@ -13,7 +13,7 @@ process.env.NODE_ENV = "test";
 process.env.STORAGE_DRIVER = "local";
 
 const { createApp } = await import("../src/app.js");
-const { closeDatabase } = await import("../src/database/client.js");
+const { closeDatabase, db } = await import("../src/database/client.js");
 const { saveQuestion } = await import(
   "../src/modules/questions/question.service.js"
 );
@@ -95,10 +95,9 @@ const collectKeys = (value: unknown, keys = new Set<string>()) => {
   return keys;
 };
 
-const assertLearnerSafe = (value: unknown) => {
+const assertNoPrivateMetadata = (value: unknown) => {
   const keys = collectKeys(value);
   for (const privateKey of [
-    "correctAnswer",
     "correct_answer",
     "answerKey",
     "imageStorageKey",
@@ -110,22 +109,32 @@ const assertLearnerSafe = (value: unknown) => {
   }
 };
 
-test("student question and review DTOs do not expose grading or storage metadata", async () => {
+const assertNoAnswerKey = (value: unknown) => {
+  const keys = collectKeys(value);
+  assert.equal(keys.has("correctAnswer"), false);
+  assert.equal(keys.has("correct_answer"), false);
+};
+
+test("ordinary practice exposes its answer key without storage metadata", async () => {
   const listResponse = await fetch(`${baseUrl}/questions`, {
     headers: { cookie }
   });
   assert.equal(listResponse.status, 200);
-  const listPayload = await listResponse.json();
-  assertLearnerSafe(listPayload);
+  const listPayload = await listResponse.json() as {
+    questions: Array<{ correctAnswer?: string }>;
+  };
+  assertNoPrivateMetadata(listPayload);
+  assert.equal(listPayload.questions[0]?.correctAnswer, "C");
 
   const detailResponse = await fetch(`${baseUrl}/questions/${questionId}`, {
     headers: { cookie }
   });
   assert.equal(detailResponse.status, 200);
   const detailPayload = await detailResponse.json() as {
-    question: { questionImageUrl: string };
+    question: { correctAnswer?: string; questionImageUrl: string };
   };
-  assertLearnerSafe(detailPayload);
+  assertNoPrivateMetadata(detailPayload);
+  assert.equal(detailPayload.question.correctAnswer, "C");
   assert.match(detailPayload.question.questionImageUrl, /[?&]signature=/);
 
   const saveResponse = await fetch(`${baseUrl}/review`, {
@@ -134,16 +143,18 @@ test("student question and review DTOs do not expose grading or storage metadata
     method: "POST"
   });
   assert.equal(saveResponse.status, 201);
-  assertLearnerSafe(await saveResponse.json());
+  assertNoPrivateMetadata(await saveResponse.json());
 
   const reviewResponse = await fetch(`${baseUrl}/review`, {
     headers: { cookie }
   });
   assert.equal(reviewResponse.status, 200);
-  assertLearnerSafe(await reviewResponse.json());
+  const reviewPayload = await reviewResponse.json();
+  assertNoPrivateMetadata(reviewPayload);
+  assertNoAnswerKey(reviewPayload);
 });
 
-test("server evaluates answers without exposing the answer before submission", async () => {
+test("server still validates submitted practice answers authoritatively", async () => {
   const response = await fetch(`${baseUrl}/questions/${questionId}/answer`, {
     body: JSON.stringify({ answer: "A", correctAnswer: "A", score: 100 }),
     headers: { cookie, "content-type": "application/json" },
@@ -159,6 +170,49 @@ test("server evaluates answers without exposing the answer before submission", a
   assert.equal(me.status, 200);
   const mePayload = await me.json() as { user: { isAdmin: boolean } };
   assert.equal(mePayload.user.isAdmin, false);
+});
+
+test("active official exam questions never expose answer keys through practice", async () => {
+  const user = await db.prepare<string, { id: string }>(
+    "SELECT id FROM users WHERE email = ?"
+  ).get("question-student@example.com");
+  assert.ok(user);
+  const now = new Date().toISOString();
+  await db.prepare(`
+    INSERT INTO official_exams (
+      id, user_id, status, current_section, started_at, created_at, updated_at
+    ) VALUES (
+      @id, @userId, 'active', 1, @now, @now, @now
+    )
+  `).run({ id: "question-security-exam", now, userId: user.id });
+  await db.prepare(`
+    INSERT INTO official_exam_questions (
+      exam_id, section_number, position_in_section, global_position,
+      category, question_id, flagged, updated_at
+    ) VALUES (
+      'question-security-exam', 1, 1, 1,
+      'math', @questionId, 0, @now
+    )
+  `).run({ now, questionId });
+
+  const listResponse = await fetch(`${baseUrl}/questions`, {
+    headers: { cookie }
+  });
+  assert.equal(listResponse.status, 200);
+  assertNoAnswerKey(await listResponse.json());
+
+  const detailResponse = await fetch(`${baseUrl}/questions/${questionId}`, {
+    headers: { cookie }
+  });
+  assert.equal(detailResponse.status, 200);
+  assertNoAnswerKey(await detailResponse.json());
+
+  const answerResponse = await fetch(`${baseUrl}/questions/${questionId}/answer`, {
+    body: JSON.stringify({ answer: "A" }),
+    headers: { cookie, "content-type": "application/json" },
+    method: "POST"
+  });
+  assert.equal(answerResponse.status, 409);
 });
 
 test("homepage preview exposes Q-001 without opening other question images", async () => {

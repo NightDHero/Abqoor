@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { HttpError } from "../../services/http";
 import { questionService } from "../../services/questionService";
 import type { CorrectAnswer, Question } from "../../types/question";
@@ -9,11 +9,18 @@ import {
   sortByImporterOrder,
   toMediaSrc
 } from "./browserUtils";
+import { evaluatePracticeAnswer } from "./practiceAnswer";
 
 export type BrowserDisplayMode = "question" | "immersive";
 
 const readErrorMessage = (caughtError: unknown, fallback: string) =>
   caughtError instanceof HttpError ? caughtError.message : fallback;
+
+const getCorrectAnswers = (questions: Question[]) => Object.fromEntries(
+  questions.flatMap((question) =>
+    question.correctAnswer ? [[question.id, question.correctAnswer]] : []
+  )
+) as Partial<Record<string, CorrectAnswer>>;
 
 export function useQuestionBrowser({
   initialQuestionId,
@@ -39,13 +46,14 @@ export function useQuestionBrowser({
   >({});
   const [correctAnswersByQuestionId, setCorrectAnswersByQuestionId] = useState<
     Partial<Record<string, CorrectAnswer>>
-  >({});
+  >(() => getCorrectAnswers(initialCache?.data.questions ?? []));
   const [submittingQuestionIds, setSubmittingQuestionIds] = useState<Set<string>>(
     new Set()
   );
   const [isLoading, setIsLoading] = useState(!initialCache);
   const [error, setError] = useState("");
   const [reloadVersion, setReloadVersion] = useState(0);
+  const answeredQuestionIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
     let isMounted = true;
@@ -60,8 +68,11 @@ export function useQuestionBrowser({
       setError("");
       setCurrentIndex(0);
       setAnswersByQuestionId({});
-      setCorrectAnswersByQuestionId({});
+      setCorrectAnswersByQuestionId(
+        getCorrectAnswers(cached?.data.questions ?? [])
+      );
       setSubmittingQuestionIds(new Set());
+      answeredQuestionIdsRef.current.clear();
 
       try {
         const exact = await questionService.getQuestions({
@@ -92,6 +103,7 @@ export function useQuestionBrowser({
                 );
 
           setQuestions(sortedQuestions);
+          setCorrectAnswersByQuestionId(getCorrectAnswers(sortedQuestions));
           setCurrentIndex(initialIndex >= 0 ? initialIndex : 0);
         }
       } catch (caughtError) {
@@ -132,35 +144,54 @@ export function useQuestionBrowser({
     void preloadQuestionWindow(filteredQuestions, currentIndex, toMediaSrc, 3);
   }, [currentIndex, filteredQuestions]);
 
-  const answerQuestionById = async (
+  const answerQuestionById = (
     questionId: string,
     answer: CorrectAnswer
   ) => {
-    if (
-      !filteredQuestions.some((question) => question.id === questionId) ||
-      answersByQuestionId[questionId]
-    ) {
+    const question = filteredQuestions.find(
+      (candidate) => candidate.id === questionId
+    );
+    if (!question || answeredQuestionIdsRef.current.has(questionId)) {
       return null;
     }
-    setSubmittingQuestionIds((existing) => new Set(existing).add(questionId));
-    try {
-      const evaluation = await questionService.evaluateAnswer(questionId, answer);
+
+    answeredQuestionIdsRef.current.add(questionId);
+    const applyEvaluation = (evaluation: {
+      correctAnswer: CorrectAnswer;
+      isCorrect: boolean;
+    }) => {
       setAnswersByQuestionId((existing) => ({ ...existing, [questionId]: answer }));
       setCorrectAnswersByQuestionId((existing) => ({
         ...existing,
         [questionId]: evaluation.correctAnswer
       }));
       return evaluation;
-    } catch (caughtError) {
-      setError(readErrorMessage(caughtError, "تعذر تقييم الإجابة."));
-      return null;
-    } finally {
-      setSubmittingQuestionIds((existing) => {
-        const next = new Set(existing);
-        next.delete(questionId);
-        return next;
-      });
+    };
+
+    const evaluation = evaluatePracticeAnswer(
+      question,
+      answer,
+      () => questionService.evaluateAnswer(questionId, answer)
+    );
+    if (!(evaluation instanceof Promise)) {
+      return applyEvaluation(evaluation);
     }
+
+    setSubmittingQuestionIds((existing) => new Set(existing).add(questionId));
+    return evaluation
+      .then(applyEvaluation)
+      .catch((caughtError: unknown) => {
+        answeredQuestionIdsRef.current.delete(questionId);
+        setError(readErrorMessage(caughtError, "تعذر تقييم الإجابة."));
+        return null;
+      })
+      .finally(() => {
+        setSubmittingQuestionIds((existing) => {
+          const next = new Set(existing);
+          next.delete(questionId);
+          return next;
+        });
+      });
   };
 
   const answerQuestion = async (answer: CorrectAnswer) => {

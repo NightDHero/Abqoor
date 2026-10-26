@@ -4,7 +4,8 @@ import {
   classifyRouteForPreload,
   getAuthorizedWarmCodeRoutes,
   getAuthorizedWarmDataRoutes,
-  getRouteModuleLoaders
+  getRouteModuleLoaders,
+  getTopicQuestionRoutes
 } from "../src/services/routePreload.js";
 import type { User } from "../src/types/auth.js";
 import { getImagePreloadLimit } from "../src/utils/preloadImages.js";
@@ -86,5 +87,23 @@ test("bounds speculative image work for constrained network preferences", () => 
   assert.equal(getImagePreloadLimit(3, null), 3);
   assert.equal(getImagePreloadLimit(3, { effectiveType: "2g" }), 1);
   assert.equal(getImagePreloadLimit(3, { saveData: true }), 0);
+});
+
+test("maps topic directories to a bounded priority order of question destinations", () => {
+  assert.deepEqual(
+    getTopicQuestionRoutes("/topic/math/arithmetic").slice(0, 3),
+    [
+      "/browse/math/arithmetic/basic-operations",
+      "/browse/math/arithmetic/fractions-decimals",
+      "/browse/math/arithmetic/ratios-proportions"
+    ]
+  );
+  assert.deepEqual(
+    getTopicQuestionRoutes("/topic/arabic").slice(0, 2),
+    [
+      "/browse/arabic/verbal-analogy",
+      "/browse/arabic/sentence-completion"
+    ]
+  );
 });
 

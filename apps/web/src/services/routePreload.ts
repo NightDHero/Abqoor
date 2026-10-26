@@ -5,11 +5,17 @@ import {
   readStudyProgressCache
 } from "../features/career/studyProgressCache";
 import { isCompleteWeeklySchedule } from "../features/profile/studyPlan";
+import {
+  findCareerWorld,
+  findTopic
+} from "../features/career/careerData";
 import type { User } from "../types/auth";
 import {
   getBrowseRouteValue,
-  getPracticeRouteValue
+  getPracticeRouteValue,
+  getTopicRouteValue
 } from "../utils/router";
+import { shouldAvoidSpeculativePreloading } from "../utils/networkPreferences";
 import { preloadQuestionWindow } from "../utils/questionAssets";
 import { runPreloadQueue } from "../utils/preloadQueue";
 import { adminService } from "./adminService";
@@ -40,6 +46,7 @@ export const routeModules = {
 } as const;
 
 type RouteModuleLoader = () => Promise<Record<string, unknown>>;
+const maximumPreparedTopicDestinations = 3;
 
 export type RoutePreloadKind =
   | "admin"
@@ -125,7 +132,7 @@ const prefetchQuestionRoute = async (path: string) => {
   const route = getBrowseRouteValue(getPathname(path)) ?? getPracticeRouteValue(getPathname(path));
   if (!route) return;
 
-  const [response] = await Promise.all([
+  let [response] = await Promise.all([
     questionService.getQuestions({
       subjectId: route.subject,
       subtopicId: route.subtopic,
@@ -133,7 +140,49 @@ const prefetchQuestionRoute = async (path: string) => {
     }),
     reviewBankService.getReviewBank()
   ]);
+
+  if (
+    response.questions.length === 0 &&
+    route.subject === "arabic" &&
+    route.topic === "verbal-analogy"
+  ) {
+    response = await questionService.getQuestions({ subjectId: "arabic" });
+  }
+
   await preloadQuestionWindow(response.questions, 0, toMediaSource, 3);
+};
+
+export const getTopicQuestionRoutes = (path: string) => {
+  const route = getTopicRouteValue(getPathname(path));
+  if (!route) return [];
+
+  const world = findCareerWorld(route.subject);
+  if (!world) return [];
+
+  if (route.topic) {
+    const topic = findTopic(route.subject, route.topic);
+    if (!topic) return [];
+    return topic.subtopics?.map((subtopic) => subtopic.route) ?? [topic.practiceRoute];
+  }
+
+  if (route.subject === "arabic") {
+    return world.topics.map((topic) => topic.practiceRoute);
+  }
+
+  return world.topics.flatMap((topic) => topic.subtopics?.[0]?.route ?? []);
+};
+
+export const warmTopicDirectoryData = (
+  path: string,
+  shouldContinue?: () => boolean
+) => {
+  if (shouldAvoidSpeculativePreloading()) return Promise.resolve();
+
+  return runPreloadQueue(
+    getTopicQuestionRoutes(path).slice(1, maximumPreparedTopicDestinations),
+    prefetchQuestionRoute,
+    { concurrency: 1, shouldContinue }
+  );
 };
 
 const prefetchReview = async () => {
@@ -188,6 +237,9 @@ export const prefetchRouteData = async (path: string, user: User | null) => {
     requests.push(examService.getStructure(), examService.getHistory());
   } else if (pathname.startsWith("/browse/") || pathname.startsWith("/practice/")) {
     requests.push(prefetchQuestionRoute(path));
+  } else if (pathname.startsWith("/topic/") && !shouldAvoidSpeculativePreloading()) {
+    const firstQuestionRoute = getTopicQuestionRoutes(path)[0];
+    if (firstQuestionRoute) requests.push(prefetchQuestionRoute(firstQuestionRoute));
   }
 
   if (pathname.startsWith("/admin") && user.isAdmin) {

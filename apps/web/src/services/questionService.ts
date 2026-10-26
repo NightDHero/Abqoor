@@ -4,6 +4,8 @@ import { invalidateQueries, loadQuery, readQueryCache } from "./queryCache";
 import { reviewBankService } from "./reviewBankService";
 
 export type QuestionQuery = {
+  difficulty?: number;
+  difficultyScore?: number;
   subjectId?: "math" | "arabic";
   topicId?: string;
   subtopicId?: string;
@@ -22,6 +24,14 @@ const toQueryString = (query: QuestionQuery) => {
 
   if (query.subtopicId) {
     params.set("subtopicId", query.subtopicId);
+  }
+
+  if (query.difficulty !== undefined) {
+    params.set("difficulty", String(query.difficulty));
+  }
+
+  if (query.difficultyScore !== undefined) {
+    params.set("difficultyScore", String(query.difficultyScore));
   }
 
   const value = params.toString();
