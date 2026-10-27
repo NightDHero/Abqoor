@@ -2,16 +2,19 @@ const studyDestinations = [
   {
     id: "math",
     label: "الكمي",
+    description: "مسائل وحساب وتحليل",
     subjectId: "math"
   },
   {
     id: "mixed",
     label: "كمي ولفظي",
+    description: "جلسة متوازنة بين المسارين",
     subjectId: undefined
   },
   {
     id: "verbal",
     label: "اللفظي",
+    description: "لغة وفهم واستدلال",
     subjectId: "arabic"
   }
 ] as const;
@@ -42,7 +45,14 @@ export function StudyWorldSelector({
           type="button"
           onClick={() => onSelect(destination.subjectId)}
         >
-          <strong>{destination.label}</strong>
+          <span className="study-world-destination-index" aria-hidden="true">
+            {String(studyDestinations.indexOf(destination) + 1).padStart(2, "0")}
+          </span>
+          <span className="study-world-destination-copy">
+            <strong>{destination.label}</strong>
+            <small>{destination.description}</small>
+          </span>
+          <span className="study-world-destination-action" aria-hidden="true">ابدأ</span>
         </button>
       ))}
     </div>

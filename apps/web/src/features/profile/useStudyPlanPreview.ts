@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { profileService } from "../../services/profileService";
+import {
+  profileService,
+  type SchedulePreviewInput
+} from "../../services/profileService";
 import type {
   StudyPlanPreview,
   StudyRestDay
@@ -14,8 +17,19 @@ export function useStudyPlanPreview(input: {
   startDate: string;
   verbalStudyDays: StudyRestDay[];
 }) {
-  const [plan, setPlan] = useState<StudyPlanPreview | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const request: SchedulePreviewInput = {
+    quantitativeStudyDays: input.quantitativeStudyDays,
+    studyPlanBankCount: input.bankCount,
+    studyPlanStartDate: input.startDate,
+    verbalStudyDays: input.verbalStudyDays,
+    weeklyRestDay: input.restDay,
+    weeklyReviewDay: input.reviewDay
+  };
+  const initialCache = profileService.getCachedSchedulePreview(request);
+  const [plan, setPlan] = useState<StudyPlanPreview | null>(
+    initialCache?.data.plan ?? null
+  );
+  const [isLoading, setIsLoading] = useState(!initialCache);
 
   useEffect(() => {
     if (
@@ -30,20 +44,16 @@ export function useStudyPlanPreview(input: {
       })
     ) {
       setPlan(null);
+      setIsLoading(false);
       return;
     }
 
     let isMounted = true;
-    setIsLoading(true);
+    const cached = profileService.getCachedSchedulePreview(request);
+    if (cached) setPlan(cached.data.plan);
+    setIsLoading(!cached);
     void profileService
-      .previewSchedule({
-        studyPlanBankCount: input.bankCount,
-        studyPlanStartDate: input.startDate,
-        quantitativeStudyDays: input.quantitativeStudyDays,
-        weeklyRestDay: input.restDay,
-        weeklyReviewDay: input.reviewDay,
-        verbalStudyDays: input.verbalStudyDays
-      })
+      .previewSchedule(request)
       .then((response) => {
         if (isMounted) setPlan(response.plan);
       })

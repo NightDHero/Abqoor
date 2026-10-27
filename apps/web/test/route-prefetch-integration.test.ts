@@ -7,6 +7,7 @@ import {
 } from "../src/services/routePreload.js";
 import { clearQueryCache, setQueryCacheScope } from "../src/services/queryCache.js";
 import { questionService } from "../src/services/questionService.js";
+import { profileService } from "../src/services/profileService.js";
 import type { User } from "../src/types/auth.js";
 
 const user: User = {
@@ -58,6 +59,12 @@ const responseFor = (pathname: string) => {
   if (pathname === "/review") {
     return { savedQuestions: [], wrongQuestions: [] };
   }
+  if (pathname === "/profile/schedule-preview") {
+    return { plan: { completionDate: "2027-01-01" } };
+  }
+  if (pathname === "/exams/active") return { exam: null };
+  if (pathname === "/exams/history") return { examResults: [] };
+  if (pathname === "/exams/structure") return { structure: {} };
   if (pathname === "/questions") return { questions: [] };
   if (pathname === "/admin/import/questions") {
     return {
@@ -139,6 +146,48 @@ test("profile intent prepares its reusable config and exact schedule preview", a
       "/profile",
       "/profile/schedule-preview"
     ]);
+
+    calls.length = 0;
+    await profileService.previewSchedule({
+      verbalStudyDays: [1, 3],
+      weeklyReviewDay: 6,
+      studyPlanStartDate: "2026-10-26",
+      weeklyRestDay: 5,
+      studyPlanBankCount: 14,
+      quantitativeStudyDays: [0, 2, 4]
+    });
+    assert.equal(calls.length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    setQueryCacheScope("anonymous");
+  }
+});
+
+test("exam intent prepares the active attempt, structure, and history once", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: string[] = [];
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input));
+    calls.push(url.pathname);
+    return new Response(JSON.stringify(responseFor(url.pathname)), {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    });
+  };
+
+  try {
+    setQueryCacheScope("exam-prefetch-student");
+    clearQueryCache();
+    await prefetchRouteData("/exam", user);
+    assert.deepEqual(calls.sort(), [
+      "/exams/active",
+      "/exams/history",
+      "/exams/structure"
+    ]);
+
+    calls.length = 0;
+    await prefetchRouteData("/exam", user);
+    assert.equal(calls.length, 0);
   } finally {
     globalThis.fetch = originalFetch;
     setQueryCacheScope("anonymous");

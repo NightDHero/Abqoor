@@ -2,17 +2,19 @@ import type { ReactNode } from "react";
 
 export function PageContainer({
   children,
+  className,
   description,
   eyebrow,
   title
 }: {
   children?: ReactNode;
+  className?: string;
   description?: string;
   eyebrow?: string;
   title: string;
 }) {
   return (
-    <section className="page-container">
+    <section className={["page-container", className].filter(Boolean).join(" ")}>
       <header className="page-hero">
         <div className="page-hero-copy">
           {eyebrow ? <p className="page-eyebrow">{eyebrow}</p> : null}

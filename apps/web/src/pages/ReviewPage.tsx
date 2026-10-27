@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageContainer } from "../components/layout/PageContainer";
 import { SummaryMetric } from "../components/ui/SummaryMetric";
 import { HttpError } from "../services/http";
@@ -54,12 +54,14 @@ function ReviewQuestionList({
   emptyMessage,
   items,
   onRemove,
+  removingItemId,
   sectionId,
   title
 }: {
   emptyMessage: string;
   items: ReviewItem[];
   onRemove: (reviewItemId: string) => void;
+  removingItemId?: string;
   sectionId: string;
   title: string;
 }) {
@@ -112,8 +114,13 @@ function ReviewQuestionList({
                   >
                     فتح السؤال
                   </button>
-                  <button className="secondary" type="button" onClick={() => onRemove(item.id)}>
-                    إزالة من المراجعة
+                  <button
+                    className="secondary"
+                    disabled={removingItemId === item.id}
+                    type="button"
+                    onClick={() => onRemove(item.id)}
+                  >
+                    {removingItemId === item.id ? "جاري الإزالة..." : "إزالة من المراجعة"}
                   </button>
                 </div>
               </article>
@@ -131,6 +138,8 @@ export function ReviewPage() {
     useState<ReviewBankResponse>(initialCache?.data ?? emptyReviewBank);
   const [isLoading, setIsLoading] = useState(!initialCache);
   const [error, setError] = useState("");
+  const [activeFilter, setActiveFilter] = useState<"all" | "saved" | "wrong">("wrong");
+  const [removingItemId, setRemovingItemId] = useState("");
 
   const loadReviewBank = async () => {
     const cached = reviewBankService.getCachedReviewBank();
@@ -155,6 +164,7 @@ export function ReviewPage() {
   }, []);
 
   const removeReviewItem = async (reviewItemId: string) => {
+    setRemovingItemId(reviewItemId);
     try {
       await reviewBankService.removeQuestion(reviewItemId);
       const cached = reviewBankService.getCachedReviewBank();
@@ -165,15 +175,48 @@ export function ReviewPage() {
           ? caughtError.message
           : "تعذر إزالة السؤال من بنك المراجعة."
       );
+    } finally {
+      setRemovingItemId("");
     }
   };
 
+  const visibleItems = useMemo(() => {
+    const items = activeFilter === "saved"
+      ? reviewBank.savedQuestions
+      : activeFilter === "wrong"
+        ? reviewBank.wrongQuestions
+        : [...reviewBank.wrongQuestions, ...reviewBank.savedQuestions];
+
+    return [...items].sort((first, second) =>
+      second.priority - first.priority ||
+      Date.parse(second.updatedAt) - Date.parse(first.updatedAt)
+    );
+  }, [activeFilter, reviewBank]);
+
+  const activeFilterLabel = activeFilter === "saved"
+    ? "الأسئلة المحفوظة"
+    : activeFilter === "wrong"
+      ? "الأسئلة الخاطئة"
+      : "كل أسئلة المراجعة";
+  const emptyMessage = activeFilter === "saved"
+    ? "لا توجد أسئلة محفوظة يدويًا بعد."
+    : activeFilter === "wrong"
+      ? "لا توجد إجابات خاطئة تحتاج إلى مراجعة الآن."
+      : "بنك المراجعة فارغ حاليًا.";
+
   return (
     <PageContainer
+      className="review-page"
+      description="راجع ما أخطأت فيه وما حفظته، وابدأ من الأهم."
       eyebrow="المراجعة"
       title="بنك الأخطاء"
     >
-      {isLoading ? <p className="status-message">جاري تحميل بنك المراجعة...</p> : null}
+      {isLoading ? (
+        <div className="review-state" role="status">
+          <span aria-hidden="true" />
+          <p>جاري تحميل بنك المراجعة...</p>
+        </div>
+      ) : null}
       {error ? (
         <div className="error-message" role="alert">
           <span>{error}</span>
@@ -183,7 +226,7 @@ export function ReviewPage() {
         </div>
       ) : null}
 
-      <section className="review-overview" aria-label="ملخص بنك المراجعة">
+      {!isLoading ? <section className="review-overview" aria-label="ملخص بنك المراجعة">
         <SummaryMetric
           label="محفوظة يدويًا"
           value={reviewBank.savedQuestions.length}
@@ -197,28 +240,50 @@ export function ReviewPage() {
           label="إجمالي المراجعة"
           value={reviewBank.savedQuestions.length + reviewBank.wrongQuestions.length}
         />
-      </section>
+      </section> : null}
 
-      <div className="review-bank">
+      {!isLoading ? <div className="review-workspace">
+        <div className="review-filters" role="group" aria-label="تصفية أسئلة المراجعة">
+          <button
+            aria-pressed={activeFilter === "wrong"}
+            className={activeFilter === "wrong" ? "selected" : undefined}
+            type="button"
+            onClick={() => setActiveFilter("wrong")}
+          >
+            <span>إجابات خاطئة</span>
+            <strong>{reviewBank.wrongQuestions.length}</strong>
+          </button>
+          <button
+            aria-pressed={activeFilter === "saved"}
+            className={activeFilter === "saved" ? "selected" : undefined}
+            type="button"
+            onClick={() => setActiveFilter("saved")}
+          >
+            <span>محفوظة يدويًا</span>
+            <strong>{reviewBank.savedQuestions.length}</strong>
+          </button>
+          <button
+            aria-pressed={activeFilter === "all"}
+            className={activeFilter === "all" ? "selected" : undefined}
+            type="button"
+            onClick={() => setActiveFilter("all")}
+          >
+            <span>الكل</span>
+            <strong>{reviewBank.savedQuestions.length + reviewBank.wrongQuestions.length}</strong>
+          </button>
+        </div>
+
         <ReviewQuestionList
-          emptyMessage="لا توجد أسئلة محفوظة يدويًا بعد."
-          items={reviewBank.savedQuestions}
+          emptyMessage={emptyMessage}
+          items={visibleItems}
           onRemove={(reviewItemId) => {
             void removeReviewItem(reviewItemId);
           }}
-          sectionId="saved-review-questions"
-          title="الأسئلة المحفوظة"
+          removingItemId={removingItemId}
+          sectionId="review-questions"
+          title={activeFilterLabel}
         />
-        <ReviewQuestionList
-          emptyMessage="لا توجد أسئلة خاطئة بعد."
-          items={reviewBank.wrongQuestions}
-          onRemove={(reviewItemId) => {
-            void removeReviewItem(reviewItemId);
-          }}
-          sectionId="wrong-review-questions"
-          title="الأسئلة الخاطئة"
-        />
-      </div>
+      </div> : null}
     </PageContainer>
   );
 }

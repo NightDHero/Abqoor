@@ -9,6 +9,7 @@ import {
   completeOfficialExamSection,
   createOfficialExam,
   createOfficialExamId,
+  findActiveOfficialExamByUser,
   findOfficialExam,
   findOfficialExamQuestions,
   findOfficialExamResultByExamId,
@@ -17,6 +18,7 @@ import {
   findOfficialExamSections,
   insertOfficialExamResult,
   runOfficialExamTransaction,
+  retireInvalidOfficialExam,
   updateOfficialExamAnswer,
   updateOfficialExamFlag
 } from "./exam-mode.repository.js";
@@ -415,6 +417,23 @@ const calculateOfficialExamResult = async (
 };
 
 export const startOfficialExam = async (userId: string) => {
+  let activeExam = await findActiveOfficialExamByUser(userId);
+  while (activeExam) {
+    try {
+      return await toOfficialExam(activeExam);
+    } catch (error) {
+      if (!(error instanceof OfficialExamError) || error.statusCode !== 409) {
+        throw error;
+      }
+
+      await retireInvalidOfficialExam({
+        currentSection: activeExam.current_section,
+        examId: activeExam.id
+      });
+      activeExam = await findActiveOfficialExamByUser(userId);
+    }
+  }
+
   const { mathQuestions, arabicQuestions } = await getOfficialQuestionPools();
   const examId = createOfficialExamId();
   const exam = await createOfficialExam({
@@ -432,12 +451,28 @@ export const startOfficialExam = async (userId: string) => {
 
 export const getOfficialExamStructure = () => officialExamStructure;
 
+export const getActiveOfficialExam = async (userId: string) => {
+  const exam = await findActiveOfficialExamByUser(userId);
+  return exam ? toOfficialExam(exam) : null;
+};
+
 export const getOfficialExam = async (userId: string, examId: string) => {
   if (!examId.trim()) {
     throw new OfficialExamError("Exam attempt id is required.");
   }
 
-  return toOfficialExam(await getOwnedOfficialExamRecord(userId, examId));
+  const exam = await getOwnedOfficialExamRecord(userId, examId);
+  if (
+    exam.status === "completed" &&
+    !(await findOfficialExamResultByExamId(exam.id))
+  ) {
+    throw new OfficialExamError(
+      "أغلقت هذه المحاولة لأنها لم تعد متوافقة مع بنية الاختبار الحالية.",
+      409
+    );
+  }
+
+  return toOfficialExam(exam);
 };
 
 export const answerOfficialExamQuestion = async (

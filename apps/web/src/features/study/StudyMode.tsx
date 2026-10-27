@@ -81,12 +81,21 @@ export function StudyMode({
       aria-labelledby="study-title"
     >
       {!study.isActive && !subjectId ? (
-        <StudyWorldSelector
-          isStarting={study.isStarting}
-          onSelect={(selectedSubjectId) => {
-            void study.start(selectedSubjectId);
-          }}
-        />
+        <div className="study-world-entry">
+          <header className="study-world-entry-heading">
+            <div>
+              <p className="page-eyebrow">سائل</p>
+              <h1 id="study-title">اختر مسار جلستك</h1>
+            </div>
+            <p>سؤال واحد في كل مرة، وتركيز كامل على تقدمك.</p>
+          </header>
+          <StudyWorldSelector
+            isStarting={study.isStarting}
+            onSelect={(selectedSubjectId) => {
+              void study.start(selectedSubjectId);
+            }}
+          />
+        </div>
       ) : null}
 
       {!study.isActive && subjectId && study.isStarting ? (

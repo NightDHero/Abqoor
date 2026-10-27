@@ -69,8 +69,8 @@ export const useRoutePreloading = ({
     let active = true;
     const warm = () => {
       void warmTopicDirectoryData(currentPath, () => active);
-      void warmAuthorizedRouteCode(user, () => active)
-        .then(() => warmAuthorizedRouteData(user, currentPath, () => active));
+      void warmAuthorizedRouteCode(user, () => active);
+      void warmAuthorizedRouteData(user, currentPath, () => active);
     };
 
     if (idleWindow.requestIdleCallback) {

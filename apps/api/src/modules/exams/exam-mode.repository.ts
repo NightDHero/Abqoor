@@ -121,6 +121,23 @@ const findExamStatement = db.prepare<string, OfficialExamRecord>(`
   WHERE id = ?
 `);
 
+const findActiveExamByUserStatement = db.prepare<string, OfficialExamRecord>(`
+  SELECT
+    id,
+    user_id,
+    status,
+    current_section,
+    started_at,
+    completed_at,
+    created_at,
+    updated_at
+  FROM official_exams
+  WHERE user_id = ?
+    AND status = 'active'
+  ORDER BY started_at DESC
+  LIMIT 1
+`);
+
 const findSectionsStatement = db.prepare<string, OfficialExamSectionRecord>(`
   SELECT
     exam_id,
@@ -365,6 +382,10 @@ export const findOfficialExam = async (examId: string) => {
   return (await findExamStatement.get(examId)) ?? null;
 };
 
+export const findActiveOfficialExamByUser = async (userId: string) => {
+  return (await findActiveExamByUserStatement.get(userId)) ?? null;
+};
+
 export const findOfficialExamSections = async (examId: string) => {
   return (await findSectionsStatement.all(examId)) as OfficialExamSectionRecord[];
 };
@@ -460,6 +481,20 @@ export const completeOfficialExam = async (input: {
     startedAt: null,
     status: "completed" satisfies OfficialExamSectionStatus
   });
+  await updateExamStatement.run({
+    completedAt: now,
+    currentSection: input.currentSection,
+    examId: input.examId,
+    status: "completed" satisfies OfficialExamStatus,
+    updatedAt: now
+  });
+};
+
+export const retireInvalidOfficialExam = async (input: {
+  examId: string;
+  currentSection: number;
+}) => {
+  const now = new Date().toISOString();
   await updateExamStatement.run({
     completedAt: now,
     currentSection: input.currentSection,

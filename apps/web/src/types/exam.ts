@@ -82,6 +82,10 @@ export type ExamAttemptResponse = {
   exam: ExamAttempt;
 };
 
+export type ActiveExamResponse = {
+  exam: ExamAttempt | null;
+};
+
 export type ExamStructureResponse = {
   structure: ExamStructure;
 };

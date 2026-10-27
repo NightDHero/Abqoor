@@ -1321,7 +1321,8 @@
   }
 
   .study-progress-overview-grid-loading {
-    grid-template-areas: "progress plan";
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "progress";
   }
 
   .study-progress-overview-grid > .study-progress-journey {
@@ -1335,6 +1336,8 @@
 }
 
 .study-progress-journey-loading {
+  grid-column: 1 / -1;
+  width: 100%;
   min-height: 280px;
   align-content: stretch;
   text-align: center;

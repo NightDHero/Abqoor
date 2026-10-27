@@ -18,6 +18,7 @@ import * as questionBanksAndPasswordChange from "./postgres-migrations/011_quest
 import * as removePhoneIdentity from "./postgres-migrations/012_remove_phone_identity.js";
 import * as questionImageStorageKey from "./postgres-migrations/013_question_image_storage_key.js";
 import * as userTutorialProgress from "./postgres-migrations/014_user_tutorial_progress.js";
+import * as adminQuestionBankSchemaRepair from "./postgres-migrations/015_admin_question_bank_schema_repair.js";
 import { initializeSqliteSchema } from "./sqlite-schema.js";
 
 const { Pool, types } = pg;
@@ -66,7 +67,8 @@ const postgresMigrations: PostgresMigration[] = [
   questionBanksAndPasswordChange,
   removePhoneIdentity,
   questionImageStorageKey,
-  userTutorialProgress
+  userTutorialProgress,
+  adminQuestionBankSchemaRepair
 ];
 const transactionClientStorage = new AsyncLocalStorage<pg.PoolClient>();
 
@@ -176,17 +178,19 @@ const runPostgresMigrations = async (client: pg.PoolClient) => {
   `);
 
   for (const migration of postgresMigrations) {
-    const existing = await client.query(
-      "SELECT id FROM database_migrations WHERE id = $1",
-      [migration.id]
-    );
-
-    if (existing.rowCount && existing.rowCount > 0) {
-      continue;
-    }
-
     await client.query("BEGIN");
     try {
+      await client.query("LOCK TABLE database_migrations IN EXCLUSIVE MODE");
+      const existing = await client.query(
+        "SELECT id FROM database_migrations WHERE id = $1",
+        [migration.id]
+      );
+
+      if (existing.rowCount && existing.rowCount > 0) {
+        await client.query("COMMIT");
+        continue;
+      }
+
       await client.query(migration.sql);
       await client.query(
         "INSERT INTO database_migrations (id, applied_at) VALUES ($1, $2)",

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, type ComponentType, type ReactNode } from "react";
+import { lazy, Suspense, type ComponentType, type ReactNode } from "react";
 import { AppShell } from "./components/layout/AppShell";
 import { ProtectedRoute } from "./components/routing/ProtectedRoute";
 import { RedirectTo } from "./components/routing/RedirectTo";
@@ -40,7 +40,6 @@ const ProfilePage = lazyNamed(routeModules.profile, "ProfilePage");
 const ReviewPage = lazyNamed(routeModules.review, "ReviewPage");
 const StudyPage = lazyNamed(routeModules.study, "StudyPage");
 const TopicWorldPage = lazyNamed(routeModules.topicWorld, "TopicWorldPage");
-const ExamEntryDialog = lazyNamed(routeModules.examEntry, "ExamEntryDialog");
 
 const pageFallback = (
   <div className="route-loading-state" role="status">
@@ -54,17 +53,9 @@ export default function App() {
   const auth = useAuth();
   const theme = useTheme();
   useRoutePreloading({ currentPath: path, user: auth.user });
-  const [isExamRuntimeActive, setIsExamRuntimeActive] = useState(false);
-  const [shouldAutoStartExam, setShouldAutoStartExam] = useState(false);
   const browseValue = getBrowseRouteValue(path);
   const practiceValue = getPracticeRouteValue(path);
   const topicRouteValue = getTopicRouteValue(path);
-
-  const launchExam = () => {
-    setIsExamRuntimeActive(true);
-    setShouldAutoStartExam(true);
-    navigateTo("/exam");
-  };
 
   if (path === "/login") {
     if (!auth.isLoading && auth.user) {
@@ -205,23 +196,13 @@ export default function App() {
   }
 
   if (path === "/exam") {
-    if (isExamRuntimeActive) {
-      return renderProtectedExamPage(
+    return renderProtectedExamPage(
+      auth.user ? (
         <ExamPage
-          autoStart={shouldAutoStartExam}
-          onAutoStartConsumed={() => setShouldAutoStartExam(false)}
-          onExit={() => {
-            setIsExamRuntimeActive(false);
-            setShouldAutoStartExam(false);
-            navigateTo("/career");
-          }}
-          userEmail={auth.user?.email}
+          onExit={() => navigateTo("/career")}
+          user={auth.user}
         />
-      );
-    }
-
-    return renderProtectedPage(
-      <ExamEntryDialog displayMode="page" onStart={launchExam} />
+      ) : null
     );
   }
 

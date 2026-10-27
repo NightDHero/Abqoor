@@ -139,21 +139,37 @@ test("creates and restores the canonical 120-question distribution", async () =>
   assert.deepEqual(completion.result.sectionScores, [46, 46, 46, 46, 46]);
 });
 
-test("enforces server deadlines, ownership, active-exam grading isolation, and secure ordering", async () => {
-  const exam = await examService.startOfficialExam(user.id);
-  const secondExam = await examService.startOfficialExam(user.id);
+test("restores one active exam and enforces deadlines, ownership, and grading isolation", async () => {
+  const examUser = await authService.registerUser(
+    "active-exam@example.com",
+    "correct horse battery"
+  );
+  const exam = await examService.startOfficialExam(examUser.id);
+  const secondExam = await examService.startOfficialExam(examUser.id);
   const questionIds = exam.sections.flatMap((section) =>
     section.questions.map((question) => question.questionId)
   );
   const secondQuestionIds = secondExam.sections.flatMap((section) =>
     section.questions.map((question) => question.questionId)
   );
-  assert.notDeepEqual(secondQuestionIds, questionIds);
+  assert.equal(secondExam.id, exam.id);
+  assert.deepEqual(secondQuestionIds, questionIds);
+  assert.equal((await examService.getActiveOfficialExam(examUser.id))?.id, exam.id);
+
+  const activeCount = await database.db.prepare<
+    { userId: string },
+    { count: number }
+  >(`
+    SELECT COUNT(*) AS count
+    FROM official_exams
+    WHERE user_id = @userId AND status = 'active'
+  `).get({ userId: examUser.id });
+  assert.equal(activeCount?.count, 1);
 
   const activeQuestionId = exam.sections[0]?.questions[0]?.questionId;
   assert.ok(activeQuestionId);
   await assert.rejects(
-    questionService.evaluateStudentAnswer(user.id, activeQuestionId, "A"),
+    questionService.evaluateStudentAnswer(examUser.id, activeQuestionId, "A"),
     (error: unknown) =>
       error instanceof questionService.QuestionError && error.statusCode === 409
   );
@@ -168,7 +184,7 @@ test("enforces server deadlines, ownership, active-exam grading isolation, and s
       error instanceof examService.OfficialExamError && error.statusCode === 404
   );
   await assert.rejects(
-    examService.answerOfficialExamQuestion(user.id, {
+    examService.answerOfficialExamQuestion(examUser.id, {
       examId: exam.id,
       positionInSection: 999,
       sectionNumber: 1,
@@ -183,7 +199,7 @@ test("enforces server deadlines, ownership, active-exam grading isolation, and s
     WHERE exam_id = ? AND section_number = 1
   `).run("2000-01-01T00:00:00.000Z", exam.id);
   await assert.rejects(
-    examService.answerOfficialExamQuestion(user.id, {
+    examService.answerOfficialExamQuestion(examUser.id, {
       examId: exam.id,
       positionInSection: 1,
       sectionNumber: 1,
@@ -193,7 +209,7 @@ test("enforces server deadlines, ownership, active-exam grading isolation, and s
       error instanceof examService.OfficialExamError && error.statusCode === 409
   );
   await assert.rejects(
-    examService.flagOfficialExamQuestion(user.id, {
+    examService.flagOfficialExamQuestion(examUser.id, {
       examId: exam.id,
       flagged: true,
       positionInSection: 1,
@@ -215,6 +231,16 @@ test("rejects a persisted attempt that no longer matches the canonical structure
     examService.getOfficialExam(user.id, exam.id),
     (error: unknown) =>
       error instanceof examService.OfficialExamError && error.statusCode === 409
+  );
+
+  const replacement = await examService.startOfficialExam(user.id);
+  assert.notEqual(replacement.id, exam.id);
+  assert.equal((await examService.getActiveOfficialExam(user.id))?.id, replacement.id);
+  assert.equal(
+    (await database.db.prepare<string, { status: string }>(`
+      SELECT status FROM official_exams WHERE id = ?
+    `).get(exam.id))?.status,
+    "completed"
   );
 });
 

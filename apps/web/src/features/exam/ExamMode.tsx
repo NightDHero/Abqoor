@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { preloadQuestionWindow } from "../../utils/questionAssets";
 import { ExamActionBar } from "./ExamActionBar";
 import { ExamQuestionView } from "./ExamQuestionView";
@@ -7,46 +7,19 @@ import { ExamResultView } from "./ExamResultView";
 import { ExamSidebar } from "./ExamSidebar";
 import { SectionReviewPanel } from "./SectionReviewPanel";
 import { toExamImageSrc } from "./examUtils";
-import { useExamMode } from "./useExamMode";
+import type { ExamModeState } from "./useExamMode";
 
 export function ExamMode({
-  autoStart = false,
-  onAutoStartConsumed,
+  exam,
   onExit,
   userEmail
 }: {
-  autoStart?: boolean;
-  onAutoStartConsumed?: () => void;
+  exam: ExamModeState;
   onExit: () => void;
   userEmail?: string;
 }) {
-  const exam = useExamMode();
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isExitConfirmationOpen, setIsExitConfirmationOpen] = useState(false);
-  const autoStartHandledRef = useRef(false);
-
-  useEffect(() => {
-    if (
-      !autoStart ||
-      autoStartHandledRef.current ||
-      exam.isLoadingSavedExam ||
-      exam.exam ||
-      exam.result
-    ) {
-      return;
-    }
-
-    autoStartHandledRef.current = true;
-    void exam.startExam().finally(() => {
-      onAutoStartConsumed?.();
-    });
-  }, [
-    autoStart,
-    exam.exam,
-    exam.isLoadingSavedExam,
-    exam.result,
-    onAutoStartConsumed
-  ]);
 
   useEffect(() => {
     void preloadQuestionWindow(
@@ -73,46 +46,8 @@ export function ExamMode({
     );
   }
 
-  if (exam.isLoadingSavedExam) {
-    return (
-      <section className="exam-reference-shell">
-        <ExamReferenceTopBar />
-        <p className="status-message">جاري تحميل الاختبار...</p>
-      </section>
-    );
-  }
-
   if (!exam.exam || !exam.currentSection || !exam.currentQuestion) {
-    return (
-      <section className="exam-reference-shell">
-        <ExamReferenceTopBar />
-        <main className="exam-start-card" aria-labelledby="exam-start-title">
-          <p className="page-eyebrow">وضع الاختبار</p>
-          <h1 className="page-title" id="exam-start-title">
-            محاكاة اختبار القدرات
-          </h1>
-          <p>
-            {exam.structure
-              ? `يتكون الاختبار من ${exam.structure.totalSections} أقسام. كل قسم يحتوي على ${exam.structure.mathPerSection} سؤالًا كميًا و${exam.structure.arabicPerSection} سؤالًا لفظيًا، بمجموع ${exam.structure.totalQuestions} سؤالًا.`
-              : "جاري تحميل بنية الاختبار..."}
-          </p>
-
-          {exam.error ? <p className="error-message">{exam.error}</p> : null}
-
-          <div className="action-row">
-            <button
-              type="button"
-              disabled={exam.isStarting}
-              onClick={() => {
-                void exam.startExam();
-              }}
-            >
-              {exam.isStarting ? "جاري بدء الاختبار..." : "بدء الاختبار"}
-            </button>
-          </div>
-        </main>
-      </section>
-    );
+    return null;
   }
 
   return (
@@ -127,7 +62,7 @@ export function ExamMode({
         type="button"
         onClick={() => setIsExitConfirmationOpen(true)}
       >
-        إنهاء الاختبار
+        العودة إلى المركز
       </button>
 
       {exam.exam.isTestMode ? (
@@ -192,10 +127,9 @@ export function ExamMode({
       {isExitConfirmationOpen ? (
         <div className="exam-exit-overlay" role="dialog" aria-modal="true">
           <section className="exam-exit-dialog" aria-labelledby="exam-exit-title">
-            <h2 id="exam-exit-title">إنهاء الاختبار</h2>
-            <p>سيتم إنهاء الاختبار الحالي.</p>
-            <p>لن يؤثر ذلك على مستوى مهاراتك أو تقدمك.</p>
-            <p>هل أنت متأكد من رغبتك في الخروج؟</p>
+            <h2 id="exam-exit-title">العودة إلى المركز</h2>
+            <p>سيبقى الاختبار محفوظًا ويمكنك العودة إليه من صفحة الاختبار.</p>
+            <p>وقت القسم مستمر ولا يتوقف عند مغادرة الصفحة.</p>
             <div className="exam-exit-actions">
               <button
                 className="secondary"
@@ -208,12 +142,11 @@ export function ExamMode({
                 className="danger"
                 type="button"
                 onClick={() => {
-                  exam.exitExam();
                   setIsExitConfirmationOpen(false);
                   onExit();
                 }}
               >
-                إنهاء الاختبار
+                العودة إلى المركز
               </button>
             </div>
           </section>

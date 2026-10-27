@@ -1,0 +1,410 @@
+/* Targeted readiness polish. Keep these rules page-scoped so Career stays intact. */
+.product-app-shell .review-page,
+.product-app-shell .profile-page {
+  gap: clamp(22px, 3vw, 38px);
+}
+
+.product-app-shell .review-page .page-hero,
+.product-app-shell .profile-page .page-hero {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 28px;
+  min-height: 0;
+  padding-bottom: clamp(18px, 2.5vw, 28px);
+}
+
+.product-app-shell .review-page .page-hero-copy,
+.product-app-shell .profile-page .page-hero-copy {
+  gap: 8px;
+}
+
+.product-app-shell .review-page .page-title,
+.product-app-shell .profile-page .page-title {
+  font-size: clamp(2.2rem, 4vw, 4.2rem);
+}
+
+.product-app-shell .review-page .page-description {
+  max-width: 620px;
+  font-size: 0.98rem;
+  line-height: 1.8;
+}
+
+.product-app-shell .review-page .page-content,
+.product-app-shell .profile-page .page-content {
+  gap: clamp(18px, 2.4vw, 30px);
+}
+
+.product-app-shell .review-page .review-overview,
+.product-app-shell .profile-page .profile-overview {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.product-app-shell .review-page .metric,
+.product-app-shell .profile-page .metric {
+  min-height: 96px;
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+
+.product-app-shell .review-page .metric strong,
+.product-app-shell .profile-page .metric strong {
+  font-size: clamp(1.35rem, 2vw, 2rem);
+}
+
+.review-state {
+  display: grid;
+  min-height: 260px;
+  gap: 12px;
+  place-content: center;
+  color: var(--abq-muted);
+  text-align: center;
+}
+
+.review-state > span {
+  width: 32px;
+  height: 32px;
+  margin-inline: auto;
+  border: 3px solid rgb(103 220 231 / 18%);
+  border-top-color: var(--abq-cyan-soft);
+  border-radius: 50%;
+  animation: route-loading-spin 720ms linear infinite;
+}
+
+.review-workspace {
+  display: grid;
+  grid-template-columns: minmax(176px, 0.28fr) minmax(0, 1fr);
+  gap: clamp(20px, 3vw, 38px);
+  align-items: start;
+  border-top: 1px solid var(--abq-line);
+  padding-top: clamp(20px, 3vw, 34px);
+}
+
+.review-filters {
+  display: grid;
+  gap: 6px;
+}
+
+.product-app-shell .review-filters button {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  padding: 10px 12px;
+  color: var(--abq-muted);
+  box-shadow: none;
+  text-align: start;
+  transform: none;
+}
+
+.product-app-shell .review-filters button:hover:not(:disabled),
+.product-app-shell .review-filters button.selected {
+  border-color: var(--abq-line);
+  background: rgb(103 220 231 / 7%);
+  color: var(--abq-text);
+  box-shadow: none;
+  filter: none;
+  transform: none;
+}
+
+.review-filters button strong {
+  min-width: 28px;
+  color: var(--abq-cyan-soft);
+  text-align: center;
+}
+
+.product-app-shell .review-page .review-section {
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.product-app-shell .review-page .review-list {
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+.product-app-shell .review-page .review-item {
+  grid-template-columns: minmax(150px, 0.6fr) minmax(260px, 1.2fr) auto;
+  gap: 18px;
+  align-items: center;
+  min-height: 0;
+  border-radius: 0;
+  padding: 18px 0;
+}
+
+.product-app-shell .review-page .review-item-meta {
+  grid-template-columns: repeat(3, minmax(90px, 1fr));
+}
+
+.product-app-shell .review-page .review-item-actions {
+  flex-wrap: wrap;
+  justify-content: end;
+}
+
+.product-app-shell .review-page .review-item-actions button {
+  min-height: 42px;
+  padding: 9px 13px;
+}
+
+.product-app-shell .profile-page .profile-dashboard-head {
+  grid-template-columns: minmax(230px, 0.42fr) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.product-app-shell .profile-page .profile-identity {
+  min-height: 0;
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+
+.product-app-shell .profile-page .profile-overview {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.product-app-shell .profile-page .profile-form {
+  gap: 0 clamp(24px, 4vw, 52px);
+  border-top: 1px solid var(--abq-line);
+}
+
+.product-app-shell .profile-page .profile-editor-heading {
+  display: block;
+  border-bottom: 0;
+  padding: 24px 0 8px;
+}
+
+.product-app-shell .profile-page .profile-section {
+  min-height: 0;
+  gap: 18px;
+  border: 0;
+  border-top: 1px solid var(--abq-line);
+  border-radius: 0;
+  background: transparent;
+  padding: 24px 0;
+}
+
+.product-app-shell .profile-page .profile-form > .profile-section:first-of-type {
+  border-top: 0;
+}
+
+.product-app-shell .profile-page .profile-study-plan {
+  grid-column: 1 / -1;
+}
+
+.product-app-shell .profile-page .profile-field-grid {
+  gap: 12px;
+}
+
+.product-app-shell .profile-page .profile-form > .action-row {
+  position: static;
+  justify-content: end;
+  border-top: 1px solid var(--abq-line);
+  padding: 22px 0 0;
+}
+
+.profile-support-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(24px, 4vw, 52px);
+}
+
+.product-app-shell .profile-page .profile-support-grid .profile-section {
+  border-top: 1px solid var(--abq-line);
+}
+
+.study-world-entry {
+  display: grid;
+  gap: clamp(18px, 3vw, 32px);
+  width: 100%;
+}
+
+.study-world-entry-heading {
+  display: flex;
+  gap: 24px;
+  align-items: end;
+  justify-content: space-between;
+  border-bottom: 1px solid rgb(255 255 255 / 10%);
+  padding-bottom: 18px;
+}
+
+.study-world-entry-heading > div {
+  display: grid;
+  gap: 4px;
+}
+
+.study-world-entry-heading h1 {
+  margin: 0;
+  color: var(--world-white);
+  font-family: var(--font-arabic-display);
+  font-size: clamp(2rem, 4vw, 4rem);
+  line-height: 1.25;
+}
+
+.study-world-entry-heading > p {
+  max-width: 390px;
+  margin: 0;
+  color: var(--world-muted);
+  line-height: 1.8;
+}
+
+.study-world-entry .study-world-selector {
+  min-height: clamp(410px, 60svh, 640px);
+  border-radius: 22px;
+}
+
+.product-app-shell .study-world-entry .study-world-destination {
+  grid-template-rows: auto 1fr auto;
+  gap: 20px;
+  justify-items: start;
+  padding: clamp(26px, 4vw, 52px);
+  text-align: start;
+}
+
+.study-world-destination-index {
+  color: currentColor;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  opacity: 0.62;
+}
+
+.study-world-destination-copy {
+  display: grid;
+  gap: 12px;
+  align-self: center;
+}
+
+.product-app-shell .study-world-entry .study-world-destination-copy strong {
+  font-size: clamp(2.25rem, 4.4vw, 5rem);
+  line-height: 1.2;
+}
+
+.study-world-destination-copy small {
+  color: var(--world-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.7;
+}
+
+.study-world-destination-action {
+  align-self: end;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 3px;
+  font-size: 0.82rem;
+  font-weight: 900;
+  opacity: 0.78;
+}
+
+@media (max-width: 900px) {
+  .product-app-shell .profile-page .profile-dashboard-head,
+  .product-app-shell .review-page .review-item {
+    grid-template-columns: 1fr;
+  }
+
+  .product-app-shell .profile-page .profile-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .product-app-shell .review-page .review-item-actions {
+    justify-content: start;
+  }
+}
+
+@media (max-width: 700px) {
+  .product-app-shell .review-page .page-hero,
+  .product-app-shell .profile-page .page-hero {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .product-app-shell .review-page .review-overview {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .product-app-shell .review-page .metric,
+  .product-app-shell .profile-page .metric {
+    min-width: 0;
+    min-height: 82px;
+    padding: 12px;
+  }
+
+  .review-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .review-filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .product-app-shell .review-filters button {
+    display: grid;
+    justify-items: center;
+    padding-inline: 7px;
+    text-align: center;
+  }
+
+  .product-app-shell .profile-page .profile-form,
+  .profile-support-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .product-app-shell .profile-page .profile-form > *,
+  .product-app-shell .profile-page .profile-study-plan {
+    grid-column: 1;
+  }
+
+  .study-world-entry-heading {
+    display: grid;
+    align-items: start;
+  }
+
+  .study-world-entry .study-world-selector {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .product-app-shell .study-world-entry .study-world-destination {
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: 1fr;
+    min-height: 180px;
+    align-items: center;
+    gap: 16px;
+    padding: 24px;
+  }
+
+  .study-world-destination-copy {
+    align-self: center;
+  }
+
+  .product-app-shell .study-world-entry .study-world-destination-copy strong {
+    font-size: clamp(2rem, 11vw, 3.25rem);
+  }
+
+  .study-world-destination-action {
+    align-self: center;
+  }
+}
+
+@media (max-width: 520px) {
+  .home-cinematic-hero-copy {
+    position: relative;
+    z-index: 3;
+  }
+
+  .home-cinematic-hero > .home-cinematic-hero-mascot {
+    z-index: 1;
+    bottom: 18px;
+    left: 0;
+    width: min(29vw, 116px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-state > span {
+    animation: none;
+  }
+}

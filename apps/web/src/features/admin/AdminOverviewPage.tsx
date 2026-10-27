@@ -15,6 +15,58 @@ type OverviewEntry = {
   value: string;
 };
 
+type AdminOverviewLoaders = {
+  accounts: typeof adminService.getAdminAccounts;
+  bankConfig: typeof bankService.getConfig;
+  history: typeof adminService.getImportJobs;
+  questionBank: () => ReturnType<typeof adminService.getQuestionBank>;
+};
+
+type AdminOverviewSnapshot = {
+  adminCount?: number;
+  bankCount?: number;
+  failed: Array<keyof AdminOverviewLoaders>;
+  jobs?: ImportJob[];
+  questionCount?: number;
+};
+
+const defaultLoaders: AdminOverviewLoaders = {
+  accounts: adminService.getAdminAccounts,
+  bankConfig: bankService.getConfig,
+  history: adminService.getImportJobs,
+  questionBank: () => adminService.getQuestionBank({ page: 1, pageSize: 1 })
+};
+
+export const loadAdminOverviewSnapshot = async (
+  loaders: AdminOverviewLoaders = defaultLoaders
+): Promise<AdminOverviewSnapshot> => {
+  const keys = ["history", "questionBank", "accounts", "bankConfig"] as const;
+  const results = await Promise.allSettled([
+    loaders.history(),
+    loaders.questionBank(),
+    loaders.accounts(),
+    loaders.bankConfig()
+  ]);
+  const failed = results.flatMap((result, index) =>
+    result.status === "rejected" ? [keys[index]] : []
+  );
+  const [history, questionBank, accounts, bankConfig] = results;
+
+  return {
+    adminCount: accounts.status === "fulfilled"
+      ? accounts.value.admins.length
+      : undefined,
+    bankCount: bankConfig.status === "fulfilled"
+      ? bankConfig.value.config.availableBankCount
+      : undefined,
+    failed,
+    jobs: history.status === "fulfilled" ? history.value.jobs : undefined,
+    questionCount: questionBank.status === "fulfilled"
+      ? questionBank.value.total
+      : undefined
+  };
+};
+
 const activeUploadStatuses: ImportJobStatus[] = [
   "analyzing",
   "ready",
@@ -28,34 +80,46 @@ export function AdminOverviewPage() {
   const cachedQuestionBank = adminService.getCachedQuestionBank({ page: 1, pageSize: 1 });
   const cachedAccounts = adminService.getCachedAdminAccounts();
   const cachedBankConfig = bankService.getCachedConfig();
-  const [jobs, setJobs] = useState<ImportJob[]>(cachedHistory?.data.jobs ?? []);
-  const [questionCount, setQuestionCount] = useState(cachedQuestionBank?.data.total ?? 0);
-  const [adminCount, setAdminCount] = useState(cachedAccounts?.data.admins.length ?? 0);
-  const [bankCount, setBankCount] = useState(cachedBankConfig?.data.config.availableBankCount ?? 0);
+  const [jobs, setJobs] = useState<ImportJob[] | null>(cachedHistory?.data.jobs ?? null);
+  const [questionCount, setQuestionCount] = useState<number | null>(cachedQuestionBank?.data.total ?? null);
+  const [adminCount, setAdminCount] = useState<number | null>(cachedAccounts?.data.admins.length ?? null);
+  const [bankCount, setBankCount] = useState<number | null>(cachedBankConfig?.data.config.availableBankCount ?? null);
   const [error, setError] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [reloadVersion, setReloadVersion] = useState(0);
 
   useEffect(() => {
-    Promise.all([
-      adminService.getImportJobs(),
-      adminService.getQuestionBank({ page: 1, pageSize: 1 }),
-      adminService.getAdminAccounts(),
-      bankService.getConfig()
-    ])
-      .then(([history, bank, accounts, bankConfiguration]) => {
-        setJobs(history.jobs);
-        setQuestionCount(bank.total);
-        setAdminCount(accounts.admins.length);
-        setBankCount(bankConfiguration.config.availableBankCount);
+    let isMounted = true;
+    setIsRefreshing(true);
+    setError("");
+
+    void loadAdminOverviewSnapshot()
+      .then((snapshot) => {
+        if (!isMounted) return;
+        if (snapshot.jobs) setJobs(snapshot.jobs);
+        if (snapshot.questionCount !== undefined) setQuestionCount(snapshot.questionCount);
+        if (snapshot.adminCount !== undefined) setAdminCount(snapshot.adminCount);
+        if (snapshot.bankCount !== undefined) setBankCount(snapshot.bankCount);
+        if (snapshot.failed.length > 0) {
+          setError("تعذر تحديث بعض بيانات الملخص. بقيت البيانات المتاحة ظاهرة ويمكن إعادة المحاولة.");
+        }
       })
-      .catch(() => setError("تعذر تحميل ملخص لوحة الإدارة."));
-  }, []);
+      .finally(() => {
+        if (isMounted) setIsRefreshing(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [reloadVersion]);
 
   const overview = useMemo(() => {
-    const activeUploads = jobs.filter((job) =>
+    const resolvedJobs = jobs ?? [];
+    const activeUploads = resolvedJobs.filter((job) =>
       activeUploadStatuses.includes(job.status)
     ).length;
-    const failedUploads = jobs.filter((job) => job.status === "failed").length;
-    const completedUploads = jobs.filter(
+    const failedUploads = resolvedJobs.filter((job) => job.status === "failed").length;
+    const completedUploads = resolvedJobs.filter(
       (job) => job.status === "completed"
     ).length;
 
@@ -66,7 +130,7 @@ export function AdminOverviewPage() {
         label: "بنك الأسئلة",
         meta: "سؤال داخل النظام",
         route: "/admin/questions",
-        value: toArabicNumber(questionCount)
+        value: questionCount === null ? "—" : toArabicNumber(questionCount)
       },
       {
         action: "رفع",
@@ -74,7 +138,7 @@ export function AdminOverviewPage() {
         label: "رفع الأسئلة",
         meta: activeUploads > 0 ? "دفعات تحتاج متابعة" : "جاهز لدفعة جديدة",
         route: "/admin/import",
-        value: activeUploads > 0 ? toArabicNumber(activeUploads) : "جاهز"
+        value: jobs === null ? "—" : activeUploads > 0 ? toArabicNumber(activeUploads) : "جاهز"
       },
       {
         action: "السجل",
@@ -82,7 +146,7 @@ export function AdminOverviewPage() {
         label: "سجل الرفع",
         meta: `${toArabicNumber(completedUploads)} مكتملة`,
         route: "/admin/imports",
-        value: toArabicNumber(jobs.length)
+        value: jobs === null ? "—" : toArabicNumber(jobs.length)
       },
       {
         action: "إدارة",
@@ -90,7 +154,7 @@ export function AdminOverviewPage() {
         label: "إدارة المدراء",
         meta: "حسابات بصلاحية الإدارة",
         route: "/admin/accounts",
-        value: toArabicNumber(adminCount)
+        value: adminCount === null ? "—" : toArabicNumber(adminCount)
       }
     ];
 
@@ -104,7 +168,19 @@ export function AdminOverviewPage() {
 
   return (
     <AdminShell currentPath="/admin" title="نظرة عامة">
-      {error ? <p className="admin-alert error">{error}</p> : null}
+      {error ? (
+        <p className="admin-alert error" role="alert">
+          {error}{" "}
+          <button
+            className="secondary"
+            disabled={isRefreshing}
+            type="button"
+            onClick={() => setReloadVersion((current) => current + 1)}
+          >
+            {isRefreshing ? "جاري التحديث..." : "إعادة المحاولة"}
+          </button>
+        </p>
+      ) : null}
 
       <section className="admin-overview-entry-grid" aria-label="أقسام الإدارة">
         {overview.entries.map((entry) => (
@@ -131,22 +207,22 @@ export function AdminOverviewPage() {
       <section className="admin-overview-signal-strip" aria-label="حالة النظام">
         <span>
           <SystemIcon name="bank" />
-          <strong>{toArabicNumber(bankCount)}</strong>
+          <strong>{bankCount === null ? "—" : toArabicNumber(bankCount)}</strong>
           <small>قسم متاح · ٥٥ كمي أو ٦٥ لفظي</small>
         </span>
         <span>
           <SystemIcon name="status" />
-          <strong>{toArabicNumber(overview.activeUploads)}</strong>
+          <strong>{jobs === null ? "—" : toArabicNumber(overview.activeUploads)}</strong>
           <small>قيد الرفع أو المراجعة</small>
         </span>
         <span>
           <SystemIcon name="check" />
-          <strong>{toArabicNumber(overview.completedUploads)}</strong>
+          <strong>{jobs === null ? "—" : toArabicNumber(overview.completedUploads)}</strong>
           <small>دفعات مكتملة</small>
         </span>
         <span data-tone={overview.failedUploads > 0 ? "warning" : "neutral"}>
           <SystemIcon name="history" />
-          <strong>{toArabicNumber(overview.failedUploads)}</strong>
+          <strong>{jobs === null ? "—" : toArabicNumber(overview.failedUploads)}</strong>
           <small>دفعات فشلت</small>
         </span>
       </section>

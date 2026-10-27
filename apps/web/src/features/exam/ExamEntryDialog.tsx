@@ -36,7 +36,7 @@ export function ExamEntryDialog({
   onStart
 }: {
   displayMode?: "overlay" | "page";
-  onStart: () => void;
+  onStart: () => void | Promise<void>;
 }) {
   const cachedHistory = examService.getCachedHistory();
   const cachedStructure = examService.getCachedStructure();
@@ -53,7 +53,9 @@ export function ExamEntryDialog({
       return;
     }
 
-    const timeoutId = window.setTimeout(onStart, 260);
+    const timeoutId = window.setTimeout(() => {
+      void Promise.resolve(onStart()).finally(() => setIsLaunching(false));
+    }, 260);
     return () => window.clearTimeout(timeoutId);
   }, [isLaunching, onStart]);
 

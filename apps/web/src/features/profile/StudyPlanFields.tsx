@@ -9,6 +9,11 @@ import {
   type StudyDistribution
 } from "./studyPlan";
 
+export const getStudyPlanStartDateMinimum = (
+  startDate: string,
+  today = getTodayDate()
+) => startDate && startDate < today ? startDate : today;
+
 export function StudyPlanDateField({
   isPlanLoading,
   plan,
@@ -28,7 +33,7 @@ export function StudyPlanDateField({
       </div>
       <label className="form-field">
         تاريخ بدء الخطة
-        <input min={getTodayDate()} type="date" value={startDate} onChange={(event) => onChange(event.target.value)} />
+        <input min={getStudyPlanStartDateMinimum(startDate)} type="date" value={startDate} onChange={(event) => onChange(event.target.value)} />
       </label>
       <button className="secondary study-plan-today" type="button" onClick={() => onChange(getTodayDate())}>
         أبدأ اليوم

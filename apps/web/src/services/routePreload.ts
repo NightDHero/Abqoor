@@ -234,7 +234,11 @@ export const prefetchRouteData = async (path: string, user: User | null) => {
   } else if (pathname === "/review") {
     requests.push(prefetchReview());
   } else if (pathname === "/exam") {
-    requests.push(examService.getStructure(), examService.getHistory());
+    requests.push(
+      examService.getStructure(),
+      examService.getHistory(),
+      examService.getActiveExam()
+    );
   } else if (pathname.startsWith("/browse/") || pathname.startsWith("/practice/")) {
     requests.push(prefetchQuestionRoute(path));
   } else if (pathname.startsWith("/topic/") && !shouldAvoidSpeculativePreloading()) {

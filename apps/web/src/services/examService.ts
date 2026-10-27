@@ -1,15 +1,22 @@
 import type { CorrectAnswer } from "../types/session";
 import type {
+  ActiveExamResponse,
   CompleteExamSectionResponse,
   ExamAttemptResponse,
   ExamHistoryResponse,
   ExamStructureResponse
 } from "../types/exam";
 import { apiRequest } from "./http";
-import { invalidateQueries, loadQuery, readQueryCache } from "./queryCache";
+import {
+  invalidateQueries,
+  loadQuery,
+  readQueryCache,
+  updateQueryCache
+} from "./queryCache";
 
 const examStructureCacheKey = "exams:structure";
 const examHistoryCacheKey = "exams:history";
+const activeExamCacheKey = "exams:active";
 const examStructureCacheMaxAgeMs = 10 * 60_000;
 const examHistoryCacheMaxAgeMs = 60_000;
 
@@ -25,7 +32,16 @@ export const examService = {
   startExam: () =>
     apiRequest<ExamAttemptResponse>("/exams/start", {
       method: "POST"
+    }).then((response) => {
+      updateQueryCache<ActiveExamResponse>(activeExamCacheKey, () => response);
+      return response;
     }),
+
+  getActiveExam: () => loadQuery({
+    key: activeExamCacheKey,
+    loader: () => apiRequest<ActiveExamResponse>("/exams/active"),
+    maxAgeMs: 8_000
+  }),
 
   getAttempt: (examId: string) =>
     apiRequest<ExamAttemptResponse>(`/exams/attempts/${examId}`),
@@ -67,6 +83,9 @@ export const examService = {
     ).then((response) => {
       if (response.result ?? response.exam.result) {
         invalidateQueries(examHistoryCacheKey);
+        updateQueryCache<ActiveExamResponse>(activeExamCacheKey, () => ({ exam: null }));
+      } else {
+        updateQueryCache<ActiveExamResponse>(activeExamCacheKey, () => ({ exam: response.exam }));
       }
       return response;
     }),

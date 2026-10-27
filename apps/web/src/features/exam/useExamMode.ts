@@ -61,17 +61,26 @@ export function useExamMode() {
   );
   const currentQuestion = currentSection?.questions[currentIndex] ?? null;
 
+  const hydrateExam = (nextExam: ExamAttempt) => {
+    setExam(nextExam);
+    setResult(nextExam.result ?? null);
+    setStructure(nextExam.structure);
+
+    if (nextExam.status === "completed") {
+      clearSavedActiveExamId();
+    } else {
+      saveActiveExamId(nextExam.id);
+    }
+  };
+
   const loadExam = async (examId: string) => {
     try {
       const response = await examService.getAttempt(examId);
-      setExam(response.exam);
-      setResult(response.exam.result ?? null);
-
-      if (response.exam.status === "completed") {
-        clearSavedActiveExamId();
-      }
+      hydrateExam(response.exam);
+      return true;
     } catch {
       clearSavedActiveExamId();
+      return false;
     }
   };
 
@@ -83,15 +92,20 @@ export function useExamMode() {
 
   useEffect(() => {
     const savedExamId = getSavedActiveExamId();
+    const restoreExam = async () => {
+      if (savedExamId && await loadExam(savedExamId)) {
+        return;
+      }
 
-    if (!savedExamId) {
-      setIsLoadingSavedExam(false);
-      return;
-    }
+      try {
+        const response = await examService.getActiveExam();
+        if (response.exam) hydrateExam(response.exam);
+      } catch (caughtError) {
+        setError(readErrorMessage(caughtError, "تعذر استعادة الاختبار الحالي."));
+      }
+    };
 
-    void loadExam(savedExamId).finally(() => {
-      setIsLoadingSavedExam(false);
-    });
+    void restoreExam().finally(() => setIsLoadingSavedExam(false));
   }, []);
 
   useEffect(() => {
@@ -136,9 +150,7 @@ export function useExamMode() {
 
     try {
       const response = await examService.startExam();
-      setExam(response.exam);
-      setStructure(response.exam.structure);
-      saveActiveExamId(response.exam.id);
+      hydrateExam(response.exam);
     } catch (caughtError) {
       setError(readErrorMessage(caughtError, "تعذر بدء الاختبار."));
     } finally {
@@ -247,15 +259,6 @@ export function useExamMode() {
     }
   };
 
-  const exitExam = () => {
-    clearSavedActiveExamId();
-    setExam(null);
-    setResult(null);
-    setCurrentIndex(0);
-    setRemainingSeconds(0);
-    setError("");
-  };
-
   return {
     answerQuestion,
     completeSection,
@@ -269,7 +272,6 @@ export function useExamMode() {
     isCompletingSection,
     isLoadingSavedExam,
     isStarting,
-    exitExam,
     jumpToQuestion,
     remainingSeconds,
     result,
@@ -278,3 +280,5 @@ export function useExamMode() {
     toggleFlag
   };
 }
+
+export type ExamModeState = ReturnType<typeof useExamMode>;

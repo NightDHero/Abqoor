@@ -162,7 +162,11 @@ const toRange = (from: unknown, to: unknown) => {
   return parsedFrom && parsedTo ? { from: parsedFrom, to: parsedTo } : undefined;
 };
 
-const handleRouteError = (error: unknown, response: Response) => {
+const handleRouteError = (
+  error: unknown,
+  response: Response,
+  fallbackMessage = "تعذر تنفيذ طلب الاستيراد."
+) => {
   if (error instanceof AdminImportError) {
     response.status(error.statusCode).json({ message: error.message });
     return;
@@ -180,7 +184,7 @@ const handleRouteError = (error: unknown, response: Response) => {
   }
 
   console.error("Admin import request failed", error);
-  response.status(500).json({ message: "تعذر تنفيذ طلب الاستيراد." });
+  response.status(500).json({ message: fallbackMessage });
 };
 
 importerRouter.use(requireImportAdmin);
@@ -302,7 +306,7 @@ importerRouter.get("/questions", async (request, response) => {
       await getAdminQuestionBank({ bankId, mode, page, pageSize, query, sort })
     );
   } catch (error) {
-    handleRouteError(error, response);
+    handleRouteError(error, response, "تعذر تحميل بنك الأسئلة.");
   }
 });
 

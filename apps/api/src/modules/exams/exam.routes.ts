@@ -5,6 +5,7 @@ import {
   answerOfficialExamQuestion,
   completeOfficialExamSectionFlow,
   flagOfficialExamQuestion,
+  getActiveOfficialExam,
   getOfficialExam,
   getOfficialExamStructure,
   OfficialExamError,
@@ -40,6 +41,16 @@ examRouter.post("/start", requireAuth, async (request, response) => {
   try {
     response.status(201).json({
       exam: await startOfficialExam(request.user?.id ?? "")
+    });
+  } catch (error) {
+    handleExamError(error, response);
+  }
+});
+
+examRouter.get("/active", requireAuth, async (request, response) => {
+  try {
+    response.status(200).json({
+      exam: await getActiveOfficialExam(request.user?.id ?? "")
     });
   } catch (error) {
     handleExamError(error, response);

@@ -126,7 +126,7 @@ export function ProfilePage({
     : validateProfileForm(form, bankConfig?.availableBankCount);
 
   return (
-    <PageContainer eyebrow="الحساب" title="ملفي">
+    <PageContainer className="profile-page" eyebrow="الحساب" title="ملفي">
       {isLoading ? <p className="status-message">جاري تحميل الملف الدراسي...</p> : null}
       {error ? <p className="error-message">{error}</p> : null}
       {!error && liveValidationError ? <p className="error-message" role="alert">{liveValidationError}</p> : null}
@@ -186,15 +186,17 @@ export function ProfilePage({
         <div className="action-row"><button type="submit" disabled={isSaving || isLoading || !bankConfig || Boolean(liveValidationError)}>{isSaving ? "جاري الحفظ..." : "حفظ التغييرات الآن"}</button></div>
       </form>
 
-      <section className="profile-section profile-account-actions" aria-labelledby="tutorial-section">
-        <div>
-          <h2 id="tutorial-section">مساعدة عبقور</h2>
-          <p>ارجع للجولة المختصرة وتعرّف على طريقك داخل البرنامج.</p>
-        </div>
-        <button className="secondary" type="button" onClick={requestTutorialReplay}>جولة تعريفية</button>
-      </section>
+      <div className="profile-support-grid">
+        <section className="profile-section profile-account-actions" aria-labelledby="tutorial-section">
+          <div>
+            <h2 id="tutorial-section">مساعدة عبقور</h2>
+            <p>ارجع للجولة المختصرة وتعرّف على طريقك داخل البرنامج.</p>
+          </div>
+          <button className="secondary" type="button" onClick={requestTutorialReplay}>جولة تعريفية</button>
+        </section>
 
-      <section className="profile-section profile-account-actions" aria-labelledby="account-actions-section"><div><h2 id="account-actions-section">إجراءات الحساب</h2><p>يمكنك إنهاء الجلسة الحالية بأمان من هذا الجهاز.</p></div><button className="profile-sign-out" type="button" onClick={() => void onLogout()}>تسجيل الخروج</button></section>
+        <section className="profile-section profile-account-actions" aria-labelledby="account-actions-section"><div><h2 id="account-actions-section">إجراءات الحساب</h2><p>يمكنك إنهاء الجلسة الحالية بأمان من هذا الجهاز.</p></div><button className="profile-sign-out" type="button" onClick={() => void onLogout()}>تسجيل الخروج</button></section>
+      </div>
     </PageContainer>
   );
 }
