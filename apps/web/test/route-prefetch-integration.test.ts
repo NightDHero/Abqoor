@@ -8,6 +8,7 @@ import {
 import { clearQueryCache, setQueryCacheScope } from "../src/services/queryCache.js";
 import { questionService } from "../src/services/questionService.js";
 import { profileService } from "../src/services/profileService.js";
+import { examService } from "../src/services/examService.js";
 import type { User } from "../src/types/auth.js";
 
 const user: User = {
@@ -184,6 +185,7 @@ test("exam intent prepares the active attempt, structure, and history once", asy
       "/exams/history",
       "/exams/structure"
     ]);
+    assert.deepEqual(examService.getCachedActiveExam()?.data, { exam: null });
 
     calls.length = 0;
     await prefetchRouteData("/exam", user);
@@ -210,16 +212,14 @@ test("a topic directory prepares its likely subtopics before navigation", async 
     setQueryCacheScope("topic-prefetch-student");
     clearQueryCache();
     await prefetchRouteData("/topic/math/arithmetic", user);
-    assert.deepEqual(calls.sort(), [
-      "/questions?subjectId=math&topicId=arithmetic&subtopicId=basic-operations",
-      "/review"
-    ]);
+    assert.deepEqual(calls, []);
 
-    calls.length = 0;
     await warmTopicDirectoryData("/topic/math/arithmetic");
     assert.deepEqual(calls.sort(), [
+      "/questions?subjectId=math&topicId=arithmetic&subtopicId=basic-operations",
       "/questions?subjectId=math&topicId=arithmetic&subtopicId=fractions-decimals",
-      "/questions?subjectId=math&topicId=arithmetic&subtopicId=ratios-proportions"
+      "/questions?subjectId=math&topicId=arithmetic&subtopicId=ratios-proportions",
+      "/review"
     ]);
 
     calls.length = 0;
@@ -268,8 +268,15 @@ test("topic preloading prepares the legacy verbal fallback before navigation", a
     setQueryCacheScope("legacy-topic-prefetch-student");
     clearQueryCache();
     await prefetchRouteData("/topic/arabic", user);
+    assert.deepEqual(calls, []);
+
+    await warmTopicDirectoryData("/topic/arabic");
     assert.deepEqual(calls.sort(), [
       "/questions?subjectId=arabic",
+      "/questions?subjectId=arabic&topicId=contextual-error",
+      "/questions?subjectId=arabic&topicId=odd-word",
+      "/questions?subjectId=arabic&topicId=reading-comprehension",
+      "/questions?subjectId=arabic&topicId=sentence-completion",
       "/questions?subjectId=arabic&topicId=verbal-analogy",
       "/review"
     ]);

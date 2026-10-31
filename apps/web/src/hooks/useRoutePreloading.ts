@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import {
   preloadRoute,
   warmAuthorizedRouteCode,
@@ -7,14 +7,7 @@ import {
 } from "../services/routePreload";
 import type { User } from "../types/auth";
 import { shouldAvoidSpeculativePreloading } from "../utils/networkPreferences";
-
-type IdleWindow = Window & {
-  cancelIdleCallback?: (handle: number) => void;
-  requestIdleCallback?: (
-    callback: () => void,
-    options?: { timeout: number }
-  ) => number;
-};
+import { registerNavigationPreparer } from "../utils/router";
 
 const getIntentRoute = (target: EventTarget | null) => {
   if (!(target instanceof Element)) return null;
@@ -40,13 +33,18 @@ export const useRoutePreloading = ({
   user: User | null;
 }) => {
   useEffect(() => {
-    void preloadRoute(currentPath, user);
+    void preloadRoute(currentPath, user).catch(() => undefined);
   }, [currentPath, user]);
+
+  useLayoutEffect(
+    () => registerNavigationPreparer((path) => preloadRoute(path, user)),
+    [user]
+  );
 
   useEffect(() => {
     const handleIntent = (event: Event) => {
       const route = getIntentRoute(event.target);
-      if (route) void preloadRoute(route, user);
+      if (route) void preloadRoute(route, user).catch(() => undefined);
     };
 
     document.addEventListener("pointerover", handleIntent, { passive: true });
@@ -65,26 +63,13 @@ export const useRoutePreloading = ({
 
     if (shouldAvoidSpeculativePreloading()) return;
 
-    const idleWindow = window as IdleWindow;
     let active = true;
-    const warm = () => {
-      void warmTopicDirectoryData(currentPath, () => active);
-      void warmAuthorizedRouteCode(user, () => active);
-      void warmAuthorizedRouteData(user, currentPath, () => active);
-    };
+    void warmTopicDirectoryData(currentPath, () => active);
+    void warmAuthorizedRouteCode(user, () => active);
+    void warmAuthorizedRouteData(user, currentPath, () => active);
 
-    if (idleWindow.requestIdleCallback) {
-      const handle = idleWindow.requestIdleCallback(warm, { timeout: 1_500 });
-      return () => {
-        active = false;
-        idleWindow.cancelIdleCallback?.(handle);
-      };
-    }
-
-    const handle = window.setTimeout(warm, 600);
     return () => {
       active = false;
-      window.clearTimeout(handle);
     };
   }, [currentPath, user]);
 };

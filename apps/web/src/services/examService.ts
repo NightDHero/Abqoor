@@ -19,6 +19,7 @@ const examHistoryCacheKey = "exams:history";
 const activeExamCacheKey = "exams:active";
 const examStructureCacheMaxAgeMs = 10 * 60_000;
 const examHistoryCacheMaxAgeMs = 60_000;
+const activeExamCacheMaxAgeMs = 8_000;
 
 export const examService = {
   getCachedStructure: () =>
@@ -37,14 +38,21 @@ export const examService = {
       return response;
     }),
 
+  getCachedActiveExam: () =>
+    readQueryCache<ActiveExamResponse>(activeExamCacheKey, activeExamCacheMaxAgeMs),
   getActiveExam: () => loadQuery({
     key: activeExamCacheKey,
     loader: () => apiRequest<ActiveExamResponse>("/exams/active"),
-    maxAgeMs: 8_000
+    maxAgeMs: activeExamCacheMaxAgeMs
   }),
 
   getAttempt: (examId: string) =>
-    apiRequest<ExamAttemptResponse>(`/exams/attempts/${examId}`),
+    apiRequest<ExamAttemptResponse>(`/exams/attempts/${examId}`).then((response) => {
+      updateQueryCache<ActiveExamResponse>(activeExamCacheKey, () => (
+        response.exam.status === "completed" ? { exam: null } : response
+      ));
+      return response;
+    }),
 
   answerQuestion: (input: {
     examId: string;
@@ -59,6 +67,9 @@ export const examService = {
         userAnswer: input.userAnswer
       }),
       method: "PATCH"
+    }).then((response) => {
+      updateQueryCache<ActiveExamResponse>(activeExamCacheKey, () => response);
+      return response;
     }),
 
   flagQuestion: (input: {
@@ -74,6 +85,9 @@ export const examService = {
         sectionNumber: input.sectionNumber
       }),
       method: "PATCH"
+    }).then((response) => {
+      updateQueryCache<ActiveExamResponse>(activeExamCacheKey, () => response);
+      return response;
     }),
 
   completeSection: (input: { examId: string; sectionNumber: number }) =>

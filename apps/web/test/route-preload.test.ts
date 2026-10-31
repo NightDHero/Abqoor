@@ -5,7 +5,8 @@ import {
   getAuthorizedWarmCodeRoutes,
   getAuthorizedWarmDataRoutes,
   getRouteModuleLoaders,
-  getTopicQuestionRoutes
+  getTopicQuestionRoutes,
+  preloadRouteCode
 } from "../src/services/routePreload.js";
 import type { User } from "../src/types/auth.js";
 import { getImagePreloadLimit } from "../src/utils/preloadImages.js";
@@ -66,11 +67,21 @@ test("classifies the complete route families without treating unknown paths as p
 test("builds bounded warm plans from profile and role state", () => {
   const studentCode = getAuthorizedWarmCodeRoutes(user);
   assert.ok(studentCode.includes("/topic/math"));
-  assert.ok(studentCode.includes("/browse/math/arithmetic"));
+  assert.ok(studentCode.includes("/browse/math/arithmetic/basic-operations"));
+  assert.ok(studentCode.includes("/browse/arabic/verbal-analogy"));
   assert.ok(!studentCode.includes("/admin"));
 
   const studentData = getAuthorizedWarmDataRoutes(user, "/career");
-  assert.deepEqual(studentData, ["/profile", "/exam", "/review"]);
+  assert.deepEqual(studentData, [
+    "/study",
+    "/profile",
+    "/exam",
+    "/review",
+    "/topic/math",
+    "/topic/arabic",
+    "/browse/math/arithmetic/basic-operations",
+    "/browse/arabic/verbal-analogy"
+  ]);
 
   const admin = { ...user, isAdmin: true };
   const adminData = getAuthorizedWarmDataRoutes(admin, "/admin/questions");
@@ -105,5 +116,22 @@ test("maps topic directories to a bounded priority order of question destination
       "/browse/arabic/sentence-completion"
     ]
   );
+  assert.deepEqual(
+    getTopicQuestionRoutes("/browse/math/arithmetic/fractions-decimals").slice(0, 3),
+    [
+      "/browse/math/arithmetic/basic-operations",
+      "/browse/math/arithmetic/fractions-decimals",
+      "/browse/math/arithmetic/ratios-proportions"
+    ]
+  );
+});
+
+test("prepared route modules are synchronously readable after code preloading", async () => {
+  const [careerModule] = getRouteModuleLoaders("/career");
+
+  await preloadRouteCode("/career");
+
+  assert.equal(careerModule.isReady(), true);
+  assert.equal(typeof careerModule.read().CareerPage, "function");
 });
 

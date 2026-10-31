@@ -21,32 +21,78 @@ import { runPreloadQueue } from "../utils/preloadQueue";
 import { adminService } from "./adminService";
 import { bankService } from "./bankService";
 import { examService } from "./examService";
+import { getInitiatedApiRequestCount } from "./http";
 import { profileService } from "./profileService";
 import { questionService } from "./questionService";
 import { reviewBankService } from "./reviewBankService";
 import { sessionService } from "./sessionService";
 import { tutorialService } from "./tutorialService";
 
-export const routeModules = {
-  adminAccounts: () => import("../features/admin/AdminAccountsPage"),
-  adminImport: () => import("../features/admin/AdminImportPage"),
-  adminImportDetail: () => import("../features/admin/AdminImportDetailPage"),
-  adminImportHistory: () => import("../features/admin/AdminImportHistoryPage"),
-  adminOverview: () => import("../features/admin/AdminOverviewPage"),
-  adminQuestionBank: () => import("../features/admin/AdminQuestionBankPage"),
-  adminValidation: () => import("../features/admin/AdminValidationPage"),
-  browse: () => import("../pages/BrowsePage"),
-  career: () => import("../pages/CareerPage"),
-  exam: () => import("../pages/ExamPage"),
-  examEntry: () => import("../features/exam/ExamEntryDialog"),
-  profile: () => import("../pages/ProfilePage"),
-  review: () => import("../pages/ReviewPage"),
-  study: () => import("../pages/StudyPage"),
-  topicWorld: () => import("../pages/TopicWorldPage")
-} as const;
-
 type RouteModuleLoader = () => Promise<Record<string, unknown>>;
+
+export type PreparedRouteModule = RouteModuleLoader & {
+  isReady: () => boolean;
+  read: () => Record<string, unknown>;
+};
+
+const createPreparedRouteModule = <T extends Record<string, unknown>>(
+  importer: () => Promise<T>
+): PreparedRouteModule => {
+  let loadedModule: T | null = null;
+  let pendingImport: Promise<T> | null = null;
+
+  const load = () => {
+    if (loadedModule) return Promise.resolve(loadedModule);
+    if (pendingImport) return pendingImport;
+
+    pendingImport = importer()
+      .then((module) => {
+        loadedModule = module;
+        return module;
+      })
+      .catch((error: unknown) => {
+        pendingImport = null;
+        throw error;
+      });
+    return pendingImport;
+  };
+
+  return Object.assign(load, {
+    isReady: () => loadedModule !== null,
+    read: () => {
+      if (loadedModule) return loadedModule;
+      throw load();
+    }
+  });
+};
+
+export const routeModules = {
+  adminAccounts: createPreparedRouteModule(() => import("../features/admin/AdminAccountsPage")),
+  adminImport: createPreparedRouteModule(() => import("../features/admin/AdminImportPage")),
+  adminImportDetail: createPreparedRouteModule(() => import("../features/admin/AdminImportDetailPage")),
+  adminImportHistory: createPreparedRouteModule(() => import("../features/admin/AdminImportHistoryPage")),
+  adminOverview: createPreparedRouteModule(() => import("../features/admin/AdminOverviewPage")),
+  adminQuestionBank: createPreparedRouteModule(() => import("../features/admin/AdminQuestionBankPage")),
+  adminValidation: createPreparedRouteModule(() => import("../features/admin/AdminValidationPage")),
+  browse: createPreparedRouteModule(() => import("../pages/BrowsePage")),
+  career: createPreparedRouteModule(() => import("../pages/CareerPage")),
+  exam: createPreparedRouteModule(() => import("../pages/ExamPage")),
+  examEntry: createPreparedRouteModule(() => import("../features/exam/ExamEntryDialog")),
+  profile: createPreparedRouteModule(() => import("../pages/ProfilePage")),
+  review: createPreparedRouteModule(() => import("../pages/ReviewPage")),
+  study: createPreparedRouteModule(() => import("../pages/StudyPage")),
+  topicWorld: createPreparedRouteModule(() => import("../pages/TopicWorldPage"))
+} as const;
 const maximumPreparedTopicDestinations = 3;
+const maximumPreparedRouteEntries = 64;
+const preparedRouteFreshnessMs = 8_000;
+const preparedRoutes = new Map<string, number>();
+
+export type RoutePreparationResult = {
+  apiRequests: number;
+  codeWasReady: boolean;
+  dataWasPrepared: boolean;
+};
 
 export type RoutePreloadKind =
   | "admin"
@@ -57,6 +103,26 @@ export type RoutePreloadKind =
 const getPathname = (path: string) => {
   const pathWithoutHash = path.split("#", 1)[0] ?? path;
   return pathWithoutHash.split("?", 1)[0] || "/";
+};
+
+const routeRequiresPreparedData = (path: string, user: User | null) => {
+  const pathname = getPathname(path);
+  if (
+    pathname === "/career" ||
+    pathname === "/profile" ||
+    pathname === "/setup-profile" ||
+    pathname === "/review" ||
+    pathname === "/exam" ||
+    pathname.startsWith("/browse/") ||
+    pathname.startsWith("/practice/")
+  ) {
+    return true;
+  }
+  return Boolean(
+    user?.isAdmin &&
+    pathname.startsWith("/admin") &&
+    pathname !== "/admin/import"
+  );
 };
 
 export const classifyRouteForPreload = (path: string): RoutePreloadKind => {
@@ -88,7 +154,7 @@ export const classifyRouteForPreload = (path: string): RoutePreloadKind => {
   return "unknown";
 };
 
-export const getRouteModuleLoaders = (path: string): RouteModuleLoader[] => {
+export const getRouteModuleLoaders = (path: string): PreparedRouteModule[] => {
   const pathname = getPathname(path);
 
   if (pathname === "/career") return [routeModules.career];
@@ -153,7 +219,10 @@ const prefetchQuestionRoute = async (path: string) => {
 };
 
 export const getTopicQuestionRoutes = (path: string) => {
-  const route = getTopicRouteValue(getPathname(path));
+  const pathname = getPathname(path);
+  const route = getTopicRouteValue(pathname)
+    ?? getBrowseRouteValue(pathname)
+    ?? getPracticeRouteValue(pathname);
   if (!route) return [];
 
   const world = findCareerWorld(route.subject);
@@ -178,8 +247,19 @@ export const warmTopicDirectoryData = (
 ) => {
   if (shouldAvoidSpeculativePreloading()) return Promise.resolve();
 
+  const routes = getTopicQuestionRoutes(path);
+  const currentQuestionRoute = getBrowseRouteValue(getPathname(path));
+  const startIndex = currentQuestionRoute
+    ? Math.max(routes.indexOf(getPathname(path)) + 1, 0)
+    : 0;
+  const routeCount = currentQuestionRoute
+    ? maximumPreparedTopicDestinations - 1
+    : getPathname(path) === "/topic/arabic"
+      ? routes.length
+      : maximumPreparedTopicDestinations;
+
   return runPreloadQueue(
-    getTopicQuestionRoutes(path).slice(1, maximumPreparedTopicDestinations),
+    routes.slice(startIndex, startIndex + routeCount),
     prefetchQuestionRoute,
     { concurrency: 1, shouldContinue }
   );
@@ -221,6 +301,31 @@ const prefetchProfile = async () => {
   });
 };
 
+const prefetchAdminQuestionBank = async () => {
+  const firstPage = await adminService.getQuestionBank({
+    mode: "general",
+    page: 1,
+    pageSize: 50,
+    sort: "asc"
+  });
+
+  if (firstPage.total > firstPage.pageSize) {
+    await adminService.getQuestionBank({
+      mode: "general",
+      page: 2,
+      pageSize: 50,
+      sort: "asc"
+    });
+  }
+};
+
+const prefetchAdminImportHistory = async () => {
+  const firstPage = await adminService.getImportJobs(1, 25);
+  if (firstPage.pagination.totalPages > 1) {
+    await adminService.getImportJobs(2, 25);
+  }
+};
+
 export const prefetchRouteData = async (path: string, user: User | null) => {
   if (!user) return;
 
@@ -241,9 +346,6 @@ export const prefetchRouteData = async (path: string, user: User | null) => {
     );
   } else if (pathname.startsWith("/browse/") || pathname.startsWith("/practice/")) {
     requests.push(prefetchQuestionRoute(path));
-  } else if (pathname.startsWith("/topic/") && !shouldAvoidSpeculativePreloading()) {
-    const firstQuestionRoute = getTopicQuestionRoutes(path)[0];
-    if (firstQuestionRoute) requests.push(prefetchQuestionRoute(firstQuestionRoute));
   }
 
   if (pathname.startsWith("/admin") && user.isAdmin) {
@@ -260,14 +362,9 @@ export const prefetchRouteData = async (path: string, user: User | null) => {
         adminService.getValidationQuestions()
       );
     } else if (pathname === "/admin/questions") {
-      requests.push(adminService.getQuestionBank({
-        mode: "general",
-        page: 1,
-        pageSize: 50,
-        sort: "asc"
-      }));
+      requests.push(prefetchAdminQuestionBank());
     } else if (pathname === "/admin/imports") {
-      requests.push(adminService.getImportJobs(1, 25));
+      requests.push(prefetchAdminImportHistory());
     } else if (pathname === "/admin/accounts") {
       requests.push(adminService.getAdminAccounts());
     } else {
@@ -276,17 +373,37 @@ export const prefetchRouteData = async (path: string, user: User | null) => {
     }
   }
 
-  await Promise.allSettled(requests);
+  await Promise.all(requests);
 };
 
 export const preloadRouteCode = (path: string) =>
-  Promise.allSettled(getRouteModuleLoaders(path).map((loader) => loader()));
+  Promise.all(getRouteModuleLoaders(path).map((loader) => loader()));
 
 export const preloadRoute = async (path: string, user: User | null) => {
-  await Promise.allSettled([
+  const routeKey = `${user?.id ?? "anonymous"}:${user?.isAdmin ? "admin" : "student"}:${path}`;
+  const preparedAt = preparedRoutes.get(routeKey) ?? 0;
+  const codeWasReady = getRouteModuleLoaders(path).every((loader) => loader.isReady());
+  const dataWasPrepared = !routeRequiresPreparedData(path, user) ||
+    Date.now() - preparedAt < preparedRouteFreshnessMs;
+  const requestCountBefore = getInitiatedApiRequestCount();
+
+  await Promise.all([
     preloadRouteCode(path),
     prefetchRouteData(path, user)
   ]);
+
+  preparedRoutes.delete(routeKey);
+  preparedRoutes.set(routeKey, Date.now());
+  if (preparedRoutes.size > maximumPreparedRouteEntries) {
+    const oldestKey = preparedRoutes.keys().next().value;
+    if (oldestKey) preparedRoutes.delete(oldestKey);
+  }
+
+  return {
+    apiRequests: getInitiatedApiRequestCount() - requestCountBefore,
+    codeWasReady,
+    dataWasPrepared
+  } satisfies RoutePreparationResult;
 };
 
 export const getAuthorizedWarmCodeRoutes = (user: User) => {
@@ -299,11 +416,14 @@ export const getAuthorizedWarmCodeRoutes = (user: User) => {
     "/exam",
     "/profile",
     "/topic/math",
-    "/browse/math/arithmetic"
+    "/topic/arabic",
+    "/browse/math/arithmetic/basic-operations",
+    "/browse/arabic/verbal-analogy"
   ];
   if (user.isAdmin) {
     routes.push(
       "/admin",
+      "/admin/import",
       "/admin/questions",
       "/admin/imports",
       "/admin/accounts",
@@ -319,7 +439,17 @@ export const getAuthorizedWarmDataRoutes = (
 ) => {
   if (!user.profileCompleted) return ["/setup-profile"];
 
-  const routes = ["/career", "/profile", "/exam", "/review"];
+  const routes = [
+    "/career",
+    "/study",
+    "/profile",
+    "/exam",
+    "/review",
+    "/topic/math",
+    "/topic/arabic",
+    "/browse/math/arithmetic/basic-operations",
+    "/browse/arabic/verbal-analogy"
+  ];
   if (user.isAdmin && getPathname(currentPath).startsWith("/admin")) {
     routes.push(
       "/admin",

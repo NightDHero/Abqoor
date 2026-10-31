@@ -1,5 +1,23 @@
 export type RouteSubject = "math" | "arabic";
 
+type NavigationPreparation = {
+  apiRequests?: number;
+  codeWasReady?: boolean;
+  dataWasPrepared?: boolean;
+};
+
+type NavigationPreparer = (path: string) => Promise<NavigationPreparation | unknown>;
+
+let navigationPreparer: NavigationPreparer | null = null;
+let navigationRequestId = 0;
+
+export const registerNavigationPreparer = (preparer: NavigationPreparer) => {
+  navigationPreparer = preparer;
+  return () => {
+    if (navigationPreparer === preparer) navigationPreparer = null;
+  };
+};
+
 const isRouteSubject = (value: string): value is RouteSubject => {
   return value === "math" || value === "arabic";
 };
@@ -13,9 +31,35 @@ export const navigateTo = (path: string) => {
     return;
   }
 
+  const navigationStartedAt = performance.now();
+  const requestId = ++navigationRequestId;
+  let preparation: NavigationPreparation = {};
   const commitNavigation = () => {
+    if (requestId !== navigationRequestId) return;
+
     window.history.pushState({}, "", path);
     window.dispatchEvent(new PopStateEvent("popstate"));
+    const metricName = `abqoor:navigation:${path.split(/[?#]/, 1)[0] || "/"}`;
+    const duration = performance.now() - navigationStartedAt;
+    performance.clearMeasures(metricName);
+    performance.measure(metricName, {
+      end: navigationStartedAt + duration,
+      start: navigationStartedAt
+    });
+    if (document.documentElement) {
+      document.documentElement.dataset.navigationApiRequests = String(
+        preparation.apiRequests ?? 0
+      );
+      document.documentElement.dataset.navigationCodeReady = String(
+        preparation.codeWasReady ?? true
+      );
+      document.documentElement.dataset.navigationDataReady = String(
+        preparation.dataWasPrepared ?? true
+      );
+      document.documentElement.dataset.navigationDurationMs = duration.toFixed(1);
+      document.documentElement.dataset.navigationPath = path.split(/[?#]/, 1)[0] || "/";
+      document.documentElement.dataset.navigationSequence = String(requestId);
+    }
 
     const hash = path.includes("#") ? path.slice(path.indexOf("#") + 1) : "";
 
@@ -30,19 +74,19 @@ export const navigateTo = (path: string) => {
       });
     }
   };
-  const documentWithTransitions = document as Document & {
-    startViewTransition?: (callback: () => void) => void;
-  };
-
-  if (
-    documentWithTransitions.startViewTransition &&
-    !window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  ) {
-    documentWithTransitions.startViewTransition(commitNavigation);
+  if (!navigationPreparer) {
+    commitNavigation();
     return;
   }
 
-  commitNavigation();
+  void navigationPreparer(path)
+    .then((result) => {
+      if (typeof result === "object" && result !== null) {
+        preparation = result as NavigationPreparation;
+      }
+    })
+    .catch(() => undefined)
+    .then(commitNavigation);
 };
 
 export const getPracticeRouteValue = (path: string) => {

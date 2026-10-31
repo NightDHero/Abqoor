@@ -1,4 +1,10 @@
-import { lazy, Suspense, type ComponentType, type ReactNode } from "react";
+import {
+  createElement,
+  Suspense,
+  useLayoutEffect,
+  type ComponentType,
+  type ReactNode
+} from "react";
 import { AppShell } from "./components/layout/AppShell";
 import { ProtectedRoute } from "./components/routing/ProtectedRoute";
 import { RedirectTo } from "./components/routing/RedirectTo";
@@ -9,7 +15,11 @@ import { useAuth } from "./hooks/useAuth";
 import { useRoutePreloading } from "./hooks/useRoutePreloading";
 import { useRouter } from "./hooks/useRouter";
 import { useTheme } from "./hooks/useTheme";
-import { routeModules } from "./services/routePreload";
+import {
+  preloadRoute,
+  routeModules,
+  type PreparedRouteModule
+} from "./services/routePreload";
 import type { User } from "./types/auth";
 import { LandingPage } from "./pages/LandingPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
@@ -21,32 +31,43 @@ import {
   navigateTo
 } from "./utils/router";
 
-const lazyNamed = <T extends Record<string, unknown>, K extends keyof T>(
-  loader: () => Promise<T>,
-  name: K
-) => lazy(async () => ({ default: (await loader())[name] as ComponentType<any> }));
+const preparedNamed = (
+  moduleResource: PreparedRouteModule,
+  name: string
+) => function PreparedRouteComponent(props: Record<string, unknown>) {
+  const Component = moduleResource.read()[name] as ComponentType<any>;
+  return createElement(Component, props);
+};
 
-const AdminAccountsPage = lazyNamed(routeModules.adminAccounts, "AdminAccountsPage");
-const AdminImportPage = lazyNamed(routeModules.adminImport, "AdminImportPage");
-const AdminImportDetailPage = lazyNamed(routeModules.adminImportDetail, "AdminImportDetailPage");
-const AdminImportHistoryPage = lazyNamed(routeModules.adminImportHistory, "AdminImportHistoryPage");
-const AdminOverviewPage = lazyNamed(routeModules.adminOverview, "AdminOverviewPage");
-const AdminQuestionBankPage = lazyNamed(routeModules.adminQuestionBank, "AdminQuestionBankPage");
-const AdminValidationPage = lazyNamed(routeModules.adminValidation, "AdminValidationPage");
-const BrowsePage = lazyNamed(routeModules.browse, "BrowsePage");
-const CareerPage = lazyNamed(routeModules.career, "CareerPage");
-const ExamPage = lazyNamed(routeModules.exam, "ExamPage");
-const ProfilePage = lazyNamed(routeModules.profile, "ProfilePage");
-const ReviewPage = lazyNamed(routeModules.review, "ReviewPage");
-const StudyPage = lazyNamed(routeModules.study, "StudyPage");
-const TopicWorldPage = lazyNamed(routeModules.topicWorld, "TopicWorldPage");
+const AdminAccountsPage = preparedNamed(routeModules.adminAccounts, "AdminAccountsPage");
+const AdminImportPage = preparedNamed(routeModules.adminImport, "AdminImportPage");
+const AdminImportDetailPage = preparedNamed(routeModules.adminImportDetail, "AdminImportDetailPage");
+const AdminImportHistoryPage = preparedNamed(routeModules.adminImportHistory, "AdminImportHistoryPage");
+const AdminOverviewPage = preparedNamed(routeModules.adminOverview, "AdminOverviewPage");
+const AdminQuestionBankPage = preparedNamed(routeModules.adminQuestionBank, "AdminQuestionBankPage");
+const AdminValidationPage = preparedNamed(routeModules.adminValidation, "AdminValidationPage");
+const BrowsePage = preparedNamed(routeModules.browse, "BrowsePage");
+const CareerPage = preparedNamed(routeModules.career, "CareerPage");
+const ExamPage = preparedNamed(routeModules.exam, "ExamPage");
+const ProfilePage = preparedNamed(routeModules.profile, "ProfilePage");
+const ReviewPage = preparedNamed(routeModules.review, "ReviewPage");
+const StudyPage = preparedNamed(routeModules.study, "StudyPage");
+const TopicWorldPage = preparedNamed(routeModules.topicWorld, "TopicWorldPage");
 
-const pageFallback = (
-  <div className="route-loading-state" role="status">
-    <span aria-hidden="true" />
-    <p className="status-message">جاري تجهيز الصفحة...</p>
-  </div>
-);
+const PageFallback = () => {
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    const currentCount = Number(root.dataset.routeFallbackCount ?? "0");
+    root.dataset.routeFallbackCount = String(currentCount + 1);
+  }, []);
+
+  return (
+    <div className="route-loading-state" role="status">
+      <span aria-hidden="true" />
+      <p className="status-message">جاري تجهيز الصفحة...</p>
+    </div>
+  );
+};
 
 export default function App() {
   const { path } = useRouter();
@@ -56,6 +77,17 @@ export default function App() {
   const browseValue = getBrowseRouteValue(path);
   const practiceValue = getPracticeRouteValue(path);
   const topicRouteValue = getTopicRouteValue(path);
+  const finishAuthentication = (user: User) => {
+    const destination = user.mustChangePassword
+      ? "/change-password"
+      : user.profileCompleted
+        ? "/career"
+        : "/setup-profile";
+    auth.setUser(user);
+    void preloadRoute(destination, user)
+      .catch(() => undefined)
+      .then(() => navigateTo(destination));
+  };
 
   if (path === "/login") {
     if (!auth.isLoading && auth.user) {
@@ -64,10 +96,7 @@ export default function App() {
     return (
       <AuthPage
         mode="login"
-        onAuthenticated={(user) => {
-          auth.setUser(user);
-          navigateTo(user.mustChangePassword ? "/change-password" : user.profileCompleted ? "/career" : "/setup-profile");
-        }}
+        onAuthenticated={finishAuthentication}
       />
     );
   }
@@ -79,10 +108,7 @@ export default function App() {
     return (
       <AuthPage
         mode="register"
-        onAuthenticated={(user) => {
-          auth.setUser(user);
-          navigateTo(user.mustChangePassword ? "/change-password" : user.profileCompleted ? "/career" : "/setup-profile");
-        }}
+        onAuthenticated={finishAuthentication}
       />
     );
   }
@@ -137,7 +163,7 @@ export default function App() {
           currentPath={path}
           user={auth.user}
         >
-          <Suspense fallback={pageFallback}>{children}</Suspense>
+          <Suspense fallback={<PageFallback />}>{children}</Suspense>
         </AppShell>
       )}
     </ProtectedRoute>
@@ -150,7 +176,7 @@ export default function App() {
       ) : auth.user && !auth.user.profileCompleted ? (
         <RedirectTo path="/setup-profile" />
       ) : (
-        <Suspense fallback={pageFallback}>{children}</Suspense>
+        <Suspense fallback={<PageFallback />}>{children}</Suspense>
       )}
     </ProtectedRoute>
   );

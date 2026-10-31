@@ -19,6 +19,10 @@ type ApiRequestOptions = RequestInit & {
   timeoutMs?: number;
 };
 
+let initiatedApiRequestCount = 0;
+
+export const getInitiatedApiRequestCount = () => initiatedApiRequestCount;
+
 export const runWithRequestDeadline = async <T>(
   operation: (signal: AbortSignal) => Promise<T>,
   options: { signal?: AbortSignal | null; timeoutMs: number }
@@ -83,6 +87,7 @@ export const apiRequest = async <T>(
     timeoutMs = apiRequestTimeouts.standard,
     ...requestOptions
   } = options;
+  initiatedApiRequestCount += 1;
   return runWithRequestDeadline(async (signal) => {
     const response = await fetch(`${env.apiUrl}${path}`, {
       credentials: "include",

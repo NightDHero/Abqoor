@@ -39,15 +39,21 @@ const updateQuestionInExam = (
 
 export function useExamMode() {
   const cachedStructure = examService.getCachedStructure();
-  const [exam, setExam] = useState<ExamAttempt | null>(null);
-  const [result, setResult] = useState<ExamResult | null>(null);
+  const cachedActiveExam = examService.getCachedActiveExam();
+  const preparedExam = cachedActiveExam?.data.exam ?? null;
+  const [exam, setExam] = useState<ExamAttempt | null>(preparedExam);
+  const [result, setResult] = useState<ExamResult | null>(
+    preparedExam?.result ?? null
+  );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [structure, setStructure] = useState<ExamStructure | null>(
-    cachedStructure?.data.structure ?? null
+    preparedExam?.structure ?? cachedStructure?.data.structure ?? null
   );
   const [isStarting, setIsStarting] = useState(false);
-  const [isLoadingSavedExam, setIsLoadingSavedExam] = useState(true);
+  const [isLoadingSavedExam, setIsLoadingSavedExam] = useState(
+    cachedActiveExam === null
+  );
   const [isCompletingSection, setIsCompletingSection] = useState(false);
   const [error, setError] = useState("");
   const autoCompleteSectionRef = useRef(false);
@@ -91,6 +97,16 @@ export function useExamMode() {
   }, []);
 
   useEffect(() => {
+    if (cachedActiveExam) {
+      if (cachedActiveExam.data.exam) {
+        hydrateExam(cachedActiveExam.data.exam);
+      } else {
+        clearSavedActiveExamId();
+      }
+      setIsLoadingSavedExam(false);
+      return;
+    }
+
     const savedExamId = getSavedActiveExamId();
     const restoreExam = async () => {
       if (savedExamId && await loadExam(savedExamId)) {
