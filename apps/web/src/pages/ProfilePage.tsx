@@ -26,6 +26,11 @@ const themePreferenceOptions: Array<{ label: string; value: ThemePreference }> =
   { label: "داكن", value: "dark" }
 ];
 
+export const shouldShowBankConfigLoading = (
+  isLoading: boolean,
+  bankConfig: BankConfig | null
+) => isLoading && !bankConfig;
+
 function InlineOptions<T extends string>({ options, value, onChange }: {
   options: Array<{ label: string; value: T }>;
   value: T | "";
@@ -57,9 +62,12 @@ export function ProfilePage({
   ));
   const [bankConfig, setBankConfig] = useState<BankConfig | null>(cachedBank?.data.config ?? null);
   const [isLoading, setIsLoading] = useState(!(cachedProfile && cachedBank));
+  const [hasLoadedProfile, setHasLoadedProfile] = useState(Boolean(cachedProfile));
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [reloadVersion, setReloadVersion] = useState(0);
   const studyPlanPreview = useStudyPlanPreview({
     bankCount: form.studyPlanBankCount,
     quantitativeStudyDays: form.quantitativeStudyDays,
@@ -71,23 +79,59 @@ export function ProfilePage({
 
   useEffect(() => {
     let isMounted = true;
-    void Promise.all([profileService.getProfile(), bankService.getConfig()])
-      .then(([profileResponse, bankResponse]) => {
+    const currentProfile = profileService.getCachedProfile();
+    const currentBank = bankService.getCachedConfig();
+    if (currentProfile) {
+      setForm(createDefaultProfileForm(
+        currentProfile.data.profile,
+        currentBank?.data.config.availableBankCount
+      ));
+      setHasLoadedProfile(true);
+    }
+    if (currentBank) setBankConfig(currentBank.data.config);
+    setIsLoading(!(currentProfile && currentBank));
+    setLoadError("");
+
+    void Promise.allSettled([profileService.getProfile(), bankService.getConfig()])
+      .then(([profileResult, bankResult]) => {
         if (!isMounted) return;
-        setForm(
-          createDefaultProfileForm(
-            profileResponse.profile,
-            bankResponse.config.availableBankCount
-          )
+        if (profileResult.status === "fulfilled") {
+          const availableBankCount = bankResult.status === "fulfilled"
+            ? bankResult.value.config.availableBankCount
+            : currentBank?.data.config.availableBankCount;
+          setForm(createDefaultProfileForm(
+            profileResult.value.profile,
+            availableBankCount
+          ));
+          setHasLoadedProfile(true);
+        }
+        if (bankResult.status === "fulfilled") {
+          setBankConfig(bankResult.value.config);
+        }
+
+        const rejected = [profileResult, bankResult].filter(
+          (result) => result.status === "rejected"
         );
-        setBankConfig(bankResponse.config);
+        if (rejected.length > 0) {
+          const firstReason = rejected[0].status === "rejected"
+            ? rejected[0].reason
+            : null;
+          setLoadError(
+            firstReason instanceof HttpError
+              ? firstReason.message
+              : "تعذر تحميل بعض بيانات الملف الدراسي."
+          );
+        }
       })
-      .catch((caughtError) => {
-        if (isMounted) setError(caughtError instanceof HttpError ? caughtError.message : "تعذر تحميل الملف الدراسي.");
-      })
-      .finally(() => { if (isMounted) setIsLoading(false); });
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
     return () => { isMounted = false; };
-  }, []);
+  }, [reloadVersion]);
+
+  const retryProfileLoad = () => {
+    setReloadVersion((current) => current + 1);
+  };
 
   const updateForm = (nextValues: Partial<ProfileFormState>) => {
     setError("");
@@ -128,6 +172,14 @@ export function ProfilePage({
   return (
     <PageContainer className="profile-page" eyebrow="الحساب" title="ملفي">
       {isLoading ? <p className="status-message">جاري تحميل الملف الدراسي...</p> : null}
+      {loadError ? (
+        <div className="error-message" role="alert">
+          <span>{loadError}</span>
+          <button className="secondary" type="button" onClick={retryProfileLoad}>
+            إعادة المحاولة
+          </button>
+        </div>
+      ) : null}
       {error ? <p className="error-message">{error}</p> : null}
       {!error && liveValidationError ? <p className="error-message" role="alert">{liveValidationError}</p> : null}
       {message ? <p className="status-message">{message}</p> : null}
@@ -180,10 +232,10 @@ export function ProfilePage({
 
         <section className="profile-section profile-study-plan" aria-labelledby="study-plan-section">
           <h2 id="study-plan-section">خطة الأقسام</h2>
-          {bankConfig ? <><StudyPlanDateField isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} startDate={form.studyPlanStartDate} onChange={(studyPlanStartDate) => updateForm({ studyPlanStartDate })} /><StudyPlanScheduleField initiallyCollapsed isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} quantitativeStudyDays={form.quantitativeStudyDays} restDay={form.weeklyRestDay} reviewDay={form.weeklyReviewDay} verbalStudyDays={form.verbalStudyDays} onScheduleChange={({ quantitativeStudyDays, restDay: weeklyRestDay, reviewDay: weeklyReviewDay, verbalStudyDays }) => updateForm({ quantitativeStudyDays, weeklyRestDay, weeklyReviewDay, verbalStudyDays })} onStudyDaysChange={(quantitativeStudyDays, verbalStudyDays) => updateForm({ quantitativeStudyDays, verbalStudyDays })} /></> : <p className="status-message">جاري تحميل إعدادات الأقسام...</p>}
+          {bankConfig ? <><StudyPlanDateField isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} startDate={form.studyPlanStartDate} onChange={(studyPlanStartDate) => updateForm({ studyPlanStartDate })} /><StudyPlanScheduleField initiallyCollapsed isPlanLoading={studyPlanPreview.isLoading} plan={studyPlanPreview.plan} quantitativeStudyDays={form.quantitativeStudyDays} restDay={form.weeklyRestDay} reviewDay={form.weeklyReviewDay} verbalStudyDays={form.verbalStudyDays} onScheduleChange={({ quantitativeStudyDays, restDay: weeklyRestDay, reviewDay: weeklyReviewDay, verbalStudyDays }) => updateForm({ quantitativeStudyDays, weeklyRestDay, weeklyReviewDay, verbalStudyDays })} onStudyDaysChange={(quantitativeStudyDays, verbalStudyDays) => updateForm({ quantitativeStudyDays, verbalStudyDays })} /></> : shouldShowBankConfigLoading(isLoading, bankConfig) ? <p className="status-message">جاري تحميل إعدادات الأقسام...</p> : null}
         </section>
 
-        <div className="action-row"><button type="submit" disabled={isSaving || isLoading || !bankConfig || Boolean(liveValidationError)}>{isSaving ? "جاري الحفظ..." : "حفظ التغييرات الآن"}</button></div>
+        <div className="action-row"><button type="submit" disabled={isSaving || isLoading || !hasLoadedProfile || !bankConfig || Boolean(liveValidationError)}>{isSaving ? "جاري الحفظ..." : "حفظ التغييرات الآن"}</button></div>
       </form>
 
       <div className="profile-support-grid">

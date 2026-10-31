@@ -92,6 +92,7 @@ test("does not repopulate an invalidated key from an older in-flight response", 
     }),
     maxAgeMs: 60_000
   });
+  await Promise.resolve();
 
   invalidateQueries("admin:questions:");
   resolveRequest({ value: "stale" });
@@ -109,6 +110,7 @@ test("does not let an older in-flight response overwrite a mutation result", asy
     }),
     maxAgeMs: 60_000
   });
+  await Promise.resolve();
 
   writeQueryCache("profile:current", { value: "fresh mutation" });
   resolveRequest({ value: "stale request" });
@@ -165,5 +167,23 @@ test("removes failed in-flight requests so a later intent can retry", async () =
 
   await assert.rejects(load(), /temporary failure/);
   assert.deepEqual(await load(), { ready: true });
+  assert.equal(requests, 2);
+});
+
+test("normalizes synchronous loader failures and permits a clean retry", async () => {
+  clearQueryCache();
+  let requests = 0;
+  const load = () => loadQuery({
+    key: "questions:sync-failure",
+    loader: () => {
+      requests += 1;
+      if (requests === 1) throw new Error("synchronous failure");
+      return Promise.resolve({ questions: [] });
+    },
+    maxAgeMs: 60_000
+  });
+
+  await assert.rejects(load(), /synchronous failure/);
+  assert.deepEqual(await load(), { questions: [] });
   assert.equal(requests, 2);
 });

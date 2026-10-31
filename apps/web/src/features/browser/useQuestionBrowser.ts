@@ -54,9 +54,13 @@ export function useQuestionBrowser({
   const [error, setError] = useState("");
   const [reloadVersion, setReloadVersion] = useState(0);
   const answeredQuestionIdsRef = useRef(new Set<string>());
+  const requestVersionRef = useRef(0);
 
   useEffect(() => {
     let isMounted = true;
+    const requestVersion = ++requestVersionRef.current;
+    const isCurrentRequest = () =>
+      isMounted && requestVersionRef.current === requestVersion;
 
     const loadQuestions = async () => {
       const cached = questionService.getCachedQuestions({
@@ -64,12 +68,14 @@ export function useQuestionBrowser({
         subtopicId: subtopic,
         topicId: topic
       });
+      const cachedQuestions = sortByImporterOrder(cached?.data.questions ?? []);
+      setQuestions(cachedQuestions);
       setIsLoading(!cached);
       setError("");
       setCurrentIndex(0);
       setAnswersByQuestionId({});
       setCorrectAnswersByQuestionId(
-        getCorrectAnswers(cached?.data.questions ?? [])
+        getCorrectAnswers(cachedQuestions)
       );
       setSubmittingQuestionIds(new Set());
       answeredQuestionIdsRef.current.clear();
@@ -93,7 +99,7 @@ export function useQuestionBrowser({
           nextQuestions = fallback.questions;
         }
 
-        if (isMounted) {
+        if (isCurrentRequest()) {
           const sortedQuestions = sortByImporterOrder(nextQuestions);
           const initialIndex =
             initialQuestionId === undefined
@@ -107,11 +113,11 @@ export function useQuestionBrowser({
           setCurrentIndex(initialIndex >= 0 ? initialIndex : 0);
         }
       } catch (caughtError) {
-        if (isMounted) {
+        if (isCurrentRequest()) {
           setError(readErrorMessage(caughtError, "تعذر تحميل الأسئلة."));
         }
       } finally {
-        if (isMounted) {
+        if (isCurrentRequest()) {
           setIsLoading(false);
         }
       }

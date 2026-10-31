@@ -9,7 +9,7 @@ import type {
   ValidationQuestion,
   ValidationSummary
 } from "../types/admin";
-import { apiRequest } from "./http";
+import { apiRequest, apiRequestTimeouts } from "./http";
 import {
   invalidateQueries,
   loadQuery,
@@ -145,7 +145,8 @@ export const adminService = {
     }
     return apiRequest<ImportJobDetail>("/admin/import/analyze", {
       body: formData,
-      method: "POST"
+      method: "POST",
+      timeoutMs: apiRequestTimeouts.upload
     }).then(recordImportMutation);
   },
   getCachedImportTaxonomy: () =>

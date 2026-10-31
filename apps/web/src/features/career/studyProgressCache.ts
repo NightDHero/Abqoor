@@ -92,7 +92,8 @@ export const loadStudyProgressCache = (
   if (pendingRequest) return pendingRequest;
 
   const requestGeneration = getGeneration(userId);
-  const request = loader()
+  const request = Promise.resolve()
+    .then(loader)
     .then((data) => {
       if (getGeneration(userId) === requestGeneration) {
         writeStudyProgressCache(userId, cacheKey, data);

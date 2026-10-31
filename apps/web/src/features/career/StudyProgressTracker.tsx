@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { SystemIcon } from "../../components/ui/SystemIcon";
 import { HttpError } from "../../services/http";
 import { sessionService } from "../../services/sessionService";
@@ -605,11 +605,14 @@ export function StudyProgressTracker({
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(!initialCache);
   const [isMonthLoading, setIsMonthLoading] = useState(false);
+  const [reloadVersion, setReloadVersion] = useState(0);
   const [timeZone] = useState(resolvedTimeZone);
+  const monthRequestVersionRef = useRef(0);
 
   useEffect(() => {
     const cached = readStudyProgressCache(userId, currentCacheKey);
     let isMounted = true;
+    setError("");
 
     if (cached) {
       setProgress(cached.data);
@@ -662,9 +665,12 @@ export function StudyProgressTracker({
     return () => {
       isMounted = false;
     };
-  }, [currentCacheKey, onCareerProgressLoaded, timeZone, userId]);
+  }, [currentCacheKey, onCareerProgressLoaded, reloadVersion, timeZone, userId]);
 
   const loadDisplayedMonth = async (monthKey: string) => {
+    const requestVersion = ++monthRequestVersionRef.current;
+    const isCurrentRequest = () =>
+      monthRequestVersionRef.current === requestVersion;
     const cacheKey = getStudyProgressCacheKey(timeZone, monthKey);
     const cached = readStudyProgressCache(userId, cacheKey);
 
@@ -685,10 +691,12 @@ export function StudyProgressTracker({
         () => sessionService.getProgress(timeZone, monthKey)
       );
 
-      setProgress(response);
-      onCareerProgressLoaded?.(response.career);
+      if (isCurrentRequest()) {
+        setProgress(response);
+        onCareerProgressLoaded?.(response.career);
+      }
     } catch (caughtError) {
-      if (!cached) {
+      if (!cached && isCurrentRequest()) {
         setError(
           caughtError instanceof HttpError
             ? caughtError.message
@@ -696,7 +704,7 @@ export function StudyProgressTracker({
         );
       }
     } finally {
-      setIsMonthLoading(false);
+      if (isCurrentRequest()) setIsMonthLoading(false);
     }
   };
 
@@ -824,7 +832,18 @@ export function StudyProgressTracker({
             </header>
             <div className="study-progress-loading-state" role="status">
               {isLoading ? <p className="study-progress-empty">جاري تحميل التقدم...</p> : null}
-              {error ? <p className="study-progress-empty">{error}</p> : null}
+              {error ? (
+                <div className="error-message" role="alert">
+                  <span>{error}</span>
+                  <button
+                    className="secondary"
+                    type="button"
+                    onClick={() => setReloadVersion((current) => current + 1)}
+                  >
+                    إعادة المحاولة
+                  </button>
+                </div>
+              ) : null}
             </div>
           </section>
         </div>

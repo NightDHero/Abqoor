@@ -100,7 +100,8 @@ export const loadQuery = <T>(input: {
 
   const requestGeneration = generation;
   const requestVersion = getVersion(scopedKey);
-  const request = input.loader()
+  const request = Promise.resolve()
+    .then(input.loader)
     .then((data) => {
       if (
         generation === requestGeneration &&

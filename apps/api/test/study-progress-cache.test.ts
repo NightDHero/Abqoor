@@ -71,6 +71,7 @@ test("does not repopulate a cleared cache from an older in-flight request", asyn
     })
   );
 
+  await Promise.resolve();
   clearStudyProgressCache("user-a");
   resolveRequest?.(progressFixture);
   await pending;

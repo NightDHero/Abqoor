@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { adminService } from "../../services/adminService";
 import { navigateTo } from "../../utils/router";
 import type { ImportHistoryResponse } from "../../types/admin";
@@ -15,17 +15,27 @@ export function AdminImportHistoryPage() {
   const [page, setPage] = useState(1);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(!initialCache);
+  const requestVersionRef = useRef(0);
 
   const loadHistory = (nextPage: number) => {
+    const requestVersion = ++requestVersionRef.current;
     const cached = adminService.getCachedImportJobs(nextPage, pageSize);
     if (cached) setHistory(cached.data);
     setIsLoading(!cached);
     setError("");
     void adminService
       .getImportJobs(nextPage, pageSize)
-      .then(setHistory)
-      .catch(() => setError("تعذر تحميل سجل الرفع."))
-      .finally(() => setIsLoading(false));
+      .then((response) => {
+        if (requestVersionRef.current === requestVersion) setHistory(response);
+      })
+      .catch(() => {
+        if (requestVersionRef.current === requestVersion) {
+          setError("تعذر تحميل سجل الرفع.");
+        }
+      })
+      .finally(() => {
+        if (requestVersionRef.current === requestVersion) setIsLoading(false);
+      });
   };
 
   useEffect(() => {

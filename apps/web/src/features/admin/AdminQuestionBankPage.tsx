@@ -48,6 +48,7 @@ export function AdminQuestionBankPage() {
   const [isLoading, setIsLoading] = useState(!initialCache);
   const [error, setError] = useState("");
   const [selectedTopicKey, setSelectedTopicKey] = useState("");
+  const [reloadVersion, setReloadVersion] = useState(0);
   const requestVersionRef = useRef(0);
 
   useEffect(() => {
@@ -61,27 +62,34 @@ export function AdminQuestionBankPage() {
       sort
     };
     const cached = adminService.getCachedQuestionBank(request);
-    if (cached) setResult(cached.data);
+    setResult(cached?.data ?? {
+      ...emptyResult,
+      mode,
+      page
+    });
     setIsLoading(!cached);
     setError("");
 
     const timer = window.setTimeout(() => {
-      void adminService
-        .getQuestionBank(request)
-        .then((response) => {
-          if (requestVersionRef.current === requestVersion) setResult(response);
-        })
-        .catch((requestError: unknown) => {
+      const loadQuestionBank = async () => {
+        try {
+          const response = await adminService.getQuestionBank(request);
+          if (requestVersionRef.current === requestVersion) {
+            setResult(response);
+          }
+        } catch (requestError) {
           if (requestVersionRef.current !== requestVersion) return;
           setError(
             requestError instanceof Error && requestError.message
               ? requestError.message
               : "تعذر تحميل بنك الأسئلة."
           );
-        })
-        .finally(() => {
+        } finally {
           if (requestVersionRef.current === requestVersion) setIsLoading(false);
-        });
+        }
+      };
+
+      void loadQuestionBank();
     }, 180);
     return () => {
       window.clearTimeout(timer);
@@ -89,7 +97,7 @@ export function AdminQuestionBankPage() {
         requestVersionRef.current += 1;
       }
     };
-  }, [bankId, mode, page, query, sort]);
+  }, [bankId, mode, page, query, reloadVersion, sort]);
 
   const pageCount = getQuestionBankPageCount(result.total, result.pageSize);
   const showEmptyState = shouldShowQuestionBankEmptyState({
@@ -329,7 +337,18 @@ export function AdminQuestionBankPage() {
           <span>{error ? "العدد غير متاح" : `${result.total.toLocaleString("ar-SA")} سؤال`}</span>
         </div>
 
-        {error ? <p className="admin-alert error">{error}</p> : null}
+        {error ? (
+          <p className="admin-alert error" role="alert">
+            {error}{" "}
+            <button
+              className="secondary"
+              type="button"
+              onClick={() => setReloadVersion((current) => current + 1)}
+            >
+              إعادة المحاولة
+            </button>
+          </p>
+        ) : null}
         {isLoading ? <p className="admin-empty">جاري تحميل الأسئلة...</p> : null}
         {showEmptyState ? <p className="admin-empty">لا توجد أسئلة مطابقة.</p> : null}
 

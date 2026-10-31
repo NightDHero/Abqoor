@@ -103,7 +103,7 @@ export function QuestionBrowser({
         <div className="error-message" role="alert">{reviewBank.error}</div>
       ) : null}
 
-      {!browser.isLoading && browser.filteredQuestions.length === 0 ? (
+      {!browser.isLoading && !browser.error && browser.filteredQuestions.length === 0 ? (
         <div className="workspace-empty-state">
           لا توجد أسئلة مطابقة لهذا المسار أو البحث الحالي.
         </div>
