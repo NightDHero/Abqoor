@@ -2,9 +2,24 @@ import {
   getNetworkInformation,
   type NetworkInformationLike
 } from "./networkPreferences";
+import {
+  cacheQuestionAsset,
+  getQuestionAssetCacheScope,
+  getCachedQuestionAssetSource,
+  isQuestionAssetPersisted
+} from "../services/questionAssetCache";
 
 const loadedSources = new Set<string>();
-const pendingSources = new Map<string, Promise<void>>();
+const pendingSources = new Map<string, Promise<ImagePreloadResult>>();
+
+export type ImagePreloadResult = {
+  loaded: boolean;
+  persisted: boolean;
+  source: string;
+};
+
+const toScopedSource = (source: string) =>
+  `${getQuestionAssetCacheScope()}::${source}`;
 
 export const getImagePreloadLimit = (
   requestedLimit: number,
@@ -17,41 +32,63 @@ export const getImagePreloadLimit = (
   return requestedLimit;
 };
 
-const preloadImage = (source: string) => {
+const preloadImage = async (source: string, persist: boolean) => {
+  const scopedSource = toScopedSource(source);
   if (
     !source ||
-    loadedSources.has(source) ||
     typeof Image === "undefined"
   ) {
-    return Promise.resolve();
+    return { loaded: false, persisted: false, source };
   }
 
-  const pending = pendingSources.get(source);
+  if (loadedSources.has(scopedSource)) {
+    return {
+      loaded: true,
+      persisted: isQuestionAssetPersisted(source),
+      source
+    };
+  }
+
+  const pending = pendingSources.get(scopedSource);
   if (pending) return pending;
 
-  const request = new Promise<void>((resolve) => {
+  const persistedSource = persist ? await cacheQuestionAsset(source) : null;
+  const resolvedSource =
+    persistedSource ?? getCachedQuestionAssetSource(source) ?? source;
+  const request = new Promise<ImagePreloadResult>((resolve) => {
     const image = new Image();
     image.decoding = "async";
     image.onload = () => {
-      loadedSources.add(source);
-      resolve();
+      loadedSources.add(scopedSource);
+      resolve({
+        loaded: true,
+        persisted: persist ? isQuestionAssetPersisted(source) : false,
+        source
+      });
     };
-    image.onerror = () => resolve();
-    image.src = source;
+    image.onerror = () => resolve({ loaded: false, persisted: false, source });
+    image.src = resolvedSource;
   }).finally(() => {
-    pendingSources.delete(source);
+    pendingSources.delete(scopedSource);
   });
 
-  pendingSources.set(source, request);
+  pendingSources.set(scopedSource, request);
   return request;
 };
 
 export const preloadImages = (
   sources: Array<string | null | undefined>,
-  requestedLimit = 3
+  requestedLimit = 3,
+  options: { persist?: boolean; required?: boolean } = {}
 ) => {
   const uniqueSources = [...new Set(sources.filter((source): source is string => Boolean(source)))];
-  const limit = getImagePreloadLimit(requestedLimit);
-  return Promise.allSettled(uniqueSources.slice(0, limit).map(preloadImage));
+  const limit = options.required
+    ? requestedLimit
+    : getImagePreloadLimit(requestedLimit);
+  return Promise.allSettled(
+    uniqueSources
+      .slice(0, limit)
+      .map((source) => preloadImage(source, options.persist !== false))
+  );
 };
 

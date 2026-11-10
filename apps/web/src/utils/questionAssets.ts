@@ -35,7 +35,8 @@ export const preloadQuestionWindow = (
   questions: QuestionAsset[],
   activeIndex: number,
   toSource: (path: string) => string,
-  questionCount = 3
+  questionCount = 3,
+  options: { persist?: boolean } = {}
 ) => {
   const sources = getQuestionWindowAssetSources(
     questions,
@@ -44,6 +45,6 @@ export const preloadQuestionWindow = (
     questionCount
   );
 
-  return preloadImages(sources, sources.length);
+  return preloadImages(sources, sources.length, options);
 };
 

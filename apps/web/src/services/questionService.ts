@@ -1,6 +1,13 @@
 import type { CorrectAnswer, QuestionAnswerResponse, QuestionListResponse } from "../types/question";
 import { apiRequest } from "./http";
-import { invalidateQueries, loadQuery, readQueryCache } from "./queryCache";
+import {
+  invalidateQueries,
+  loadQuery,
+  persistQueryCacheEntry,
+  readQueryCache,
+  readPersistedQueryCacheData,
+  writeQueryCache
+} from "./queryCache";
 import { reviewBankService } from "./reviewBankService";
 
 export type QuestionQuery = {
@@ -38,18 +45,35 @@ const toQueryString = (query: QuestionQuery) => {
   return value ? `?${value}` : "";
 };
 
-const questionCacheMaxAgeMs = 5 * 60_000;
-const questionCacheKey = (query: QuestionQuery) =>
+const questionCacheMaxAgeMs = 12 * 60 * 60_000;
+export const getQuestionCacheKey = (query: QuestionQuery) =>
   `questions:${toQueryString(query) || "all"}`;
 
 export const questionService = {
   invalidate: () => invalidateQueries("questions:"),
   getCachedQuestions: (query: QuestionQuery) =>
-    readQueryCache<QuestionListResponse>(questionCacheKey(query), questionCacheMaxAgeMs),
+    readQueryCache<QuestionListResponse>(getQuestionCacheKey(query), questionCacheMaxAgeMs),
+  primeQuestions: (query: QuestionQuery, response: QuestionListResponse) =>
+    writeQueryCache(getQuestionCacheKey(query), response),
+  primeQuestionsAndPersist: async (
+    query: QuestionQuery,
+    response: QuestionListResponse,
+    requiredQuestionIds: string[]
+  ) => {
+    const key = getQuestionCacheKey(query);
+    writeQueryCache(key, response);
+    if (!(await persistQueryCacheEntry(key))) return false;
+
+    const persisted = await readPersistedQueryCacheData<QuestionListResponse>(key);
+    const persistedIds = new Set(
+      persisted?.questions.map((question) => question.id) ?? []
+    );
+    return requiredQuestionIds.every((questionId) => persistedIds.has(questionId));
+  },
   getQuestions: (query: QuestionQuery) => {
     const queryString = toQueryString(query);
     return loadQuery({
-      key: questionCacheKey(query),
+      key: getQuestionCacheKey(query),
       loader: () => apiRequest<QuestionListResponse>(`/questions${queryString}`),
       maxAgeMs: questionCacheMaxAgeMs
     });

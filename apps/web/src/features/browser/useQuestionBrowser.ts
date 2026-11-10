@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { HttpError } from "../../services/http";
 import { questionService } from "../../services/questionService";
+import { readQueryCache, writeQueryCache } from "../../services/queryCache";
+import {
+  recordPerformanceLoadingState,
+  startPerformanceInteraction
+} from "../../services/performanceTelemetry";
 import type { CorrectAnswer, Question } from "../../types/question";
 import type { RouteSubject } from "../../utils/router";
 import { preloadQuestionWindow } from "../../utils/questionAssets";
@@ -10,8 +15,14 @@ import {
   toMediaSrc
 } from "./browserUtils";
 import { evaluatePracticeAnswer } from "./practiceAnswer";
+import {
+  type BrowserDisplayMode,
+  getQuestionBrowserStateKey,
+  getRestoredQuestionIndex,
+  type QuestionBrowserState
+} from "./questionBrowserState";
 
-export type BrowserDisplayMode = "question" | "immersive";
+export type { BrowserDisplayMode } from "./questionBrowserState";
 
 const readErrorMessage = (caughtError: unknown, fallback: string) =>
   caughtError instanceof HttpError ? caughtError.message : fallback;
@@ -34,26 +45,47 @@ export function useQuestionBrowser({
   topic: string;
 }) {
   const query = { subjectId: subject, subtopicId: subtopic, topicId: topic };
+  const stateKey = getQuestionBrowserStateKey({ subject, subtopic, topic });
+  const initialState = readQueryCache<QuestionBrowserState>(
+    stateKey,
+    Number.POSITIVE_INFINITY
+  )?.data;
   const initialCache = questionService.getCachedQuestions(query);
+  const initialQuestions = sortByImporterOrder(initialCache?.data.questions ?? []);
+  const initialSearchText = initialState?.searchText ?? "";
   const [questions, setQuestions] = useState<Question[]>(
-    () => initialCache?.data.questions ?? []
+    () => initialQuestions
   );
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [displayMode, setDisplayMode] = useState<BrowserDisplayMode>("question");
-  const [searchText, setSearchText] = useState("");
+  const [currentIndex, setCurrentIndex] = useState(() =>
+    getRestoredQuestionIndex(
+      initialQuestions,
+      initialSearchText,
+      initialQuestionId ?? initialState?.currentQuestionId
+    )
+  );
+  const [displayMode, setDisplayMode] = useState<BrowserDisplayMode>(
+    initialState?.displayMode ?? "question"
+  );
+  const [searchText, setSearchText] = useState(initialSearchText);
   const [answersByQuestionId, setAnswersByQuestionId] = useState<
     Partial<Record<string, CorrectAnswer>>
-  >({});
+  >(initialState?.answersByQuestionId ?? {});
   const [correctAnswersByQuestionId, setCorrectAnswersByQuestionId] = useState<
     Partial<Record<string, CorrectAnswer>>
-  >(() => getCorrectAnswers(initialCache?.data.questions ?? []));
+  >(() => ({
+    ...getCorrectAnswers(initialQuestions),
+    ...initialState?.correctAnswersByQuestionId
+  }));
   const [submittingQuestionIds, setSubmittingQuestionIds] = useState<Set<string>>(
     new Set()
   );
   const [isLoading, setIsLoading] = useState(!initialCache);
   const [error, setError] = useState("");
   const [reloadVersion, setReloadVersion] = useState(0);
-  const answeredQuestionIdsRef = useRef(new Set<string>());
+  const [hydratedStateKey, setHydratedStateKey] = useState(stateKey);
+  const answeredQuestionIdsRef = useRef(
+    new Set(Object.keys(initialState?.answersByQuestionId ?? {}))
+  );
   const requestVersionRef = useRef(0);
 
   useEffect(() => {
@@ -69,16 +101,37 @@ export function useQuestionBrowser({
         topicId: topic
       });
       const cachedQuestions = sortByImporterOrder(cached?.data.questions ?? []);
+      const savedState = readQueryCache<QuestionBrowserState>(
+        stateKey,
+        Number.POSITIVE_INFINITY
+      )?.data;
+      const nextSearchText = savedState?.searchText ?? "";
+      const preferredQuestionId =
+        initialQuestionId ?? savedState?.currentQuestionId;
       setQuestions(cachedQuestions);
       setIsLoading(!cached);
       setError("");
-      setCurrentIndex(0);
-      setAnswersByQuestionId({});
+      setSearchText(nextSearchText);
+      setDisplayMode(savedState?.displayMode ?? "question");
+      setCurrentIndex(
+        getRestoredQuestionIndex(
+          cachedQuestions,
+          nextSearchText,
+          preferredQuestionId
+        )
+      );
+      setAnswersByQuestionId(savedState?.answersByQuestionId ?? {});
       setCorrectAnswersByQuestionId(
-        getCorrectAnswers(cachedQuestions)
+        {
+          ...getCorrectAnswers(cachedQuestions),
+          ...savedState?.correctAnswersByQuestionId
+        }
       );
       setSubmittingQuestionIds(new Set());
-      answeredQuestionIdsRef.current.clear();
+      answeredQuestionIdsRef.current = new Set(
+        Object.keys(savedState?.answersByQuestionId ?? {})
+      );
+      setHydratedStateKey(stateKey);
 
       try {
         const exact = await questionService.getQuestions({
@@ -101,16 +154,19 @@ export function useQuestionBrowser({
 
         if (isCurrentRequest()) {
           const sortedQuestions = sortByImporterOrder(nextQuestions);
-          const initialIndex =
-            initialQuestionId === undefined
-              ? 0
-              : sortedQuestions.findIndex(
-                  (question) => question.id === initialQuestionId
-                );
 
           setQuestions(sortedQuestions);
-          setCorrectAnswersByQuestionId(getCorrectAnswers(sortedQuestions));
-          setCurrentIndex(initialIndex >= 0 ? initialIndex : 0);
+          setCorrectAnswersByQuestionId((existing) => ({
+            ...getCorrectAnswers(sortedQuestions),
+            ...existing
+          }));
+          setCurrentIndex(
+            getRestoredQuestionIndex(
+              sortedQuestions,
+              nextSearchText,
+              preferredQuestionId
+            )
+          );
         }
       } catch (caughtError) {
         if (isCurrentRequest()) {
@@ -128,7 +184,7 @@ export function useQuestionBrowser({
     return () => {
       isMounted = false;
     };
-  }, [initialQuestionId, reloadVersion, subject, subtopic, topic]);
+  }, [initialQuestionId, reloadVersion, stateKey, subject, subtopic, topic]);
 
   const filteredQuestions = useMemo(
     () =>
@@ -147,6 +203,30 @@ export function useQuestionBrowser({
   const currentQuestion = filteredQuestions[currentIndex] ?? null;
 
   useEffect(() => {
+    if (isLoading) recordPerformanceLoadingState("question-browser");
+  }, [isLoading]);
+
+  useEffect(() => {
+    if (hydratedStateKey !== stateKey || questions.length === 0) return;
+    writeQueryCache<QuestionBrowserState>(stateKey, {
+      answersByQuestionId,
+      correctAnswersByQuestionId,
+      currentQuestionId: currentQuestion?.id ?? null,
+      displayMode,
+      searchText
+    });
+  }, [
+    answersByQuestionId,
+    correctAnswersByQuestionId,
+    currentQuestion?.id,
+    displayMode,
+    hydratedStateKey,
+    questions.length,
+    searchText,
+    stateKey
+  ]);
+
+  useEffect(() => {
     void preloadQuestionWindow(filteredQuestions, currentIndex, toMediaSrc, 3);
   }, [currentIndex, filteredQuestions]);
 
@@ -161,6 +241,7 @@ export function useQuestionBrowser({
       return null;
     }
 
+    startPerformanceInteraction("question", `${questionId}:answer`);
     answeredQuestionIdsRef.current.add(questionId);
     const applyEvaluation = (evaluation: {
       correctAnswer: CorrectAnswer;
@@ -208,10 +289,16 @@ export function useQuestionBrowser({
   };
 
   const goToPrevious = () => {
+    const target = filteredQuestions[Math.max(currentIndex - 1, 0)];
+    if (target) startPerformanceInteraction("question", target.id);
     setCurrentIndex((value) => Math.max(value - 1, 0));
   };
 
   const goToNext = () => {
+    const target = filteredQuestions[
+      Math.min(currentIndex + 1, Math.max(filteredQuestions.length - 1, 0))
+    ];
+    if (target) startPerformanceInteraction("question", target.id);
     setCurrentIndex((value) =>
       Math.min(value + 1, Math.max(filteredQuestions.length - 1, 0))
     );
@@ -223,15 +310,20 @@ export function useQuestionBrowser({
     );
 
     if (index >= 0) {
+      startPerformanceInteraction("question", questionId);
       setCurrentIndex(index);
       setDisplayMode("question");
     }
   };
 
   const goToIndex = (index: number) => {
-    setCurrentIndex(
-      Math.min(Math.max(index, 0), Math.max(filteredQuestions.length - 1, 0))
+    const nextIndex = Math.min(
+      Math.max(index, 0),
+      Math.max(filteredQuestions.length - 1, 0)
     );
+    const target = filteredQuestions[nextIndex];
+    if (target) startPerformanceInteraction("question", target.id);
+    setCurrentIndex(nextIndex);
   };
 
   return {

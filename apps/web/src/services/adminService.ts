@@ -66,6 +66,13 @@ const cacheImportDetail = (detail: ImportJobDetail) => {
   return detail;
 };
 
+const loadImportDetail = (jobId: string, force = false) => loadQuery({
+  force,
+  key: importDetailCacheKey(jobId),
+  loader: () => apiRequest<ImportJobDetail>(`/admin/import/jobs/${jobId}`),
+  maxAgeMs: importDetailCacheMaxAgeMs
+});
+
 const recordImportMutation = (detail: ImportJobDetail) => {
   invalidateQueries("admin:imports:history:");
   return cacheImportDetail(detail);
@@ -173,13 +180,9 @@ export const adminService = {
       importDetailCacheKey(jobId),
       importDetailCacheMaxAgeMs
     ),
+  prefetchImportJob: (jobId: string) => loadImportDetail(jobId),
   getImportJob: async (jobId: string, force = false) => {
-    const detail = await loadQuery({
-      force,
-      key: importDetailCacheKey(jobId),
-      loader: () => apiRequest<ImportJobDetail>(`/admin/import/jobs/${jobId}`),
-      maxAgeMs: importDetailCacheMaxAgeMs
-    });
+    const detail = await loadImportDetail(jobId, force);
     return cacheImportDetail(detail);
   },
   confirmImport: (

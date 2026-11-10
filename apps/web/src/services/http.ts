@@ -1,4 +1,5 @@
 import { env } from "../config/env";
+import { recordPerformanceRequest } from "./performanceTelemetry";
 
 export class HttpError extends Error {
   constructor(
@@ -20,6 +21,7 @@ type ApiRequestOptions = RequestInit & {
 };
 
 let initiatedApiRequestCount = 0;
+const developmentRequestPaths: string[] = [];
 
 export const getInitiatedApiRequestCount = () => initiatedApiRequestCount;
 
@@ -88,29 +90,46 @@ export const apiRequest = async <T>(
     ...requestOptions
   } = options;
   initiatedApiRequestCount += 1;
-  return runWithRequestDeadline(async (signal) => {
-    const response = await fetch(`${env.apiUrl}${path}`, {
-      credentials: "include",
-      ...requestOptions,
-      headers:
-        requestOptions.body instanceof FormData
-          ? requestOptions.headers
-          : {
-              "Content-Type": "application/json",
-              ...requestOptions.headers
-            },
-      signal
-    });
-    const data = await readResponseJson(response);
-
-    if (!response.ok) {
-      throw new HttpError(
-        getErrorMessage(data, "تعذر تنفيذ الطلب."),
-        response.status,
-        data
+  if (typeof document !== "undefined") {
+    document.documentElement.dataset.apiRequestCount = String(
+      initiatedApiRequestCount
+    );
+    if (import.meta.env.DEV) {
+      developmentRequestPaths.push(path);
+      if (developmentRequestPaths.length > 120) developmentRequestPaths.shift();
+      document.documentElement.dataset.apiRequestPaths = JSON.stringify(
+        developmentRequestPaths
       );
     }
+  }
+  recordPerformanceRequest("started");
+  try {
+    return await runWithRequestDeadline(async (signal) => {
+      const response = await fetch(`${env.apiUrl}${path}`, {
+        credentials: "include",
+        ...requestOptions,
+        headers:
+          requestOptions.body instanceof FormData
+            ? requestOptions.headers
+            : {
+                "Content-Type": "application/json",
+                ...requestOptions.headers
+              },
+        signal
+      });
+      const data = await readResponseJson(response);
 
-    return data as T;
-  }, { signal: callerSignal, timeoutMs });
+      if (!response.ok) {
+        throw new HttpError(
+          getErrorMessage(data, "تعذر تنفيذ الطلب."),
+          response.status,
+          data
+        );
+      }
+
+      return data as T;
+    }, { signal: callerSignal, timeoutMs });
+  } finally {
+    recordPerformanceRequest("completed");
+  }
 };

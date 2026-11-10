@@ -2,6 +2,11 @@ import { FormEvent, useEffect, useState } from "react";
 import { env } from "../../config/env";
 import { authService } from "../../services/authService";
 import { HttpError } from "../../services/http";
+import {
+  markPerformanceStage,
+  setPerformanceInteractionTarget,
+  startPerformanceInteraction
+} from "../../services/performanceTelemetry";
 import type { AuthMode, User } from "../../types/auth";
 import { navigateTo } from "../../utils/router";
 import { homeContent } from "../home/homeContent";
@@ -104,6 +109,16 @@ export function AuthPage({
     : {});
   const showFieldError = (field: keyof typeof fieldErrors) =>
     Boolean(fieldErrors[field]) && (submitAttempted || touched[field]);
+  const finishAuthenticationMeasurement = (user: User) => {
+    setPerformanceInteractionTarget(
+      user.mustChangePassword
+        ? "/change-password"
+        : user.profileCompleted
+          ? "/career"
+          : "/setup-profile"
+    );
+    markPerformanceStage("authentication-success");
+  };
 
   const handleRequestCode = async () => {
     setTouched((current) => ({ ...current, email: true }));
@@ -136,6 +151,7 @@ export function AuthPage({
     if (!isFormValid) return;
     setError("");
     setIsSubmitting(true);
+    startPerformanceInteraction("authentication", mode);
 
     try {
       const response = await authService.authenticate(mode, {
@@ -145,6 +161,7 @@ export function AuthPage({
         passwordConfirmation: mode === "register" ? passwordConfirmation : undefined,
         verificationCode: mode === "register" ? verificationCode : undefined
       });
+      finishAuthenticationMeasurement(response.user);
       onAuthenticated(response.user);
     } catch (caughtError) {
       setError(
@@ -162,8 +179,10 @@ export function AuthPage({
     setPendingGoogleCredential("");
     setGoogleLinkPassword("");
     setIsSubmitting(true);
+    startPerformanceInteraction("authentication", "google");
     try {
       const response = await authService.authenticateWithGoogle(credential);
+      finishAuthenticationMeasurement(response.user);
       onAuthenticated(response.user);
     } catch (caughtError) {
       if (caughtError instanceof HttpError && getHttpErrorCode(caughtError) === "GOOGLE_LINK_REQUIRED") {
@@ -182,11 +201,13 @@ export function AuthPage({
     if (!pendingGoogleCredential || !googleLinkPassword) return;
     setError("");
     setIsSubmitting(true);
+    startPerformanceInteraction("authentication", "google-link");
     try {
       const response = await authService.linkGoogleAccount({
         credential: pendingGoogleCredential,
         password: googleLinkPassword
       });
+      finishAuthenticationMeasurement(response.user);
       onAuthenticated(response.user);
     } catch (caughtError) {
       setError(caughtError instanceof HttpError ? caughtError.message : "تعذر ربط حساب Google.");

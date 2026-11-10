@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   classifyRouteForPreload,
+  getAllQuestionRoutes,
   getAuthorizedWarmCodeRoutes,
   getAuthorizedWarmDataRoutes,
   getRouteModuleLoaders,
@@ -10,6 +11,7 @@ import {
 } from "../src/services/routePreload.js";
 import type { User } from "../src/types/auth.js";
 import { getImagePreloadLimit } from "../src/utils/preloadImages.js";
+import { getBrowseRouteValue } from "../src/utils/router.js";
 
 const user: User = {
   createdAt: "2026-01-01T00:00:00.000Z",
@@ -24,7 +26,7 @@ const user: User = {
 
 test("maps student and admin destinations to bounded lazy route loaders", () => {
   assert.equal(getRouteModuleLoaders("/career").length, 1);
-  assert.equal(getRouteModuleLoaders("/browse/math/algebra/equations?question=Q-25").length, 1);
+  assert.equal(getRouteModuleLoaders("/browse/math/algebra/equations-inequalities?question=Q-25").length, 1);
   assert.equal(getRouteModuleLoaders("/exam").length, 2);
   assert.equal(getRouteModuleLoaders("/admin/imports/job-123").length, 1);
   assert.equal(getRouteModuleLoaders("/login").length, 0);
@@ -41,7 +43,7 @@ test("classifies the complete route families without treating unknown paths as p
     "/topic/math",
     "/topic/math/algebra",
     "/browse/math/algebra",
-    "/browse/math/algebra/equations",
+    "/browse/math/algebra/equations-inequalities",
     "/practice/math/algebra",
     "/study?subject=math",
     "/exam",
@@ -69,6 +71,7 @@ test("builds bounded warm plans from profile and role state", () => {
   assert.ok(studentCode.includes("/topic/math"));
   assert.ok(studentCode.includes("/browse/math/arithmetic/basic-operations"));
   assert.ok(studentCode.includes("/browse/arabic/verbal-analogy"));
+  assert.ok(studentCode.includes("/browse/math/word-problems/speed-time"));
   assert.ok(!studentCode.includes("/admin"));
 
   const studentData = getAuthorizedWarmDataRoutes(user, "/career");
@@ -76,11 +79,7 @@ test("builds bounded warm plans from profile and role state", () => {
     "/study",
     "/profile",
     "/exam",
-    "/review",
-    "/topic/math",
-    "/topic/arabic",
-    "/browse/math/arithmetic/basic-operations",
-    "/browse/arabic/verbal-analogy"
+    "/review"
   ]);
 
   const admin = { ...user, isAdmin: true };
@@ -92,6 +91,24 @@ test("builds bounded warm plans from profile and role state", () => {
   const onboarding = { ...user, profileCompleted: false };
   assert.deepEqual(getAuthorizedWarmCodeRoutes(onboarding), ["/setup-profile"]);
   assert.deepEqual(getAuthorizedWarmDataRoutes(onboarding, "/login"), ["/setup-profile"]);
+});
+
+test("inventories every implemented question destination without duplicates", () => {
+  const routes = getAllQuestionRoutes();
+
+  assert.equal(routes.length, 42);
+  assert.equal(new Set(routes).size, routes.length);
+  assert.ok(routes.includes("/browse/math/arithmetic"));
+  assert.ok(routes.includes("/browse/math/geometry/angles"));
+  assert.ok(routes.includes("/browse/arabic/reading-comprehension"));
+});
+
+test("recognizes quantitative topic-level browse collections as valid routes", () => {
+  assert.deepEqual(getBrowseRouteValue("/browse/math/arithmetic"), {
+    subject: "math",
+    subtopic: undefined,
+    topic: "arithmetic"
+  });
 });
 
 test("bounds speculative image work for constrained network preferences", () => {

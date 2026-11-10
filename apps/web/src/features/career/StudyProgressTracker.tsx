@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { SystemIcon } from "../../components/ui/SystemIcon";
 import { HttpError } from "../../services/http";
+import {
+  markPerformanceStage,
+  recordPerformanceLoadingState
+} from "../../services/performanceTelemetry";
 import { sessionService } from "../../services/sessionService";
 import type {
   PastUnfinishedStudyPlanDay,
@@ -608,6 +612,11 @@ export function StudyProgressTracker({
   const [reloadVersion, setReloadVersion] = useState(0);
   const [timeZone] = useState(resolvedTimeZone);
   const monthRequestVersionRef = useRef(0);
+
+  useEffect(() => {
+    if (progress) markPerformanceStage("usable");
+    else if (isLoading) recordPerformanceLoadingState("study-progress");
+  }, [isLoading, progress]);
 
   useEffect(() => {
     const cached = readStudyProgressCache(userId, currentCacheKey);

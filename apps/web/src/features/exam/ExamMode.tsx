@@ -26,7 +26,8 @@ export function ExamMode({
       exam.currentSection?.questions ?? [],
       exam.currentIndex,
       toExamImageSrc,
-      3
+      3,
+      { persist: false }
     );
   }, [exam.currentIndex, exam.currentSection?.questions]);
 

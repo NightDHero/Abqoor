@@ -5,9 +5,16 @@ type AuthResponse = {
   user: User;
 };
 
+let currentUserRequest: Promise<AuthResponse> | null = null;
+
 export const authService = {
   getCurrentUser: async () => {
-    return apiRequest<AuthResponse>("/auth/me");
+    if (!currentUserRequest) {
+      currentUserRequest = apiRequest<AuthResponse>("/auth/me").finally(() => {
+        currentUserRequest = null;
+      });
+    }
+    return currentUserRequest;
   },
   authenticate: async (
     mode: AuthMode,

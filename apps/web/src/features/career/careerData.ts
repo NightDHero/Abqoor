@@ -112,14 +112,10 @@ export const mathTopics: TopicPillar[] = [
     name: "الهندسة",
     slug: "geometry",
     subtopics: [
-      { accent: "turquoise", name: "المثلثات", slug: "triangles" },
-      { accent: "cyan", name: "الزوايا", slug: "angles" },
-      { accent: "orange", name: "الدوائر", slug: "circles" },
-      { accent: "gold", name: "المضلعات", slug: "polygons" },
-      { accent: "turquoise", name: "المحيط والمساحة", slug: "area-perimeter" },
-      { accent: "cyan", name: "الحجم", slug: "volume" },
-      { accent: "orange", name: "هندسة الإحداثيات", slug: "coordinate-geometry" },
-      { accent: "gold", name: "نظرية فيثاغورس", slug: "pythagorean-theorem" }
+      { accent: "turquoise", name: "الزوايا", slug: "angles" },
+      { accent: "cyan", name: "المثلثات", slug: "triangles" },
+      { accent: "orange", name: "المضلعات", slug: "polygons" },
+      { accent: "gold", name: "المساحة والمحيط", slug: "area-perimeter" }
     ],
     worldId: "math"
   }),
@@ -128,15 +124,10 @@ export const mathTopics: TopicPillar[] = [
     name: "الإحصاء والاحتمالات",
     slug: "statistics",
     subtopics: [
-      { accent: "turquoise", name: "المتوسط والوسيط والمنوال", slug: "mean-median-mode" },
-      { accent: "cyan", name: "المدى", slug: "range" },
-      { accent: "orange", name: "عدد المصافحات", slug: "handshakes-count" },
-      { accent: "gold", name: "عدد الهدايا", slug: "gifts-count" },
-      { accent: "turquoise", name: "عدد المباريات", slug: "matches-count" },
-      { accent: "cyan", name: "قراءة الجداول والرسوم البيانية", slug: "tables-graphs" },
-      { accent: "orange", name: "الاحتمال البسيط", slug: "simple-probability" },
-      { accent: "gold", name: "مبدأ العد", slug: "counting-principle" },
-      { accent: "turquoise", name: "التباديل والتوافيق الأساسية", slug: "basic-permutations-combinations" }
+      { accent: "turquoise", name: "المتوسط", slug: "mean" },
+      { accent: "cyan", name: "الوسيط والمنوال", slug: "median-mode" },
+      { accent: "orange", name: "الاحتمالات", slug: "probability" },
+      { accent: "gold", name: "قراءة البيانات", slug: "data-interpretation" }
     ],
     worldId: "math"
   }),
@@ -145,11 +136,9 @@ export const mathTopics: TopicPillar[] = [
     name: "الأنماط الشكلية",
     slug: "visual-patterns",
     subtopics: [
-      { accent: "turquoise", name: "إكمال الأشكال", slug: "complete-shapes" },
-      { accent: "cyan", name: "الدوران", slug: "rotation" },
-      { accent: "orange", name: "الانعكاس", slug: "reflection" },
-      { accent: "gold", name: "التظليل", slug: "shading" },
-      { accent: "turquoise", name: "العلاقات بين الأشكال", slug: "shape-relations" }
+      { accent: "turquoise", name: "الدوران", slug: "rotation" },
+      { accent: "cyan", name: "التتابع الشكلي", slug: "visual-sequences" },
+      { accent: "orange", name: "العلاقات البصرية", slug: "visual-relations" }
     ],
     worldId: "math"
   }),
@@ -158,8 +147,9 @@ export const mathTopics: TopicPillar[] = [
     name: "المقارنة الكمية",
     slug: "quantitative-comparison",
     subtopics: [
-      { accent: "turquoise", name: "مقارنة كميتين", slug: "quantity-comparison" },
-      { accent: "cyan", name: "المقارنات الجبرية والهندسية", slug: "algebra-geometry-comparisons" }
+      { accent: "turquoise", name: "مقارنة القيم", slug: "value-comparison" },
+      { accent: "cyan", name: "الاستنتاج العددي", slug: "numerical-reasoning" },
+      { accent: "orange", name: "المقارنة المركبة", slug: "compound-comparison" }
     ],
     worldId: "math"
   }),
@@ -168,14 +158,10 @@ export const mathTopics: TopicPillar[] = [
     name: "المسائل اللفظية",
     slug: "word-problems",
     subtopics: [
-      { accent: "turquoise", name: "العمر", slug: "age-problems" },
-      { accent: "cyan", name: "الحركة", slug: "motion" },
-      { accent: "orange", name: "العمل المشترك", slug: "work-rate" },
-      { accent: "gold", name: "الربح والخسارة", slug: "profit-loss" },
-      { accent: "turquoise", name: "الخلط", slug: "mixtures" },
-      { accent: "cyan", name: "الإرث", slug: "inheritance" },
-      { accent: "orange", name: "الساعة والزمن", slug: "clock-time" },
-      { accent: "gold", name: "النسبة والتناسب", slug: "ratios-proportions" }
+      { accent: "turquoise", name: "السرعة والزمن", slug: "speed-time" },
+      { accent: "cyan", name: "العمل المشترك", slug: "work-rate" },
+      { accent: "orange", name: "العمر", slug: "age-problems" },
+      { accent: "gold", name: "التناسب", slug: "proportional-reasoning" }
     ],
     worldId: "math"
   })

@@ -60,12 +60,15 @@ const setSessionCookie = async (
 };
 
 const toAuthResponseUser = async (user: UserRecord) => {
-  const profileIdentity = await getStudentProfileIdentity(user.id);
+  const [profileIdentity, isAdmin] = await Promise.all([
+    getStudentProfileIdentity(user.id),
+    isUserAdministrator(user.id, user.email)
+  ]);
   return toPublicUser(
     user,
     profileIdentity.profileCompleted,
     profileIdentity.username,
-    await isUserAdministrator(user.id, user.email)
+    isAdmin
   );
 };
 
@@ -156,12 +159,15 @@ authRouter.post("/register", registrationRateLimit, async (request, response) =>
       passwordConfirmation
     });
 
-    await setSessionCookie(response, user);
+    const [, publicUser] = await Promise.all([
+      setSessionCookie(response, user),
+      toAuthResponseUser(user)
+    ]);
     writeSecurityEvent(request, "auth.registration", {
       actorUserId: user.id,
       outcome: "success"
     });
-    response.status(201).json({ user: await toAuthResponseUser(user) });
+    response.status(201).json({ user: publicUser });
   } catch (error) {
     handleAuthError(error, response);
   }
@@ -225,8 +231,10 @@ authRouter.post("/login", authRateLimit, async (request, response) => {
     const { identifier, password } = getCredentials(request);
     const user = await loginUser(identifier, password);
 
-    await setSessionCookie(response, user);
-    const publicUser = await toAuthResponseUser(user);
+    const [, publicUser] = await Promise.all([
+      setSessionCookie(response, user),
+      toAuthResponseUser(user)
+    ]);
     writeSecurityEvent(request, "auth.login", {
       actorUserId: user.id,
       outcome: "success"
@@ -298,12 +306,15 @@ authRouter.post("/google", authRateLimit, async (request, response) => {
       throw new AuthError("بيانات تسجيل الدخول عبر Google مطلوبة.");
     }
     const user = await loginWithGoogle(credential);
-    await setSessionCookie(response, user);
+    const [, publicUser] = await Promise.all([
+      setSessionCookie(response, user),
+      toAuthResponseUser(user)
+    ]);
     writeSecurityEvent(request, "auth.google_login", {
       actorUserId: user.id,
       outcome: "success"
     });
-    response.status(200).json({ user: await toAuthResponseUser(user) });
+    response.status(200).json({ user: publicUser });
   } catch (error) {
     writeSecurityEvent(request, "auth.google_login", { outcome: "failure" });
     handleAuthError(error, response);
@@ -320,12 +331,15 @@ authRouter.post("/google/link", authRateLimit, async (request, response) => {
       throw new AuthError("بيانات Google وكلمة مرور حساب عبقور مطلوبة.");
     }
     const user = await linkGoogleIdentity(credential, password);
-    await setSessionCookie(response, user);
+    const [, publicUser] = await Promise.all([
+      setSessionCookie(response, user),
+      toAuthResponseUser(user)
+    ]);
     writeSecurityEvent(request, "auth.google_link", {
       actorUserId: user.id,
       outcome: "success"
     });
-    response.status(200).json({ user: await toAuthResponseUser(user) });
+    response.status(200).json({ user: publicUser });
   } catch (error) {
     writeSecurityEvent(request, "auth.google_link", { outcome: "failure" });
     handleAuthError(error, response);

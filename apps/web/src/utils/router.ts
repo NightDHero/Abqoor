@@ -1,22 +1,11 @@
+import {
+  markPerformanceStage,
+  startPerformanceInteraction
+} from "../services/performanceTelemetry";
+
 export type RouteSubject = "math" | "arabic";
 
-type NavigationPreparation = {
-  apiRequests?: number;
-  codeWasReady?: boolean;
-  dataWasPrepared?: boolean;
-};
-
-type NavigationPreparer = (path: string) => Promise<NavigationPreparation | unknown>;
-
-let navigationPreparer: NavigationPreparer | null = null;
-let navigationRequestId = 0;
-
-export const registerNavigationPreparer = (preparer: NavigationPreparer) => {
-  navigationPreparer = preparer;
-  return () => {
-    if (navigationPreparer === preparer) navigationPreparer = null;
-  };
-};
+let navigationSequence = 0;
 
 const isRouteSubject = (value: string): value is RouteSubject => {
   return value === "math" || value === "arabic";
@@ -31,62 +20,48 @@ export const navigateTo = (path: string) => {
     return;
   }
 
+  startPerformanceInteraction("navigation", path.split(/[?#]/, 1)[0] || "/");
   const navigationStartedAt = performance.now();
-  const requestId = ++navigationRequestId;
-  let preparation: NavigationPreparation = {};
-  const commitNavigation = () => {
-    if (requestId !== navigationRequestId) return;
+  const sequence = ++navigationSequence;
 
-    window.history.pushState({}, "", path);
-    window.dispatchEvent(new PopStateEvent("popstate"));
-    const metricName = `abqoor:navigation:${path.split(/[?#]/, 1)[0] || "/"}`;
-    const duration = performance.now() - navigationStartedAt;
-    performance.clearMeasures(metricName);
-    performance.measure(metricName, {
-      end: navigationStartedAt + duration,
-      start: navigationStartedAt
-    });
-    if (document.documentElement) {
-      document.documentElement.dataset.navigationApiRequests = String(
-        preparation.apiRequests ?? 0
-      );
-      document.documentElement.dataset.navigationCodeReady = String(
-        preparation.codeWasReady ?? true
-      );
-      document.documentElement.dataset.navigationDataReady = String(
-        preparation.dataWasPrepared ?? true
-      );
-      document.documentElement.dataset.navigationDurationMs = duration.toFixed(1);
-      document.documentElement.dataset.navigationPath = path.split(/[?#]/, 1)[0] || "/";
-      document.documentElement.dataset.navigationSequence = String(requestId);
-    }
-
-    const hash = path.includes("#") ? path.slice(path.indexOf("#") + 1) : "";
-
-    if (hash) {
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(() => {
-          document.getElementById(hash)?.scrollIntoView({
-            behavior: "smooth",
-            block: "start"
-          });
-        });
-      });
-    }
-  };
-  if (!navigationPreparer) {
-    commitNavigation();
-    return;
+  if (document.documentElement) {
+    document.documentElement.dataset.navigationStartedAt = String(
+      navigationStartedAt
+    );
+    document.documentElement.dataset.navigationApiRequestStart =
+      document.documentElement.dataset.apiRequestCount ?? "0";
+    document.documentElement.dataset.navigationPath = path.split(/[?#]/, 1)[0] || "/";
+    document.documentElement.dataset.navigationSequence = String(sequence);
+    delete document.documentElement.dataset.navigationContentDurationMs;
   }
 
-  void navigationPreparer(path)
-    .then((result) => {
-      if (typeof result === "object" && result !== null) {
-        preparation = result as NavigationPreparation;
-      }
-    })
-    .catch(() => undefined)
-    .then(commitNavigation);
+  window.history.pushState({ abqoorNavigationSequence: sequence }, "", path);
+  markPerformanceStage("url-committed");
+  const duration = performance.now() - navigationStartedAt;
+  if (document.documentElement) {
+    document.documentElement.dataset.navigationDurationMs = duration.toFixed(1);
+  }
+  window.dispatchEvent(
+    new PopStateEvent("popstate", { state: { abqoorProgrammatic: true } })
+  );
+  const metricName = `abqoor:navigation:${path.split(/[?#]/, 1)[0] || "/"}`;
+  performance.clearMeasures(metricName);
+  performance.measure(metricName, {
+    end: navigationStartedAt + duration,
+    start: navigationStartedAt
+  });
+  const hash = path.includes("#") ? path.slice(path.indexOf("#") + 1) : "";
+
+  if (hash) {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        document.getElementById(hash)?.scrollIntoView({
+          behavior: "smooth",
+          block: "start"
+        });
+      });
+    });
+  }
 };
 
 export const getPracticeRouteValue = (path: string) => {
@@ -111,10 +86,6 @@ export const getBrowseRouteValue = (path: string) => {
   );
 
   if (!match || !isRouteSubject(match[1])) {
-    return null;
-  }
-
-  if (match[1] === "math" && !match[3]) {
     return null;
   }
 

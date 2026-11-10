@@ -1,29 +1,53 @@
 import { env } from "../config/env";
+import * as BrowsePageModule from "../pages/BrowsePage";
+import { sortByImporterOrder } from "../features/browser/browserUtils";
 import {
   getStudyProgressCacheKey,
   loadStudyProgressCache,
+  persistStudyProgressCacheEntry,
   readStudyProgressCache
 } from "../features/career/studyProgressCache";
 import { isCompleteWeeklySchedule } from "../features/profile/studyPlan";
 import {
+  careerWorlds,
   findCareerWorld,
   findTopic
 } from "../features/career/careerData";
 import type { User } from "../types/auth";
+import type { Question } from "../types/question";
 import {
   getBrowseRouteValue,
   getPracticeRouteValue,
   getTopicRouteValue
 } from "../utils/router";
 import { shouldAvoidSpeculativePreloading } from "../utils/networkPreferences";
-import { preloadQuestionWindow } from "../utils/questionAssets";
+import { preloadImages } from "../utils/preloadImages";
+import {
+  getQuestionWindowAssetSources,
+  preloadQuestionWindow
+} from "../utils/questionAssets";
 import { runPreloadQueue } from "../utils/preloadQueue";
 import { adminService } from "./adminService";
 import { bankService } from "./bankService";
 import { examService } from "./examService";
 import { getInitiatedApiRequestCount } from "./http";
 import { profileService } from "./profileService";
+import {
+  getPagePreparationInventory,
+  getPagePreparation,
+  getQuestionPreparation,
+  getQuestionPreparationCollections,
+  initializePagePreparationInventory,
+  resolveQuestionPreparationStatus,
+  updatePagePreparation,
+  updateQuestionPreparation,
+  type QuestionPreparationCollection
+} from "./preparationManifest";
 import { questionService } from "./questionService";
+import {
+  isQuestionAssetPersisted,
+  waitForQuestionAssetCacheActivation
+} from "./questionAssetCache";
 import { reviewBankService } from "./reviewBankService";
 import { sessionService } from "./sessionService";
 import { tutorialService } from "./tutorialService";
@@ -66,6 +90,16 @@ const createPreparedRouteModule = <T extends Record<string, unknown>>(
   });
 };
 
+const createEagerPreparedRouteModule = <T extends Record<string, unknown>>(
+  loadedModule: T
+): PreparedRouteModule => Object.assign(
+  () => Promise.resolve(loadedModule),
+  {
+    isReady: () => true,
+    read: () => loadedModule
+  }
+);
+
 export const routeModules = {
   adminAccounts: createPreparedRouteModule(() => import("../features/admin/AdminAccountsPage")),
   adminImport: createPreparedRouteModule(() => import("../features/admin/AdminImportPage")),
@@ -74,7 +108,7 @@ export const routeModules = {
   adminOverview: createPreparedRouteModule(() => import("../features/admin/AdminOverviewPage")),
   adminQuestionBank: createPreparedRouteModule(() => import("../features/admin/AdminQuestionBankPage")),
   adminValidation: createPreparedRouteModule(() => import("../features/admin/AdminValidationPage")),
-  browse: createPreparedRouteModule(() => import("../pages/BrowsePage")),
+  browse: createEagerPreparedRouteModule(BrowsePageModule),
   career: createPreparedRouteModule(() => import("../pages/CareerPage")),
   exam: createPreparedRouteModule(() => import("../pages/ExamPage")),
   examEntry: createPreparedRouteModule(() => import("../features/exam/ExamEntryDialog")),
@@ -84,9 +118,11 @@ export const routeModules = {
   topicWorld: createPreparedRouteModule(() => import("../pages/TopicWorldPage"))
 } as const;
 const maximumPreparedTopicDestinations = 3;
-const maximumPreparedRouteEntries = 64;
+const maximumPreparedImportDetails = 6;
+const maximumPreparedRouteEntries = 96;
 const preparedRouteFreshnessMs = 8_000;
 const preparedRoutes = new Map<string, number>();
+let questionWarmPromise: Promise<void> | null = null;
 
 export type RoutePreparationResult = {
   apiRequests: number;
@@ -181,42 +217,92 @@ export const getRouteModuleLoaders = (path: string): PreparedRouteModule[] => {
 const toMediaSource = (path: string) =>
   path.startsWith("http") ? path : `${env.apiUrl}${path}`;
 
+const toManifestAssetSource = (source: string) => {
+  try {
+    const url = new URL(source);
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return source.split(/[?#]/, 1)[0];
+  }
+};
+
+const getQuestionRouteQuery = (path: string) => {
+  const route = getBrowseRouteValue(getPathname(path)) ??
+    getPracticeRouteValue(getPathname(path));
+  if (!route) return null;
+
+  const topic = findTopic(route.subject, route.topic);
+  if (!topic) return null;
+  if (
+    route.subtopic &&
+    !topic.subtopics?.some((subtopic) => subtopic.routeSlug === route.subtopic)
+  ) {
+    return null;
+  }
+
+  return {
+    subjectId: route.subject,
+    subtopicId: route.subtopic,
+    topicId: route.topic
+  } as const;
+};
+
 const prefetchStudyProgress = async (userId: string) => {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const cacheKey = getStudyProgressCacheKey(timeZone);
   const cached = readStudyProgressCache(userId, cacheKey);
-  if (cached && !cached.isStale) return cached.data;
+  if (cached && !cached.isStale) {
+    await persistStudyProgressCacheEntry(userId, cacheKey);
+    return cached.data;
+  }
 
-  return loadStudyProgressCache(
+  const data = await loadStudyProgressCache(
     userId,
     cacheKey,
     () => sessionService.getProgress(timeZone)
   );
+  await persistStudyProgressCacheEntry(userId, cacheKey);
+  return data;
 };
 
-const prefetchQuestionRoute = async (path: string) => {
-  const route = getBrowseRouteValue(getPathname(path)) ?? getPracticeRouteValue(getPathname(path));
-  if (!route) return;
+const prefetchQuestionRoute = async (
+  path: string,
+  options: { assetQuestionCount?: number; preloadAssets?: boolean } = {}
+) => {
+  const query = getQuestionRouteQuery(path);
+  if (!query) return;
 
   let [response] = await Promise.all([
-    questionService.getQuestions({
-      subjectId: route.subject,
-      subtopicId: route.subtopic,
-      topicId: route.topic
-    }),
+    questionService.getQuestions(query),
     reviewBankService.getReviewBank()
   ]);
 
   if (
     response.questions.length === 0 &&
-    route.subject === "arabic" &&
-    route.topic === "verbal-analogy"
+    query.subjectId === "arabic" &&
+    query.topicId === "verbal-analogy"
   ) {
     response = await questionService.getQuestions({ subjectId: "arabic" });
   }
 
-  await preloadQuestionWindow(response.questions, 0, toMediaSource, 3);
+  if (options.preloadAssets !== false) {
+    await preloadQuestionWindow(
+      sortByImporterOrder(response.questions),
+      0,
+      toMediaSource,
+      options.assetQuestionCount ?? 10
+    );
+  }
 };
+
+export const getAllQuestionRoutes = () => careerWorlds.flatMap((world) =>
+  world.topics.flatMap((topic) => [
+    topic.practiceRoute,
+    ...(topic.subtopics?.map((subtopic) => subtopic.route) ?? [])
+  ])
+);
 
 export const getTopicQuestionRoutes = (path: string) => {
   const pathname = getPathname(path);
@@ -302,20 +388,24 @@ const prefetchProfile = async () => {
 };
 
 const prefetchAdminQuestionBank = async () => {
-  const firstPage = await adminService.getQuestionBank({
-    mode: "general",
-    page: 1,
-    pageSize: 50,
-    sort: "asc"
-  });
+  for (const mode of ["general", "aqsam"] as const) {
+    for (const sort of ["asc", "desc"] as const) {
+      const firstPage = await adminService.getQuestionBank({
+        mode,
+        page: 1,
+        pageSize: 50,
+        sort
+      });
 
-  if (firstPage.total > firstPage.pageSize) {
-    await adminService.getQuestionBank({
-      mode: "general",
-      page: 2,
-      pageSize: 50,
-      sort: "asc"
-    });
+      if (firstPage.total > firstPage.pageSize) {
+        await adminService.getQuestionBank({
+          mode,
+          page: 2,
+          pageSize: 50,
+          sort
+        });
+      }
+    }
   }
 };
 
@@ -324,13 +414,58 @@ const prefetchAdminImportHistory = async () => {
   if (firstPage.pagination.totalPages > 1) {
     await adminService.getImportJobs(2, 25);
   }
+
+  await runPreloadQueue(
+    firstPage.jobs.slice(0, maximumPreparedImportDetails),
+    (job) => adminService.prefetchImportJob(job.id),
+    { concurrency: 2 }
+  );
+};
+
+const getPagePreparationEntry = (path: string, user: User) => {
+  const pathname = getPathname(path);
+  const id = pathname === "/career"
+    ? "career"
+    : pathname === "/study"
+      ? "study"
+      : pathname === "/profile" || pathname === "/setup-profile"
+        ? "profile"
+        : pathname === "/review"
+          ? "review"
+          : pathname === "/exam"
+            ? "exam"
+            : pathname.startsWith("/topic/")
+              ? "topic-directories"
+              : pathname === "/admin"
+                ? "admin-overview"
+                : pathname === "/admin/import"
+                  ? "admin-import"
+                  : pathname === "/admin/questions"
+                    ? "admin-question-bank"
+                    : pathname === "/admin/imports" || pathname.startsWith("/admin/imports/")
+                      ? "admin-import-history"
+                      : pathname === "/admin/accounts"
+                        ? "admin-accounts"
+                        : pathname === "/admin/validation"
+                          ? "admin-validation"
+                          : null;
+  if (!id) return null;
+  return getPagePreparation(id) ??
+    getPagePreparationInventory(user).find((entry) => entry.id === id) ??
+    null;
 };
 
 export const prefetchRouteData = async (path: string, user: User | null) => {
   if (!user) return;
 
+  await initializePagePreparationInventory(user);
+
   const pathname = getPathname(path);
   const requests: Promise<unknown>[] = [];
+  const pageEntry = getPagePreparationEntry(path, user);
+  if (pageEntry && pageEntry.status !== "READY") {
+    await updatePagePreparation({ ...pageEntry, status: "FETCHING" });
+  }
 
   if (pathname === "/career") {
     requests.push(prefetchStudyProgress(user.id), tutorialService.getProgress());
@@ -373,7 +508,25 @@ export const prefetchRouteData = async (path: string, user: User | null) => {
     }
   }
 
-  await Promise.all(requests);
+  try {
+    await Promise.all(requests);
+    if (pageEntry) {
+      await updatePagePreparation({
+        ...pageEntry,
+        lastSuccessfulPreparationAt: Date.now(),
+        status: "READY"
+      });
+    }
+  } catch (error) {
+    if (pageEntry) {
+      await updatePagePreparation({
+        ...pageEntry,
+        lastSuccessfulPreparationAt: null,
+        status: "FAILED"
+      });
+    }
+    throw error;
+  }
 };
 
 export const preloadRouteCode = (path: string) =>
@@ -417,8 +570,11 @@ export const getAuthorizedWarmCodeRoutes = (user: User) => {
     "/profile",
     "/topic/math",
     "/topic/arabic",
-    "/browse/math/arithmetic/basic-operations",
-    "/browse/arabic/verbal-analogy"
+    ...careerWorlds.flatMap((world) => [
+      `/topic/${world.id}`,
+      ...world.topics.map((topic) => topic.route)
+    ]),
+    ...getAllQuestionRoutes()
   ];
   if (user.isAdmin) {
     routes.push(
@@ -444,13 +600,9 @@ export const getAuthorizedWarmDataRoutes = (
     "/study",
     "/profile",
     "/exam",
-    "/review",
-    "/topic/math",
-    "/topic/arabic",
-    "/browse/math/arithmetic/basic-operations",
-    "/browse/arabic/verbal-analogy"
+    "/review"
   ];
-  if (user.isAdmin && getPathname(currentPath).startsWith("/admin")) {
+  if (user.isAdmin) {
     routes.push(
       "/admin",
       "/admin/import",
@@ -482,6 +634,22 @@ export const warmAuthorizedRouteCode = (
   );
 };
 
+export const warmPublicRouteCode = (shouldContinue?: () => boolean) =>
+  runPreloadQueue(
+    [
+      routeModules.career,
+      routeModules.study,
+      routeModules.review,
+      routeModules.examEntry,
+      routeModules.exam,
+      routeModules.profile,
+      routeModules.topicWorld,
+      routeModules.browse
+    ],
+    (loader) => loader(),
+    { concurrency: 2, shouldContinue }
+  );
+
 export const warmAuthorizedRouteData = (
   user: User,
   currentPath: string,
@@ -491,4 +659,160 @@ export const warmAuthorizedRouteData = (
   (route) => prefetchRouteData(route, user),
   { concurrency: 1, shouldContinue }
 );
+
+export const warmAllQuestionRouteData = (
+  shouldContinue?: () => boolean
+) => {
+  if (questionWarmPromise) return questionWarmPromise;
+
+  const warm = async () => {
+    await waitForQuestionAssetCacheActivation();
+    const collections = getQuestionPreparationCollections();
+    if (shouldContinue?.() === false) return;
+
+    const pendingCollections = collections.filter((collection) => {
+      const manifest = getQuestionPreparation(collection.id);
+      const cached = questionService.getCachedQuestions(collection.query);
+      const persistedAssetsRemainAvailable = manifest?.cachedAssetSources.every(
+        (source) => isQuestionAssetPersisted(source)
+      ) ?? false;
+      return !(
+        (manifest?.status === "READY" || manifest?.status === "EMPTY") &&
+        cached &&
+        !cached.isStale &&
+        (manifest.status === "EMPTY" || persistedAssetsRemainAvailable)
+      );
+    });
+    if (pendingCollections.length === 0) return;
+
+    const requiredSubjects = [...new Set(
+      pendingCollections.map((collection) => collection.query.subjectId)
+    )];
+    const [subjectResults] = await Promise.all([
+      Promise.allSettled(requiredSubjects.map(async (subjectId) => ({
+        response: await questionService.getQuestions({ subjectId }),
+        subjectId
+      }))),
+      reviewBankService.getReviewBank().catch(() => null)
+    ]);
+    const questionsBySubject = new Map<"arabic" | "math", Question[]>();
+    for (const result of subjectResults) {
+      if (result.status === "fulfilled") {
+        questionsBySubject.set(
+          result.value.subjectId,
+          result.value.response.questions
+        );
+      }
+    }
+
+    await runPreloadQueue(
+      pendingCollections,
+      async (collection: QuestionPreparationCollection) => {
+        const source = questionsBySubject.get(collection.query.subjectId);
+        if (!source) {
+          await updateQuestionPreparation(collection.id, {
+            lastSuccessfulPreparationAt: null,
+            status: "FAILED"
+          });
+          return;
+        }
+
+        await updateQuestionPreparation(collection.id, { status: "FETCHING" });
+        let questions = source.filter((question: Question) =>
+          question.topicId === collection.query.topicId &&
+          (
+            collection.query.subtopicId === undefined ||
+            question.subtopicId === collection.query.subtopicId
+          )
+        );
+        if (
+          questions.length === 0 &&
+          collection.query.subjectId === "arabic" &&
+          collection.query.topicId === "verbal-analogy"
+        ) {
+          questions = source.filter((question) => !question.topicId);
+        }
+
+        const sortedQuestions = sortByImporterOrder(questions);
+        const requiredQuestions = sortedQuestions.slice(0, 10);
+        const requiredQuestionIds = requiredQuestions.map((question) => question.id);
+        const expectedQuestionCount = requiredQuestions.length;
+        const persisted = await questionService.primeQuestionsAndPersist(
+          collection.query,
+          { questions: sortedQuestions },
+          requiredQuestionIds
+        );
+        const metadataCompleteCount = requiredQuestions.filter((question) =>
+          Boolean(
+            question.id &&
+            question.questionImageUrl &&
+            question.subjectId === collection.query.subjectId &&
+            question.topicId === collection.query.topicId &&
+            (
+              collection.query.subtopicId === undefined ||
+              question.subtopicId === collection.query.subtopicId
+            )
+          )
+        ).length;
+        const assetSources = [...new Set(getQuestionWindowAssetSources(
+          requiredQuestions,
+          0,
+          toMediaSource,
+          requiredQuestions.length
+        ))];
+        const assetResults = await preloadImages(
+          assetSources,
+          assetSources.length,
+          { required: true }
+        );
+        const successfulAssets = assetResults.flatMap((result) =>
+          result.status === "fulfilled" ? [result.value] : []
+        );
+        const imageReadyCount = successfulAssets.filter(
+          (result) => result.loaded
+        ).length;
+        const persistedAssetCount = successfulAssets.filter(
+          (result) => result.persisted
+        ).length;
+        const failedAssetSources = assetSources.filter((source) =>
+          !successfulAssets.some((result) =>
+            result.source === source && result.loaded && result.persisted
+          )
+        ).map(toManifestAssetSource);
+
+        const status = resolveQuestionPreparationStatus({
+          expectedAssetCount: assetSources.length,
+          expectedQuestionCount,
+          imageReadyCount,
+          metadataCompleteCount,
+          persistedAssetCount,
+          questionsPersisted: persisted
+        });
+        const now = Date.now();
+        await updateQuestionPreparation(collection.id, {
+          availableQuestionCount: sortedQuestions.length,
+          cachedAssetSources: assetSources.map(toManifestAssetSource),
+          cachedQuestionIds: requiredQuestionIds,
+          expectedAssetCount: assetSources.length,
+          expectedQuestionCount,
+          failedAssetSources,
+          imageReadyCount,
+          lastSuccessfulPreparationAt:
+            status === "READY" || status === "EMPTY" ? now : null,
+          metadataCompleteCount,
+          persistedAssetCount,
+          persistedQuestionCount: persisted ? expectedQuestionCount : 0,
+          retrievedQuestionCount: expectedQuestionCount,
+          status
+        });
+      },
+      { concurrency: 2, shouldContinue }
+    );
+  };
+
+  questionWarmPromise = warm().finally(() => {
+    questionWarmPromise = null;
+  });
+  return questionWarmPromise;
+};
 

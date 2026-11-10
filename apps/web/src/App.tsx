@@ -20,6 +20,10 @@ import {
   routeModules,
   type PreparedRouteModule
 } from "./services/routePreload";
+import {
+  markPerformanceStage,
+  recordPerformanceLoadingState
+} from "./services/performanceTelemetry";
 import type { User } from "./types/auth";
 import { LandingPage } from "./pages/LandingPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
@@ -36,6 +40,9 @@ const preparedNamed = (
   name: string
 ) => function PreparedRouteComponent(props: Record<string, unknown>) {
   const Component = moduleResource.read()[name] as ComponentType<any>;
+  useLayoutEffect(() => {
+    markPerformanceStage("route-component-mounted");
+  }, []);
   return createElement(Component, props);
 };
 
@@ -59,6 +66,7 @@ const PageFallback = () => {
     const root = document.documentElement;
     const currentCount = Number(root.dataset.routeFallbackCount ?? "0");
     root.dataset.routeFallbackCount = String(currentCount + 1);
+    recordPerformanceLoadingState("route-fallback");
   }, []);
 
   return (
@@ -74,6 +82,20 @@ export default function App() {
   const auth = useAuth();
   const theme = useTheme();
   useRoutePreloading({ currentPath: path, user: auth.user });
+  useLayoutEffect(() => {
+    markPerformanceStage("route-visible");
+    const root = document.documentElement;
+    const navigationPath = root.dataset.navigationPath;
+    const navigationStartedAt = Number(root.dataset.navigationStartedAt);
+    if (
+      navigationPath === path.split(/[?#]/, 1)[0] &&
+      Number.isFinite(navigationStartedAt)
+    ) {
+      root.dataset.navigationContentDurationMs = (
+        performance.now() - navigationStartedAt
+      ).toFixed(1);
+    }
+  }, [path]);
   const browseValue = getBrowseRouteValue(path);
   const practiceValue = getPracticeRouteValue(path);
   const topicRouteValue = getTopicRouteValue(path);
@@ -84,9 +106,8 @@ export default function App() {
         ? "/career"
         : "/setup-profile";
     auth.setUser(user);
-    void preloadRoute(destination, user)
-      .catch(() => undefined)
-      .then(() => navigateTo(destination));
+    void preloadRoute(destination, user).catch(() => undefined);
+    navigateTo(destination);
   };
 
   if (path === "/login") {

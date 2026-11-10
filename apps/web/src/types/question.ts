@@ -1,6 +1,7 @@
 export type CorrectAnswer = "A" | "B" | "C" | "D";
 
 export type Question = {
+  bankQuestionNumber?: number;
   correctAnswer?: CorrectAnswer;
   id: string;
   questionImageUrl: string;

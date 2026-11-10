@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { clearStudyProgressCache } from "../src/features/career/studyProgressCache.js";
 import {
+  getAllQuestionRoutes,
   prefetchRouteData,
+  warmAllQuestionRouteData,
   warmTopicDirectoryData
 } from "../src/services/routePreload.js";
 import { clearQueryCache, setQueryCacheScope } from "../src/services/queryCache.js";
@@ -110,9 +112,9 @@ test("route prefetches make bounded cold requests and avoid warm revisits", asyn
     assert.equal(calls.length, 0);
 
     clearQueryCache();
-    await prefetchRouteData("/browse/math/algebra/equations", user);
+    await prefetchRouteData("/browse/math/algebra/equations-inequalities", user);
     assert.deepEqual(calls.sort(), [
-      "/questions?subjectId=math&topicId=algebra&subtopicId=equations",
+      "/questions?subjectId=math&topicId=algebra&subtopicId=equations-inequalities",
       "/review"
     ]);
 
@@ -283,6 +285,41 @@ test("topic preloading prepares the legacy verbal fallback before navigation", a
 
     calls.length = 0;
     await prefetchRouteData("/browse/arabic/verbal-analogy", user);
+    assert.equal(calls.length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    setQueryCacheScope("anonymous");
+  }
+});
+
+test("background preparation covers every question route with exact cache keys", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: string[] = [];
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input));
+    const path = `${url.pathname}${url.search}`;
+    calls.push(path);
+    return new Response(JSON.stringify(responseFor(url.pathname)), {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    });
+  };
+
+  try {
+    setQueryCacheScope("all-topic-prefetch-student");
+    clearQueryCache();
+    await warmAllQuestionRouteData();
+
+    const questionCalls = calls.filter((path) => path.startsWith("/questions?"));
+    assert.deepEqual(questionCalls.sort(), [
+      "/questions?subjectId=arabic",
+      "/questions?subjectId=math"
+    ]);
+    assert.equal(calls.filter((path) => path === "/review").length, 1);
+
+    calls.length = 0;
+    await prefetchRouteData("/browse/math/geometry/angles", user);
+    await prefetchRouteData("/browse/arabic/reading-comprehension", user);
     assert.equal(calls.length, 0);
   } finally {
     globalThis.fetch = originalFetch;

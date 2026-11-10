@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { authService } from "../services/authService";
 import {
+  activateApplicationCache,
+  prepareApplicationCache
+} from "../services/applicationCache";
+import {
   clearQueryCache,
   setQueryCacheScope
 } from "../services/queryCache";
+import {
+  markPerformanceStage,
+  startPerformanceInteraction
+} from "../services/performanceTelemetry";
 import { clearStudyProgressCache } from "../features/career/studyProgressCache";
 import type { User } from "../types/auth";
 import { navigateTo } from "../utils/router";
@@ -28,6 +36,11 @@ export const useAuth = () => {
       nextUser ? `user:${nextUser.id}:admin:${nextUser.isAdmin ? "1" : "0"}` : "anonymous"
     );
     authenticatedUserIdRef.current = nextUserId;
+    void prepareApplicationCache().then(() => {
+      if (authenticatedUserIdRef.current === nextUserId) {
+        activateApplicationCache(nextUserId);
+      }
+    });
     setUserState(nextUser);
     setIsLoading(false);
   }, []);
@@ -40,20 +53,32 @@ export const useAuth = () => {
       isMounted && authMutationVersionRef.current === requestVersion;
 
     const loadCurrentUser = async () => {
+      startPerformanceInteraction(
+        "authentication",
+        typeof window === "undefined" ? "bootstrap" : window.location.pathname
+      );
       try {
-        const response = await authService.getCurrentUser();
+        const [response] = await Promise.all([
+          authService.getCurrentUser(),
+          prepareApplicationCache()
+        ]);
         if (canApplyBootstrapResult()) {
           setQueryCacheScope(
             `user:${response.user.id}:admin:${response.user.isAdmin ? "1" : "0"}`
           );
           authenticatedUserIdRef.current = response.user.id;
-          setUserState(response.user);
+          await activateApplicationCache(response.user.id);
+          if (canApplyBootstrapResult()) {
+            setUserState(response.user);
+            markPerformanceStage("authentication-success");
+          }
         }
       } catch {
         if (canApplyBootstrapResult()) {
           authenticatedUserIdRef.current = null;
           clearStudyProgressCache();
           setQueryCacheScope("anonymous");
+          activateApplicationCache(null);
           clearQueryCache();
           setUserState(null);
         }

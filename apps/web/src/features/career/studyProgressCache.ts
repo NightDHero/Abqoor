@@ -1,4 +1,11 @@
 import type { StudyProgressResponse } from "../../types/session";
+import {
+  deletePersistentAppCache,
+  readPersistentAppCache,
+  readPersistentAppCacheRecord,
+  writePersistentAppCache,
+  type PersistentAppCacheRecord
+} from "../../services/persistentAppCache";
 
 export const studyProgressFreshnessMs = 60_000;
 
@@ -17,6 +24,13 @@ type UserCache = {
 const cacheByUser = new Map<string, UserCache>();
 const generationByUser = new Map<string, number>();
 export const studyProgressMaximumEntriesPerUser = 8;
+const studyProgressPersistentTtlMs = 24 * 60 * 60_000;
+const studyProgressPersistentVersion = 1;
+const persistentRecords = new Map<
+  string,
+  PersistentAppCacheRecord<StudyProgressResponse>
+>();
+let persistencePromise: Promise<void> | null = null;
 
 const getGeneration = (userId: string) => generationByUser.get(userId) ?? 0;
 
@@ -33,6 +47,70 @@ const getUserCache = (userId: string) => {
   return cache;
 };
 
+const toPersistentScope = (userId: string) => `user:${userId}`;
+const toPersistentId = (userId: string, cacheKey: string) =>
+  `${toPersistentScope(userId)}::${cacheKey}`;
+
+const enforcePersistentProgressBudget = (userId: string) => {
+  const records = [...persistentRecords.values()]
+    .filter((record) => record.scope === toPersistentScope(userId))
+    .sort((left, right) => left.accessedAt - right.accessedAt);
+
+  while (records.length > studyProgressMaximumEntriesPerUser) {
+    const record = records.shift();
+    if (!record) break;
+    persistentRecords.delete(record.id);
+    deletePersistentAppCache("progress", record.id);
+  }
+};
+
+export const prepareStudyProgressPersistence = () => {
+  if (persistencePromise) return persistencePromise;
+
+  persistencePromise = readPersistentAppCache<StudyProgressResponse>("progress")
+    .then((records) => {
+      const now = Date.now();
+      for (const record of records) {
+        if (
+          record.version !== studyProgressPersistentVersion ||
+          record.expiresAt <= now ||
+          !record.scope.startsWith("user:")
+        ) {
+          deletePersistentAppCache("progress", record.id);
+          continue;
+        }
+        persistentRecords.set(record.id, record);
+      }
+      const userIds = new Set(
+        [...persistentRecords.values()].map((record) => record.scope.slice("user:".length))
+      );
+      for (const userId of userIds) enforcePersistentProgressBudget(userId);
+    });
+
+  return persistencePromise;
+};
+
+export const activateStudyProgressCache = (userId: string | null) => {
+  cacheByUser.clear();
+  if (!userId) return;
+
+  const cache = getUserCache(userId);
+  const now = Date.now();
+  const records = [...persistentRecords.values()]
+    .filter((record) => record.scope === toPersistentScope(userId))
+    .sort((left, right) => right.accessedAt - left.accessedAt)
+    .slice(0, studyProgressMaximumEntriesPerUser);
+
+  for (const record of records) {
+    cache.records.set(record.key, {
+      accessedAt: now,
+      data: record.data,
+      invalidated: record.invalidated,
+      updatedAt: record.updatedAt
+    });
+  }
+};
+
 export const getStudyProgressCacheKey = (
   timeZone: string,
   month?: string
@@ -46,6 +124,11 @@ export const readStudyProgressCache = (
   const record = cacheByUser.get(userId)?.records.get(cacheKey);
   if (!record) return null;
   record.accessedAt = now;
+  const persistentRecord = persistentRecords.get(toPersistentId(userId, cacheKey));
+  if (persistentRecord) {
+    persistentRecord.accessedAt = now;
+    writePersistentAppCache("progress", persistentRecord);
+  }
 
   return {
     data: record.data,
@@ -80,6 +163,43 @@ export const writeStudyProgressCache = (
     if (!oldestKey) break;
     records.delete(oldestKey);
   }
+
+  const id = toPersistentId(userId, cacheKey);
+  const record: PersistentAppCacheRecord<StudyProgressResponse> = {
+    accessedAt: now,
+    data,
+    expiresAt: now + studyProgressPersistentTtlMs,
+    id,
+    invalidated: false,
+    key: cacheKey,
+    scope: toPersistentScope(userId),
+    updatedAt: now,
+    version: studyProgressPersistentVersion
+  };
+  persistentRecords.set(id, record);
+  void writePersistentAppCache("progress", record);
+  enforcePersistentProgressBudget(userId);
+};
+
+export const persistStudyProgressCacheEntry = async (
+  userId: string,
+  cacheKey: string
+) => {
+  const id = toPersistentId(userId, cacheKey);
+  const record = persistentRecords.get(id);
+  if (!record || !(await writePersistentAppCache("progress", record))) {
+    return false;
+  }
+  const persisted = await readPersistentAppCacheRecord<StudyProgressResponse>(
+    "progress",
+    id
+  );
+  return Boolean(
+    persisted &&
+    persisted.scope === toPersistentScope(userId) &&
+    persisted.key === cacheKey &&
+    persisted.version === studyProgressPersistentVersion
+  );
 };
 
 export const loadStudyProgressCache = (
@@ -119,7 +239,16 @@ export const invalidateStudyProgressCache = (userId?: string) => {
   for (const [cachedUserId, cache] of entries) {
     advanceGeneration(cachedUserId);
     cache.requests.clear();
-    for (const record of cache.records.values()) record.invalidated = true;
+    for (const [cacheKey, record] of cache.records) {
+      record.invalidated = true;
+      const persistentRecord = persistentRecords.get(
+        toPersistentId(cachedUserId, cacheKey)
+      );
+      if (persistentRecord) {
+        persistentRecord.invalidated = true;
+        writePersistentAppCache("progress", persistentRecord);
+      }
+    }
   }
 };
 

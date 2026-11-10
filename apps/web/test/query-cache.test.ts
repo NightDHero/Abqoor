@@ -170,6 +170,27 @@ test("removes failed in-flight requests so a later intent can retry", async () =
   assert.equal(requests, 2);
 });
 
+test("retains valid stale content when a background refresh fails", async () => {
+  clearQueryCache();
+  writeQueryCache("profile:current", { username: "cached" }, 1_000);
+
+  await assert.rejects(
+    loadQuery({
+      key: "profile:current",
+      loader: async () => {
+        throw new Error("network unavailable");
+      },
+      maxAgeMs: 100
+    }),
+    /network unavailable/
+  );
+
+  assert.deepEqual(
+    readQueryCache<{ username: string }>("profile:current", 100, 1_500)?.data,
+    { username: "cached" }
+  );
+});
+
 test("normalizes synchronous loader failures and permits a clean retry", async () => {
   clearQueryCache();
   let requests = 0;

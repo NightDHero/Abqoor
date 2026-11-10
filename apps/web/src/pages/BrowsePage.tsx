@@ -18,7 +18,7 @@ export function BrowsePage({
     (candidate) => candidate.routeSlug === subtopicSlug
   );
 
-  if (!world || !topic || (subjectSlug === "math" && !subtopic)) {
+  if (!world || !topic || (subtopicSlug && !subtopic)) {
     return (
       <PlaceholderPage
         eyebrow="مسار غير متاح"

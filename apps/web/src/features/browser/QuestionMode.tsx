@@ -1,3 +1,5 @@
+import { useLayoutEffect, useRef } from "react";
+import { markPerformanceStage } from "../../services/performanceTelemetry";
 import type { CorrectAnswer, Question } from "../../types/question";
 import { toArabicAnswerLabel } from "../../utils/answerLabels";
 import {
@@ -33,9 +35,21 @@ export function QuestionMode({
   showToolbar?: boolean;
   totalQuestions: number;
 }) {
+  const questionImageRef = useRef<HTMLImageElement>(null);
   const isAnswered = Boolean(selectedAnswer);
   const isCorrect = selectedAnswer === correctAnswer;
   const questionNumber = toQuestionNumber(question.id);
+
+  useLayoutEffect(() => {
+    markPerformanceStage("question-visible");
+    if (questionImageRef.current?.complete) {
+      window.requestAnimationFrame(() => markPerformanceStage("usable"));
+    }
+  }, [question.id]);
+
+  useLayoutEffect(() => {
+    if (selectedAnswer) markPerformanceStage("answer-feedback-visible");
+  }, [selectedAnswer]);
 
   return (
     <section
@@ -62,6 +76,8 @@ export function QuestionMode({
           <img
             alt={`Question ${question.id}`}
             className="question-image"
+            onLoad={() => markPerformanceStage("usable")}
+            ref={questionImageRef}
             src={toMediaSrc(question.questionImageUrl)}
           />
         </figure>
