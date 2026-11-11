@@ -217,6 +217,7 @@ export type AdminQuestion = {
   subtopic: string | null;
   subtopicId: string | null;
   difficulty: number;
+  source: "excel" | "manual" | "pdf";
   importJobId: string | null;
   importedAt: string | null;
   importedBy: string | null;
@@ -225,6 +226,13 @@ export type AdminQuestion = {
   bankId: string | null;
   bankName: string | null;
   bankQuestionNumber: number | null;
+};
+
+export type AdminQuestionDetail = AdminQuestion & {
+  imageExists: boolean;
+  options: string[];
+  questionText: string | null;
+  status: "active";
 };
 
 export type AdminQuestionSubtopicCount = {
@@ -259,6 +267,11 @@ export type AdminQuestionBankResponse = {
   page: number;
   pageSize: number;
   total: number;
+  summary: {
+    total: number;
+    quantitative: number;
+    verbal: number;
+  };
   questionCounts: {
     subjects: AdminQuestionSubjectCount[];
   };

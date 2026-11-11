@@ -46,6 +46,7 @@ const findReviewItemByIdStatement = db.prepare<[string, string], ReviewItemRecor
 const listReviewItemsStatement = db.prepare<string, ReviewItemRecord>(`
   ${reviewItemSelect}
   WHERE review_items.user_id = ?
+    AND questions.archived_at IS NULL
   ORDER BY review_items.updated_at DESC, review_items.added_at DESC
 `);
 

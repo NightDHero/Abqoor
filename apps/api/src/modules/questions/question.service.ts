@@ -5,6 +5,7 @@ import {
 } from "../learning-taxonomy/taxonomy.js";
 import {
   findQuestionById,
+  findActiveQuestionById,
   isQuestionInActiveExam,
   listActiveExamQuestionIds,
   listQuestions,
@@ -129,7 +130,7 @@ export const getQuestions = async (filters: QuestionFilters) => {
 };
 
 export const getQuestion = async (id: string) => {
-  const question = await findQuestionById(id);
+  const question = await findActiveQuestionById(id);
   return question ? toQuestion(question) : null;
 };
 

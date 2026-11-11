@@ -16,6 +16,7 @@ export type SecurityEventType =
   | "admin.privilege_granted"
   | "admin.privilege_removed"
   | "admin.import"
+  | "admin.question_archived"
   | "rate_limit.exceeded";
 
 export const fingerprintIdentifier = (value: string) =>

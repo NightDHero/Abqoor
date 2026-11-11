@@ -218,6 +218,8 @@ export const initializeSqliteSchema = (db: Database.Database) => {
       bank_id TEXT,
       bank_question_number INTEGER,
       import_metadata_json TEXT,
+      archived_at TEXT,
+      archived_by TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       FOREIGN KEY (source_pdf_id) REFERENCES source_pdfs(id) ON DELETE SET NULL,
@@ -227,7 +229,6 @@ export const initializeSqliteSchema = (db: Database.Database) => {
     CREATE INDEX IF NOT EXISTS idx_questions_subject ON questions(subject);
     CREATE INDEX IF NOT EXISTS idx_questions_topic ON questions(topic);
     CREATE INDEX IF NOT EXISTS idx_questions_difficulty ON questions(difficulty);
-
     CREATE TABLE IF NOT EXISTS import_jobs (
       id TEXT PRIMARY KEY,
       source_type TEXT NOT NULL CHECK (source_type IN ('pdf', 'images')),

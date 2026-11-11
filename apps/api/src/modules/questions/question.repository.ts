@@ -8,6 +8,9 @@ import type {
 const findQuestionByIdStatement = db.prepare<string, QuestionRecord>(
   "SELECT * FROM questions WHERE id = ?"
 );
+const findActiveQuestionByIdStatement = db.prepare<string, QuestionRecord>(
+  "SELECT * FROM questions WHERE id = ? AND archived_at IS NULL"
+);
 
 const insertQuestionStatement = db.prepare(`
   INSERT INTO questions (
@@ -226,6 +229,14 @@ const restoreQuestionStatement = db.prepare(`
 `);
 
 const deleteQuestionStatement = db.prepare("DELETE FROM questions WHERE id = ?");
+const archiveQuestionStatement = db.prepare(`
+  UPDATE questions
+  SET archived_at = @archivedAt,
+      archived_by = @archivedBy,
+      updated_at = @archivedAt
+  WHERE id = @id
+    AND archived_at IS NULL
+`);
 
 const questionReferenceCountStatement = db.prepare(`
   SELECT
@@ -260,8 +271,12 @@ export const findQuestionById = async (id: string) => {
   return (await findQuestionByIdStatement.get(id)) ?? null;
 };
 
+export const findActiveQuestionById = async (id: string) => {
+  return (await findActiveQuestionByIdStatement.get(id)) ?? null;
+};
+
 export const listQuestions = async (filters: QuestionFilters = {}) => {
-  const clauses: string[] = [];
+  const clauses: string[] = ["archived_at IS NULL"];
   const values: Array<string | number> = [];
 
   if (filters.subject) {
@@ -368,6 +383,12 @@ export const restoreQuestionRecord = async (question: QuestionRecord) => {
 export const deleteQuestion = async (id: string) => {
   return (await deleteQuestionStatement.run(id)).changes > 0;
 };
+
+export const archiveQuestion = async (input: {
+  archivedAt: string;
+  archivedBy: string;
+  id: string;
+}) => (await archiveQuestionStatement.run(input)).changes > 0;
 
 export const countQuestionReferences = async (id: string) => {
   const result = (await questionReferenceCountStatement.get({ id })) as { count: number };

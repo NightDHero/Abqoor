@@ -22,6 +22,7 @@ export const buildAdminQuestionTopicCountQuery = (input: {
         CAST(COUNT(*) AS INTEGER) AS question_count
       FROM questions
       WHERE question_scope = @questionScope
+        AND archived_at IS NULL
         ${bankFilter}
       GROUP BY subject, subject_id, topic, topic_id, subtopic, subtopic_id
       ORDER BY subject_id ASC, topic_id ASC, subtopic_id ASC

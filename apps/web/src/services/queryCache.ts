@@ -293,6 +293,20 @@ export const invalidateQueries = (prefix: string) => {
   }
 };
 
+export const evictQueries = (prefix: string) => {
+  const scopedPrefix = toScopedKey(prefix);
+  for (const key of [...entries.keys()]) {
+    if (!key.startsWith(scopedPrefix)) continue;
+    entries.delete(key);
+    advanceVersion(key);
+    persistentEntries.delete(key);
+    deletePersistentAppCache("queries", key);
+  }
+  for (const key of requests.keys()) {
+    if (key.startsWith(scopedPrefix)) advanceVersion(key);
+  }
+};
+
 export const setQueryCacheScope = (nextScope: string) => {
   const normalizedScope = nextScope.trim() || "anonymous";
   if (normalizedScope === scope) return;

@@ -10,6 +10,10 @@ import {
   id as repairId,
   sql as repairSql
 } from "../src/database/postgres-migrations/015_admin_question_bank_schema_repair.js";
+import {
+  id as archiveId,
+  sql as archiveSql
+} from "../src/database/postgres-migrations/016_question_archive.js";
 
 test("PostgreSQL migration repairs image_storage_key schema drift used by the admin question bank", () => {
   assert.equal(id, "013_question_image_storage_key");
@@ -42,6 +46,14 @@ test("PostgreSQL repair migration covers every column used by the admin question
   }
 });
 
+test("PostgreSQL archive migration is additive and idempotent", () => {
+  assert.equal(archiveId, "016_question_archive");
+  assert.match(archiveSql, /ADD COLUMN IF NOT EXISTS archived_at TEXT/i);
+  assert.match(archiveSql, /ADD COLUMN IF NOT EXISTS archived_by TEXT/i);
+  assert.match(archiveSql, /CREATE INDEX IF NOT EXISTS idx_questions_archived_at/i);
+  assert.doesNotMatch(archiveSql, /\b(?:DELETE|DROP|TRUNCATE|UPDATE)\b/i);
+});
+
 test("PostgreSQL startup discovers migrations transactionally and records them after success", () => {
   const clientSource = readFileSync(
     resolve(import.meta.dirname, "../src/database/client.ts"),
@@ -51,8 +63,8 @@ test("PostgreSQL startup discovers migrations transactionally and records them a
     resolve(import.meta.dirname, "../src/app.ts"),
     "utf8"
   );
-  const importPosition = clientSource.indexOf("015_admin_question_bank_schema_repair.js");
-  const migrationListPosition = clientSource.indexOf("adminQuestionBankSchemaRepair\n];");
+  const importPosition = clientSource.indexOf("016_question_archive.js");
+  const migrationListPosition = clientSource.indexOf("questionArchive\n];");
   const beginPosition = clientSource.indexOf('client.query("BEGIN")');
   const lockPosition = clientSource.indexOf("LOCK TABLE database_migrations IN EXCLUSIVE MODE");
   const selectPosition = clientSource.indexOf("SELECT id FROM database_migrations");

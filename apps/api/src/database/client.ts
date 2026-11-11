@@ -19,6 +19,7 @@ import * as removePhoneIdentity from "./postgres-migrations/012_remove_phone_ide
 import * as questionImageStorageKey from "./postgres-migrations/013_question_image_storage_key.js";
 import * as userTutorialProgress from "./postgres-migrations/014_user_tutorial_progress.js";
 import * as adminQuestionBankSchemaRepair from "./postgres-migrations/015_admin_question_bank_schema_repair.js";
+import * as questionArchive from "./postgres-migrations/016_question_archive.js";
 import { initializeSqliteSchema } from "./sqlite-schema.js";
 
 const { Pool, types } = pg;
@@ -68,7 +69,8 @@ const postgresMigrations: PostgresMigration[] = [
   removePhoneIdentity,
   questionImageStorageKey,
   userTutorialProgress,
-  adminQuestionBankSchemaRepair
+  adminQuestionBankSchemaRepair,
+  questionArchive
 ];
 const transactionClientStorage = new AsyncLocalStorage<pg.PoolClient>();
 

@@ -2,6 +2,7 @@ import type { CorrectAnswer, QuestionAnswerResponse, QuestionListResponse } from
 import { apiRequest } from "./http";
 import {
   invalidateQueries,
+  evictQueries,
   loadQuery,
   persistQueryCacheEntry,
   readQueryCache,
@@ -51,6 +52,7 @@ export const getQuestionCacheKey = (query: QuestionQuery) =>
 
 export const questionService = {
   invalidate: () => invalidateQueries("questions:"),
+  evict: () => evictQueries("questions:"),
   getCachedQuestions: (query: QuestionQuery) =>
     readQueryCache<QuestionListResponse>(getQuestionCacheKey(query), questionCacheMaxAgeMs),
   primeQuestions: (query: QuestionQuery, response: QuestionListResponse) =>

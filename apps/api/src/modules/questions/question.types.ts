@@ -34,6 +34,8 @@ export type QuestionRecord = {
   bank_id: string | null;
   bank_question_number: number | null;
   import_metadata_json: string | null;
+  archived_at: string | null;
+  archived_by: string | null;
   created_at: string;
   updated_at: string;
 };

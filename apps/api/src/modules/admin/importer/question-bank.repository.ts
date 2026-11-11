@@ -60,7 +60,9 @@ export const listAqsamBanks = async () =>
   await db.prepare<[], QuestionBankRecord & { question_count: number }>(`
     SELECT question_banks.*, CAST(COUNT(questions.id) AS INTEGER) AS question_count
     FROM question_banks
-    LEFT JOIN questions ON questions.bank_id = question_banks.id
+    LEFT JOIN questions
+      ON questions.bank_id = question_banks.id
+      AND questions.archived_at IS NULL
     WHERE question_banks.bank_type = 'aqsam'
     GROUP BY question_banks.id
     ORDER BY question_banks.created_at DESC

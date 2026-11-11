@@ -23,6 +23,7 @@ import {
 } from "../../media/media.service.js";
 import { optimizeQuestionImage } from "../../media/question-image-optimizer.service.js";
 import {
+  archiveQuestion,
   countQuestionReferences,
   deleteQuestion,
   findQuestionById,
@@ -49,6 +50,7 @@ import {
   countImportJobs,
   createImportJob,
   failImportJob,
+  findAdminQuestionDetail,
   findImportJob,
   insertImportItems,
   listAdminQuestionTopicCounts,
@@ -1152,11 +1154,16 @@ const toQuestionCountOverview = async (
 
 export const getAdminQuestionBank = async (input: {
   bankId?: string;
+  difficulty?: number;
   mode?: "general" | "aqsam";
   query?: string;
   page: number;
   pageSize: number;
+  source?: "excel" | "manual" | "pdf";
   sort: "asc" | "desc";
+  subject?: "quantitative" | "verbal";
+  subtopic?: string;
+  topic?: string;
 }) => {
   const mode = input.mode ?? "general";
   const result = (await listAdminQuestions({ ...input, mode })) as {
@@ -1167,6 +1174,10 @@ export const getAdminQuestionBank = async (input: {
       Record<string, unknown> & { id: string; imageStorageKey?: string | null }
     >;
   };
+  const questionCounts = await toQuestionCountOverview(mode, input.bankId);
+  const summaryBySubject = new Map(
+    questionCounts.subjects.map((subject) => [subject.subjectId, subject.total])
+  );
   return {
     ...result,
     banks: mode === "aqsam"
@@ -1179,7 +1190,15 @@ export const getAdminQuestionBank = async (input: {
         }))
       : [],
     mode,
-    questionCounts: await toQuestionCountOverview(mode, input.bankId),
+    questionCounts,
+    summary: {
+      quantitative: summaryBySubject.get("math") ?? 0,
+      total: questionCounts.subjects.reduce(
+        (total, subject) => total + subject.total,
+        0
+      ),
+      verbal: summaryBySubject.get("arabic") ?? 0
+    },
     questions: result.questions.map((question) => ({
       ...question,
       imageExists: Boolean(question.imageStorageKey) || questionImageExists(question.id),
@@ -1191,4 +1210,61 @@ export const getAdminQuestionBank = async (input: {
           : Number(/^Q-(\d+)$/.exec(question.id)?.[1] ?? 0)
     }))
   };
+};
+
+const toAdminQuestionNumber = (question: {
+  bankQuestionNumber: number | null;
+  importedQuestionNumber: number | null;
+  id: string;
+}) => question.bankQuestionNumber ?? question.importedQuestionNumber ??
+  Number(/^Q-(\d+)$/.exec(question.id)?.[1] ?? 0);
+
+export const getAdminQuestionDetail = async (id: string) => {
+  const question = await findAdminQuestionDetail(id.trim());
+  if (!question) {
+    throw new AdminImportError("السؤال غير موجود أو تمت إزالته من البنك النشط.", 404);
+  }
+
+  let options: string[] = [];
+  if (question.optionsJson) {
+    try {
+      const parsed = JSON.parse(question.optionsJson) as unknown;
+      if (Array.isArray(parsed)) {
+        options = parsed.filter((option): option is string => typeof option === "string");
+      }
+    } catch {
+      options = [];
+    }
+  }
+
+  return {
+    ...question,
+    imageExists: Boolean(question.imageStorageKey) || questionImageExists(question.id),
+    options,
+    questionImageUrl: getAuthorizedQuestionImageUrl(question.id),
+    questionNumber: toAdminQuestionNumber(question),
+    status: "active" as const
+  };
+};
+
+export const archiveAdminQuestion = async (id: string, archivedBy: string) => {
+  const questionId = id.trim();
+  if (!questionId) {
+    throw new AdminImportError("معرف السؤال مطلوب.");
+  }
+
+  const question = await findQuestionById(questionId);
+  if (!question) {
+    throw new AdminImportError("السؤال غير موجود.", 404);
+  }
+  if (question.archived_at) {
+    return { archivedAt: question.archived_at, questionId };
+  }
+
+  const archivedAt = new Date().toISOString();
+  if (!(await archiveQuestion({ archivedAt, archivedBy, id: questionId }))) {
+    throw new AdminImportError("تعذر إزالة السؤال من البنك النشط.", 409);
+  }
+
+  return { archivedAt, questionId };
 };

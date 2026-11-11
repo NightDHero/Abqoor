@@ -7,13 +7,19 @@ export type SystemIconName =
   | "calendar"
   | "check"
   | "clock"
+  | "eye"
+  | "filter"
   | "history"
   | "lock"
+  | "more"
   | "play"
   | "question"
+  | "search"
   | "status"
+  | "trash"
   | "upload"
-  | "users";
+  | "users"
+  | "x";
 
 const iconPaths: Record<SystemIconName, ReactNode> = {
   back: (
@@ -62,6 +68,19 @@ const iconPaths: Record<SystemIconName, ReactNode> = {
       <path d="M12 7.5V12l3 2" />
     </>
   ),
+  eye: (
+    <>
+      <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6S2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="2.5" />
+    </>
+  ),
+  filter: (
+    <>
+      <path d="M4 6h16" />
+      <path d="M7 12h10" />
+      <path d="M10 18h4" />
+    </>
+  ),
   history: (
     <>
       <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3" />
@@ -74,6 +93,13 @@ const iconPaths: Record<SystemIconName, ReactNode> = {
       <rect x="5.5" y="10.5" width="13" height="9" rx="2" />
       <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" />
       <path d="M12 14v2" />
+    </>
+  ),
+  more: (
+    <>
+      <circle cx="5" cy="12" r="1" />
+      <circle cx="12" cy="12" r="1" />
+      <circle cx="19" cy="12" r="1" />
     </>
   ),
   play: (
@@ -89,12 +115,27 @@ const iconPaths: Record<SystemIconName, ReactNode> = {
       <circle cx="12" cy="12" r="8.5" />
     </>
   ),
+  search: (
+    <>
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path d="m15.5 15.5 4 4" />
+    </>
+  ),
   status: (
     <>
       <path d="M5 17V9" />
       <path d="M12 17V5" />
       <path d="M19 17v-6" />
       <path d="M4 19.5h16" />
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M4.5 7h15" />
+      <path d="M9 7V4.5h6V7" />
+      <path d="m6.5 7 .8 13h9.4l.8-13" />
+      <path d="M10 11v5" />
+      <path d="M14 11v5" />
     </>
   ),
   upload: (
@@ -110,6 +151,12 @@ const iconPaths: Record<SystemIconName, ReactNode> = {
       <path d="M3.8 18a5.2 5.2 0 0 1 10.4 0" />
       <path d="M16 11a2.6 2.6 0 0 0 0-5" />
       <path d="M16.5 14.5A4.2 4.2 0 0 1 20.2 18" />
+    </>
+  ),
+  x: (
+    <>
+      <path d="m6 6 12 12" />
+      <path d="M18 6 6 18" />
     </>
   )
 };

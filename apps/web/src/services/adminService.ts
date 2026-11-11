@@ -2,6 +2,7 @@ import type {
   AdminAccountsResponse,
   AdminAccount,
   AdminQuestionBankResponse,
+  AdminQuestionDetail,
   DuplicateAction,
   ImportHistoryResponse,
   ImportJobDetail,
@@ -12,6 +13,7 @@ import type {
 import { apiRequest, apiRequestTimeouts } from "./http";
 import {
   invalidateQueries,
+  evictQueries,
   loadQuery,
   readQueryCache,
   writeQueryCache
@@ -33,12 +35,17 @@ const importHistoryCacheKey = (page: number, pageSize: number) =>
 const importDetailCacheKey = (jobId: string) => `admin:imports:detail:${jobId}`;
 
 const questionBankRequest = (input: {
+  difficulty?: number;
   page: number;
   pageSize?: number;
   query?: string;
   sort?: "asc" | "desc";
   mode?: "general" | "aqsam";
   bankId?: string;
+  source?: "excel" | "manual" | "pdf";
+  subject?: "quantitative" | "verbal";
+  subtopic?: string;
+  topic?: string;
 }) => {
   const params = new URLSearchParams({
     page: String(input.page),
@@ -48,6 +55,11 @@ const questionBankRequest = (input: {
   params.set("mode", input.mode ?? "general");
   if (input.bankId) params.set("bankId", input.bankId);
   if (input.query?.trim()) params.set("query", input.query.trim());
+  if (input.subject) params.set("subject", input.subject);
+  if (input.topic) params.set("topic", input.topic);
+  if (input.subtopic) params.set("subtopic", input.subtopic);
+  if (input.difficulty) params.set("difficulty", String(input.difficulty));
+  if (input.source) params.set("source", input.source);
 
   const query = params.toString();
   return {
@@ -209,23 +221,33 @@ export const adminService = {
       method: "POST"
     }).then(recordImportMutation),
   getCachedQuestionBank: (input: {
+    difficulty?: number;
     page: number;
     pageSize?: number;
     query?: string;
     sort?: "asc" | "desc";
     mode?: "general" | "aqsam";
     bankId?: string;
+    source?: "excel" | "manual" | "pdf";
+    subject?: "quantitative" | "verbal";
+    subtopic?: string;
+    topic?: string;
   }) => readQueryCache<AdminQuestionBankResponse>(
     questionBankRequest(input).cacheKey,
     questionBankCacheMaxAgeMs
   ),
   getQuestionBank: (input: {
+    difficulty?: number;
     page: number;
     pageSize?: number;
     query?: string;
     sort?: "asc" | "desc";
     mode?: "general" | "aqsam";
     bankId?: string;
+    source?: "excel" | "manual" | "pdf";
+    subject?: "quantitative" | "verbal";
+    subtopic?: string;
+    topic?: string;
   }) => {
     const request = questionBankRequest(input);
     return loadQuery({
@@ -233,5 +255,23 @@ export const adminService = {
       loader: () => apiRequest<AdminQuestionBankResponse>(request.path),
       maxAgeMs: questionBankCacheMaxAgeMs
     });
-  }
+  },
+  getQuestionDetail: (questionId: string) => loadQuery({
+    key: `admin:questions:detail:${questionId}`,
+    loader: () => apiRequest<{ question: AdminQuestionDetail }>(
+      `/admin/import/questions/${encodeURIComponent(questionId)}`
+    ),
+    maxAgeMs: questionBankCacheMaxAgeMs
+  }),
+  archiveQuestion: (questionId: string) =>
+    apiRequest<{ archivedAt: string; questionId: string }>(
+      `/admin/import/questions/${encodeURIComponent(questionId)}`,
+      { method: "DELETE" }
+    ).then((response) => {
+      evictQueries("admin:questions:");
+      questionService.evict();
+      evictQueries("review:");
+      invalidateQueries("admin:validation:");
+      return response;
+    })
 };

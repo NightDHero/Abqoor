@@ -522,28 +522,54 @@ export const listAdminQuestionTopicCounts = async (
 
 export const listAdminQuestions = async (input: {
   bankId?: string;
+  difficulty?: number;
   mode: "general" | "aqsam";
   query?: string;
   page: number;
   pageSize: number;
+  source?: "excel" | "manual" | "pdf";
   sort: "asc" | "desc";
+  subject?: "quantitative" | "verbal";
+  subtopic?: string;
+  topic?: string;
 }) => {
   const normalizedQuery = input.query?.trim() ?? "";
   const numericQuery = /^Q-?(\d+)$/i.exec(normalizedQuery)?.[1] ??
     (/^\d+$/.test(normalizedQuery) ? normalizedQuery : null);
-  const conditions = ["questions.question_scope = @mode"];
+  const conditions = [
+    "questions.question_scope = @mode",
+    "questions.archived_at IS NULL"
+  ];
   if (input.bankId) conditions.push("questions.bank_id = @bankId");
+  if (input.subject) conditions.push("questions.subject = @subject");
+  if (input.topic) conditions.push("questions.topic = @topic");
+  if (input.subtopic) conditions.push("questions.subtopic = @subtopic");
+  if (input.difficulty) conditions.push("questions.difficulty = @difficulty");
+  if (input.source) conditions.push("questions.source = @source");
   if (numericQuery) {
     conditions.push(
       "questions.bank_question_number = @questionNumber OR import_job_items.question_number = @questionNumber OR questions.id = @questionId"
     );
+  } else if (normalizedQuery) {
+    conditions.push(`
+      LOWER(questions.id) LIKE LOWER(@searchPattern)
+      OR LOWER(questions.topic) LIKE LOWER(@searchPattern)
+      OR LOWER(COALESCE(questions.subtopic, '')) LIKE LOWER(@searchPattern)
+      OR LOWER(COALESCE(import_job_items.question_text, '')) LIKE LOWER(@searchPattern)
+    `);
   }
   const where = `WHERE ${conditions.map((condition) => `(${condition})`).join(" AND ")}`;
   const params = {
     bankId: input.bankId ?? null,
+    difficulty: input.difficulty ?? null,
     mode: input.mode,
+    source: input.source ?? null,
+    subject: input.subject ?? null,
+    subtopic: input.subtopic ?? null,
+    topic: input.topic ?? null,
     questionNumber: numericQuery ? Number(numericQuery) : null,
     questionId: numericQuery ? `Q-${String(Number(numericQuery)).padStart(3, "0")}` : null,
+    searchPattern: normalizedQuery ? `%${normalizedQuery}%` : null,
     limit: input.pageSize,
     offset: (input.page - 1) * input.pageSize
   };
@@ -560,6 +586,7 @@ export const listAdminQuestions = async (input: {
       questions.image_storage_key AS "imageStorageKey",
       questions.correct_answer AS "correctAnswer",
       questions.subject,
+      questions.source,
       questions.topic,
       questions.topic_id AS "topicId",
       questions.subtopic,
@@ -604,4 +631,58 @@ export const listAdminQuestions = async (input: {
     total: count.count,
     questions: rows
   };
+};
+
+export const findAdminQuestionDetail = async (id: string) => {
+  return await db.prepare<string, {
+    id: string;
+    bankQuestionNumber: number | null;
+    importedQuestionNumber: number | null;
+    questionScope: "general" | "aqsam";
+    bankId: string | null;
+    bankName: string | null;
+    correctAnswer: "A" | "B" | "C" | "D";
+    subject: "quantitative" | "verbal";
+    topic: string;
+    topicId: string | null;
+    subtopic: string | null;
+    subtopicId: string | null;
+    difficulty: number;
+    source: "excel" | "manual" | "pdf";
+    importJobId: string | null;
+    importedAt: string | null;
+    questionText: string | null;
+    optionsJson: string | null;
+    imageStorageKey: string | null;
+  }>(`
+    SELECT
+      questions.id,
+      questions.bank_question_number AS "bankQuestionNumber",
+      import_job_items.question_number AS "importedQuestionNumber",
+      questions.question_scope AS "questionScope",
+      questions.bank_id AS "bankId",
+      question_banks.name AS "bankName",
+      questions.correct_answer AS "correctAnswer",
+      questions.subject,
+      questions.topic,
+      questions.topic_id AS "topicId",
+      questions.subtopic,
+      questions.subtopic_id AS "subtopicId",
+      questions.difficulty,
+      questions.source,
+      questions.import_job_id AS "importJobId",
+      import_jobs.created_at AS "importedAt",
+      import_job_items.question_text AS "questionText",
+      import_job_items.options_json AS "optionsJson",
+      questions.image_storage_key AS "imageStorageKey"
+    FROM questions
+    LEFT JOIN import_jobs ON import_jobs.id = questions.import_job_id
+    LEFT JOIN import_job_items
+      ON import_job_items.import_job_id = questions.import_job_id
+      AND import_job_items.question_id = questions.id
+    LEFT JOIN question_banks ON question_banks.id = questions.bank_id
+    WHERE questions.id = ?
+      AND questions.archived_at IS NULL
+    LIMIT 1
+  `).get(id) ?? null;
 };

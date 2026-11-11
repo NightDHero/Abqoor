@@ -23,14 +23,17 @@ import { asyncHandler } from "../../security/async-handler.js";
 import {
   AdminImportError,
   analyzeQuestionImport,
+  archiveAdminQuestion,
   cancelQuestionImport,
   confirmQuestionImport,
   getAdminQuestionBank,
+  getAdminQuestionDetail,
   getImportHistory,
   getImportJobDetail,
   getQuestionImportTaxonomy,
   rollbackQuestionImport
 } from "./admin-import.service.js";
+import { requireRecentAuthentication } from "../admin.middleware.js";
 import {
   getImportUploadSizeError,
   importerUploadFileSizeLimitBytes
@@ -301,14 +304,76 @@ importerRouter.get("/questions", async (request, response) => {
     const mode = request.query.mode === "aqsam" ? "aqsam" : "general";
     const bankId =
       typeof request.query.bankId === "string" ? request.query.bankId : undefined;
+    const subject = request.query.subject === "quantitative" || request.query.subject === "verbal"
+      ? request.query.subject
+      : undefined;
+    const topic = typeof request.query.topic === "string" && request.query.topic.trim()
+      ? request.query.topic.trim()
+      : undefined;
+    const subtopic = typeof request.query.subtopic === "string" && request.query.subtopic.trim()
+      ? request.query.subtopic.trim()
+      : undefined;
+    const difficulty = toPositiveInteger(request.query.difficulty) ?? undefined;
+    const source = request.query.source === "excel" ||
+      request.query.source === "manual" ||
+      request.query.source === "pdf"
+      ? request.query.source
+      : undefined;
+
+    if (difficulty !== undefined && difficulty > 10) {
+      throw new AdminImportError("درجة الصعوبة يجب أن تكون بين 1 و10.");
+    }
 
     response.status(200).json(
-      await getAdminQuestionBank({ bankId, mode, page, pageSize, query, sort })
+      await getAdminQuestionBank({
+        bankId,
+        difficulty,
+        mode,
+        page,
+        pageSize,
+        query,
+        sort,
+        source,
+        subject,
+        subtopic,
+        topic
+      })
     );
   } catch (error) {
     handleRouteError(error, response, "تعذر تحميل بنك الأسئلة.");
   }
 });
+
+importerRouter.get("/questions/:id", async (request, response) => {
+  try {
+    response.status(200).json({
+      question: await getAdminQuestionDetail(String(request.params.id))
+    });
+  } catch (error) {
+    handleRouteError(error, response, "تعذر تحميل تفاصيل السؤال.");
+  }
+});
+
+importerRouter.delete(
+  "/questions/:id",
+  requireRecentAuthentication,
+  async (request, response) => {
+    try {
+      const result = await archiveAdminQuestion(
+        String(request.params.id),
+        request.user?.id ?? ""
+      );
+      response.status(200).json(result);
+      writeSecurityEvent(request, "admin.question_archived", {
+        actorUserId: request.user?.id,
+        outcome: "success",
+        targetId: result.questionId
+      });
+    } catch (error) {
+      handleRouteError(error, response, "تعذر إزالة السؤال من البنك النشط.");
+    }
+  }
+);
 
 importerRouter.get("/jobs", asyncHandler(async (request, response) => {
   const page = toPositiveInteger(request.query.page) ?? 1;

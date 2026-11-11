@@ -693,6 +693,15 @@ const migrateUserTutorialProgress = (db: Database.Database) => {
   `);
 };
 
+const migrateQuestionArchive = (db: Database.Database) => {
+  addColumnIfMissing(db, "questions", "archived_at", "TEXT");
+  addColumnIfMissing(db, "questions", "archived_by", "TEXT");
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_questions_archived_at
+    ON questions(archived_at);
+  `);
+};
+
 export const runDatabaseMigrations = (db: Database.Database) => {
   migrateStudentProfileIdentity(db);
   migrateStudentStudyPlan(db);
@@ -711,4 +720,5 @@ export const runDatabaseMigrations = (db: Database.Database) => {
   migrateQuestionBanksAndPasswordChange(db);
   migrateRemovePhoneIdentity(db);
   migrateUserTutorialProgress(db);
+  migrateQuestionArchive(db);
 };

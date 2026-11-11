@@ -1,4 +1,4 @@
-import { findQuestionById } from "../questions/question.repository.js";
+import { findActiveQuestionById } from "../questions/question.repository.js";
 import {
   deleteReviewItem,
   findReviewItemById,
@@ -30,7 +30,7 @@ export const addReviewQuestion = async (
     throw new ReviewError("questionId is required.");
   }
 
-  const question = await findQuestionById(questionId);
+  const question = await findActiveQuestionById(questionId);
 
   if (!question) {
     throw new ReviewError("Question not found.", 404);
