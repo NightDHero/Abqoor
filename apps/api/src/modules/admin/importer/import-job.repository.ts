@@ -16,6 +16,7 @@ import type {
   MediaSummary,
   SheetSummary
 } from "./importer.types.js";
+import { buildAdminQuestionTopicCountQuery } from "./question-bank-query.js";
 
 type ImportJobRecord = {
   id: string;
@@ -511,24 +512,12 @@ export const listAdminQuestionTopicCounts = async (
   questionScope: "general" | "aqsam" = "general",
   bankId?: string
 ) => {
+  const query = buildAdminQuestionTopicCountQuery({ bankId, questionScope });
+
   return await db.prepare<
-    { bankId: string | null; questionScope: "general" | "aqsam" },
+    { bankId?: string; questionScope: "general" | "aqsam" },
     AdminQuestionTopicCountRecord
-  >(`
-    SELECT
-      subject,
-      subject_id,
-      topic,
-      topic_id,
-      subtopic,
-      subtopic_id,
-      CAST(COUNT(*) AS INTEGER) AS question_count
-    FROM questions
-    WHERE question_scope = @questionScope
-      AND (@bankId IS NULL OR bank_id = @bankId)
-    GROUP BY subject, subject_id, topic, topic_id, subtopic, subtopic_id
-    ORDER BY subject_id ASC, topic_id ASC, subtopic_id ASC
-`).all({ bankId: bankId ?? null, questionScope });
+  >(query.sql).all(query.params);
 };
 
 export const listAdminQuestions = async (input: {
@@ -562,23 +551,23 @@ export const listAdminQuestions = async (input: {
   const rows = await db.prepare(`
     SELECT
       questions.id,
-      questions.bank_question_number AS bankQuestionNumber,
-      import_job_items.question_number AS importedQuestionNumber,
-      questions.question_scope AS questionScope,
-      questions.bank_id AS bankId,
-      question_banks.name AS bankName,
-      questions.question_image_url AS questionImageUrl,
-      questions.image_storage_key AS imageStorageKey,
-      questions.correct_answer AS correctAnswer,
+      questions.bank_question_number AS "bankQuestionNumber",
+      import_job_items.question_number AS "importedQuestionNumber",
+      questions.question_scope AS "questionScope",
+      questions.bank_id AS "bankId",
+      question_banks.name AS "bankName",
+      questions.question_image_url AS "questionImageUrl",
+      questions.image_storage_key AS "imageStorageKey",
+      questions.correct_answer AS "correctAnswer",
       questions.subject,
       questions.topic,
-      questions.topic_id AS topicId,
+      questions.topic_id AS "topicId",
       questions.subtopic,
-      questions.subtopic_id AS subtopicId,
+      questions.subtopic_id AS "subtopicId",
       questions.difficulty,
-      questions.import_job_id AS importJobId,
-      import_jobs.created_at AS importedAt,
-      import_jobs.created_by AS importedBy
+      questions.import_job_id AS "importJobId",
+      import_jobs.created_at AS "importedAt",
+      import_jobs.created_by AS "importedBy"
     FROM questions
     LEFT JOIN import_jobs ON import_jobs.id = questions.import_job_id
     LEFT JOIN import_job_items
