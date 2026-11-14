@@ -274,11 +274,34 @@
 
 .question-finder select {
   min-height: 38px;
+  border: 1px solid var(--abq-line-strong);
   border-radius: 999px;
+  background: #0b2635;
   padding: 6px 30px 6px 12px;
+  color: #f4fbfd;
+  color-scheme: dark;
   font-size: 0.82rem;
   font-weight: 850;
   text-align: start;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 7%);
+}
+
+.question-finder select:hover,
+.question-finder select:focus-visible {
+  border-color: var(--abq-cyan);
+  background: #0d2d3e;
+}
+
+.question-finder select option {
+  background: #0b2635;
+  color: #f4fbfd;
+}
+
+:root[data-theme="light"] .question-finder select,
+:root[data-theme="light"] .question-finder select option {
+  background: #fff;
+  color: #173449;
+  color-scheme: light;
 }
 
 .product-app-shell .solving-workspace {
@@ -1203,10 +1226,13 @@
   }
 
   .product-app-shell .solving-answer-dock .browser-navigation-row {
+    --mobile-navigation-inset: clamp(12px, 2.3vw, 16px);
+
     grid-column: 1;
     grid-template-columns: 54px minmax(0, 1fr);
-    width: 100%;
+    width: auto;
     justify-self: stretch;
+    margin: 0 var(--mobile-navigation-inset) var(--mobile-navigation-inset);
   }
 
   .product-app-shell .solving-answer-dock .question-previous-button {

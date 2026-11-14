@@ -421,6 +421,10 @@ body:has(.public-home),
 }
 
 .home-login-link {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
   min-height: 42px;
   border: 1px solid color-mix(in srgb, var(--home-gold) 42%, transparent);
   border-radius: 999px;
@@ -429,6 +433,17 @@ body:has(.public-home),
   color: #17202a;
   font-weight: 950;
   box-shadow: 0 10px 24px rgb(0 7 14 / 16%);
+}
+
+.home-login-link small {
+  border: 1px solid rgb(3 17 28 / 18%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 44%);
+  padding: 2px 7px;
+  color: #173449;
+  font-size: 0.67rem;
+  font-weight: 950;
+  line-height: 1.25;
 }
 
 .home-login-link:hover {

@@ -428,7 +428,8 @@ export function LandingPage({ user: _user }: { user: User | null }) {
             type="button"
             onClick={() => navigateTo("/login")}
           >
-            {homeContent.loginLabel}
+            <span>{homeContent.loginLabel}</span>
+            <small>مسجل</small>
           </button>
         </div>
         <div className="home-scroll-progress-frame" aria-hidden="true">

@@ -7,7 +7,8 @@ import {
 import {
   isCorrectAnswer,
   isSubject,
-  toDifficulty
+  toDifficulty,
+  toDifficultyScore
 } from "../../questions/question.service.js";
 import type {
   CorrectAnswer,
@@ -251,10 +252,10 @@ export const validateUnifiedQuestionOutput = (
   }
 
   if (toDifficulty(question.difficulty) === null) {
-    throw new Error("difficulty must be an integer from 1 to 10.");
+    throw new Error("difficulty must be an integer from 1 to 4.");
   }
 
-  if (toDifficulty(question.difficultyScore ?? question.difficulty) === null) {
+  if (toDifficultyScore(question.difficultyScore ?? question.difficulty) === null) {
     throw new Error("difficultyScore must be an integer from 1 to 10.");
   }
 };

@@ -4,6 +4,11 @@
   color: var(--abqoor-text);
 }
 
+.product-app-shell .app-main:has(.admin-workspace) {
+  width: 100%;
+  padding-top: 0;
+}
+
 .admin-workspace-header,
 .admin-panel-heading,
 .admin-bank-toolbar,
@@ -77,9 +82,18 @@
 .admin-section-nav {
   display: flex;
   gap: 8px;
+  align-items: center;
+  justify-content: center;
   overflow-x: auto;
-  padding: 0 clamp(18px, 4vw, 44px) 18px;
-  scrollbar-width: thin;
+  min-height: 62px;
+  border-bottom: 1px solid var(--abqoor-border);
+  background: color-mix(in srgb, var(--abqoor-glass) 72%, transparent);
+  padding: 9px clamp(18px, 4vw, 44px);
+  scrollbar-width: none;
+}
+
+.admin-section-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .admin-section-nav a {
@@ -1497,6 +1511,7 @@
   height: 100%;
   border-inline-end: 1px solid var(--abqoor-border-strong);
   background: #092235;
+  color: #f3fbfd;
   box-shadow: 30px 0 80px rgb(0 0 0 / 42%);
   overflow: hidden;
 }
@@ -1556,7 +1571,7 @@
 }
 
 .admin-question-detail-content > section > p {
-  color: var(--abqoor-muted);
+  color: #b8ccd5;
   line-height: 1.8;
 }
 
@@ -1606,6 +1621,14 @@
   border: 1px solid var(--abqoor-border);
   border-radius: 7px;
   padding: 10px;
+  color: #f3fbfd;
+}
+
+.admin-question-options li > span,
+.admin-question-detail-grid dd,
+.product-app-shell .admin-question-detail h2,
+.product-app-shell .admin-question-detail h3 {
+  color: #f3fbfd;
 }
 
 .admin-question-options li[data-correct="true"] {
@@ -1639,12 +1662,12 @@
   display: grid;
   gap: 4px;
   border-inline-start: 2px solid color-mix(in srgb, var(--brand-cyan) 42%, transparent);
-  background: color-mix(in srgb, var(--abqoor-glass) 68%, transparent);
+  background: rgb(255 255 255 / 5%);
   padding: 9px 11px;
 }
 
 .admin-question-detail-grid dt {
-  color: var(--abqoor-muted);
+  color: #aec5cf;
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -1661,7 +1684,7 @@
   justify-content: space-between;
   border-block-start: 1px solid var(--abqoor-border);
   padding-block-start: 16px;
-  color: var(--abqoor-muted);
+  color: #aec5cf;
   font-size: 0.8rem;
 }
 
@@ -1714,6 +1737,11 @@
 }
 
 @media (max-width: 620px) {
+  .admin-section-nav {
+    justify-content: flex-start;
+    min-height: 58px;
+    padding-inline: 12px;
+  }
   .admin-import-result-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-workspace-header { align-items: flex-start; flex-direction: column; }
   .admin-form-grid,

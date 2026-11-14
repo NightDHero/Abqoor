@@ -23,17 +23,6 @@ export function AdminShell({
 }) {
   return (
     <section className="admin-workspace">
-      <header className="admin-workspace-header">
-        <div>
-          <p>لوحة الإدارة</p>
-          <h1>{title}</h1>
-          {description ? <span>{description}</span> : null}
-        </div>
-        <button type="button" onClick={() => navigateTo("/career")}>
-          العودة إلى عبقور
-        </button>
-      </header>
-
       <nav className="admin-section-nav" aria-label="أقسام لوحة الإدارة">
         {adminDestinations.map((destination) => {
           const isActive =
@@ -58,6 +47,17 @@ export function AdminShell({
           );
         })}
       </nav>
+
+      <header className="admin-workspace-header">
+        <div>
+          <p>لوحة الإدارة</p>
+          <h1>{title}</h1>
+          {description ? <span>{description}</span> : null}
+        </div>
+        <button type="button" onClick={() => navigateTo("/career")}>
+          العودة إلى عبقور
+        </button>
+      </header>
 
       <div className="admin-workspace-content">{children}</div>
     </section>

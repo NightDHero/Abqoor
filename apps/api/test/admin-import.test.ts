@@ -675,6 +675,19 @@ test("maps the documented A-R quantitative workbook and cell-note fallback", () 
   assert.equal(analysis.questions[0]?.metadata.weight, "2");
 });
 
+test("rejects an imported difficulty outside the 1 to 4 product scale", () => {
+  const sheets = validWideQuantitativeSheets([10]);
+  if (sheets[0]?.data[1]) sheets[0].data[1][10] = 5;
+
+  const analysis = excelAdapter.analyzeWorkbookSheets(
+    sheets,
+    { from: 10, to: 10 }
+  );
+
+  assert.ok(analysis.issues.some((item) => item.code === "invalid_difficulty"));
+  assert.equal(analysis.questions[0]?.difficulty, 1);
+});
+
 test("maps the extended A-Y quantitative workbook without using the bank id as the question id", () => {
   const header = [
     "رقم البنك", "معرف داخلي ١", "معرف داخلي ٢", "السؤال", "المقارنة أ",

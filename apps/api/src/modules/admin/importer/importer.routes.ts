@@ -34,6 +34,7 @@ import {
   rollbackQuestionImport
 } from "./admin-import.service.js";
 import { requireRecentAuthentication } from "../admin.middleware.js";
+import { questionDifficultyMax } from "../../questions/question.types.js";
 import {
   getImportUploadSizeError,
   importerUploadFileSizeLimitBytes
@@ -320,8 +321,8 @@ importerRouter.get("/questions", async (request, response) => {
       ? request.query.source
       : undefined;
 
-    if (difficulty !== undefined && difficulty > 10) {
-      throw new AdminImportError("درجة الصعوبة يجب أن تكون بين 1 و10.");
+    if (difficulty !== undefined && difficulty > questionDifficultyMax) {
+      throw new AdminImportError("درجة الصعوبة يجب أن تكون بين 1 و4.");
     }
 
     response.status(200).json(

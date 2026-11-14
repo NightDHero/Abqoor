@@ -137,6 +137,7 @@ test("Google identities use ordinary users and remain idempotently linked", asyn
     .get("google", "google-subject-123");
   assert.equal(identity?.user_id, first.id);
   assert.notEqual(first.password_hash, "test-credential");
+  assert.ok(first.email_verified_at);
 });
 
 test("Google cannot silently take over a matching password account", async () => {

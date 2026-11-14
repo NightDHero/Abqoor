@@ -14,7 +14,7 @@ body:has(.onboarding-shell) {
   white-space: nowrap;
 }
 
-.product-app-shell:not(.topic-directory-app-shell):not(:has(.question-browser)):not(
+.product-app-shell:not(.topic-directory-app-shell):not(:has(.question-browser)):not(:has(.admin-workspace)):not(
     :has(.study-mode-active)
   )
   .app-main {
@@ -1093,7 +1093,7 @@ body:has(.onboarding-shell) {
 }
 
 @media (max-width: 700px) {
-  .product-app-shell:not(.topic-directory-app-shell):not(:has(.question-browser)):not(
+  .product-app-shell:not(.topic-directory-app-shell):not(:has(.question-browser)):not(:has(.admin-workspace)):not(
       :has(.study-mode-active)
     )
     .app-main {

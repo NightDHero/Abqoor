@@ -5,7 +5,8 @@ import {
   getStudentQuestions,
   isQuestionSubjectId,
   isSubject,
-  toDifficulty
+  toDifficulty,
+  toDifficultyScore
 } from "./question.service.js";
 import { asyncHandler } from "../security/async-handler.js";
 
@@ -23,7 +24,7 @@ questionRouter.get("/", asyncHandler(async (request, response) => {
   const parsedDifficulty =
     difficulty === undefined ? undefined : toDifficulty(difficulty);
   const parsedDifficultyScore =
-    difficultyScore === undefined ? undefined : toDifficulty(difficultyScore);
+    difficultyScore === undefined ? undefined : toDifficultyScore(difficultyScore);
 
   if (subject !== undefined && !isSubject(subject)) {
     response.status(400).json({ message: "subject must be quantitative or verbal." });
@@ -36,7 +37,7 @@ questionRouter.get("/", asyncHandler(async (request, response) => {
   }
 
   if (difficulty !== undefined && parsedDifficulty === null) {
-    response.status(400).json({ message: "difficulty must be an integer from 1 to 10." });
+    response.status(400).json({ message: "difficulty must be an integer from 1 to 4." });
     return;
   }
 

@@ -205,7 +205,8 @@ export const loginWithGoogle = async (
     const inaccessiblePassword = randomBytes(48).toString("base64url");
     user = await createUser(
       identity.email,
-      await bcrypt.hash(inaccessiblePassword, 12)
+      await bcrypt.hash(inaccessiblePassword, 12),
+      { emailVerifiedAt: new Date().toISOString() }
     );
   }
 

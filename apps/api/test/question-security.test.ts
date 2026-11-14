@@ -14,7 +14,7 @@ process.env.STORAGE_DRIVER = "local";
 
 const { createApp } = await import("../src/app.js");
 const { closeDatabase, db } = await import("../src/database/client.js");
-const { saveQuestion } = await import(
+const { saveQuestion, toDifficulty, toDifficultyScore } = await import(
   "../src/modules/questions/question.service.js"
 );
 
@@ -82,6 +82,13 @@ const registerAndCompleteProfile = async () => {
 };
 
 const cookie = await registerAndCompleteProfile();
+
+test("question difficulty uses the 1 to 4 product scale without changing the internal precision score", () => {
+  assert.equal(toDifficulty(1), 1);
+  assert.equal(toDifficulty(4), 4);
+  assert.equal(toDifficulty(5), null);
+  assert.equal(toDifficultyScore(10), 10);
+});
 
 const collectKeys = (value: unknown, keys = new Set<string>()) => {
   if (Array.isArray(value)) {

@@ -42,10 +42,12 @@ const googleIdentityController = createGoogleIdentityController(async () => {
 
 export function GoogleSignInButton({
   disabled,
+  enableOneTap = false,
   onCredential,
   onError
 }: {
   disabled: boolean;
+  enableOneTap?: boolean;
   onCredential: (credential: string) => void;
   onError: (message: string) => void;
 }) {
@@ -75,6 +77,10 @@ export function GoogleSignInButton({
           width: Math.min(400, Math.max(200, availableWidth || 320))
         });
         setIsReady(true);
+        if (enableOneTap) {
+          void googleIdentityController.promptOneTap(env.googleClientId)
+            .catch(() => undefined);
+        }
       })
       .catch(() => {
         if (active) onError("تعذر تحميل تسجيل الدخول عبر Google.");
@@ -83,7 +89,7 @@ export function GoogleSignInButton({
       active = false;
       removeCredentialHandler();
     };
-  }, [onError]);
+  }, [enableOneTap, onError]);
 
   if (!env.googleClientId) return null;
 

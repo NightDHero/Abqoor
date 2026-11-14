@@ -259,6 +259,21 @@ export function AuthPage({
               </button>
             ))}
           </div>
+          {env.googleClientId ? (
+            <section className="auth-google-primary" aria-label="المتابعة باستخدام Google">
+              <div>
+                <strong>المتابعة باستخدام Google</strong>
+                <span>اختر حسابك بأمان دون إدخال كلمة مرور جديدة</span>
+              </div>
+              <GoogleSignInButton
+                disabled={isSubmitting}
+                enableOneTap
+                onCredential={(credential) => void handleGoogleCredential(credential)}
+                onError={setError}
+              />
+            </section>
+          ) : null}
+          {env.googleClientId ? <div className="auth-divider"><span>أو بالبريد الإلكتروني</span></div> : null}
           <label className="form-field">
             البريد الإلكتروني
             <input
@@ -373,16 +388,6 @@ export function AuthPage({
           <button type="submit" disabled={isSubmitting || !isFormValid}>
             {isSubmitting ? "جاري الإرسال..." : copy.action}
           </button>
-          {env.googleClientId ? (
-            <div className="auth-google-alternative">
-              <div className="auth-divider"><span>أو</span></div>
-              <GoogleSignInButton
-                disabled={isSubmitting}
-                onCredential={(credential) => void handleGoogleCredential(credential)}
-                onError={setError}
-              />
-            </div>
-          ) : null}
           {pendingGoogleCredential ? (
             <section className="auth-google-link" aria-labelledby="google-link-title">
               <div>

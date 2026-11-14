@@ -14,10 +14,10 @@ import { QuestionActionRail } from "./QuestionActionRail";
 
 const answers: CorrectAnswer[] = ["A", "B", "C", "D"];
 const answerAdvanceDelayMs = 260;
-const gestureCooldownMs = 520;
+const gestureCooldownMs = 330;
 const minWheelDistance = 36;
 const minTouchDistance = 48;
-const scrollTransitionMs = 420;
+const scrollTransitionMs = 240;
 
 const prefersReducedMotion = () =>
   typeof window !== "undefined" &&

@@ -3,6 +3,9 @@ import { getAuthorizedQuestionImageUrl } from "../media/media.service.js";
 export const correctAnswers = ["A", "B", "C", "D"] as const;
 export const subjects = ["quantitative", "verbal"] as const;
 export const questionSources = ["pdf", "excel", "manual"] as const;
+export const questionDifficultyMin = 1;
+export const questionDifficultyMax = 4;
+export const questionDifficultyScoreMax = 10;
 
 export type CorrectAnswer = (typeof correctAnswers)[number];
 export type Subject = (typeof subjects)[number];

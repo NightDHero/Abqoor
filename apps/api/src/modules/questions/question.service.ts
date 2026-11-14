@@ -13,6 +13,9 @@ import {
 } from "./question.repository.js";
 import {
   correctAnswers,
+  questionDifficultyMax,
+  questionDifficultyMin,
+  questionDifficultyScoreMax,
   questionSources,
   subjects,
   toQuestion,
@@ -42,7 +45,20 @@ export const isSubject = (value: unknown): value is Subject => {
 
 export const toDifficulty = (value: unknown) => {
   const parsed = typeof value === "number" ? value : Number(value);
-  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 10 ? parsed : null;
+  return Number.isInteger(parsed) &&
+    parsed >= questionDifficultyMin &&
+    parsed <= questionDifficultyMax
+    ? parsed
+    : null;
+};
+
+export const toDifficultyScore = (value: unknown) => {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isInteger(parsed) &&
+    parsed >= questionDifficultyMin &&
+    parsed <= questionDifficultyScoreMax
+    ? parsed
+    : null;
 };
 
 export const isQuestionSubjectId = isLearningSubject;
@@ -109,10 +125,10 @@ export const validateQuestionInput = (question: QuestionWriteInput) => {
   }
 
   if (toDifficulty(question.difficulty) === null) {
-    throw new QuestionError("difficulty must be an integer from 1 to 10.");
+    throw new QuestionError("difficulty must be an integer from 1 to 4.");
   }
 
-  if (toDifficulty(question.difficultyScore ?? question.difficulty) === null) {
+  if (toDifficultyScore(question.difficultyScore ?? question.difficulty) === null) {
     throw new QuestionError("difficulty_score must be an integer from 1 to 10.");
   }
 

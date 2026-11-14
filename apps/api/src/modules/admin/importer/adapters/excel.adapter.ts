@@ -9,6 +9,10 @@ import {
   type TopicDefinition
 } from "../../../learning-taxonomy/taxonomy.js";
 import { parseCorrectAnswer, parseQuestionNumber } from "../question-format.mapper.js";
+import {
+  questionDifficultyMax,
+  questionDifficultyMin
+} from "../../../questions/question.types.js";
 import type {
   ImportValidationIssue,
   EmbeddedWorkbookImage,
@@ -1204,9 +1208,20 @@ export const analyzeWorkbookSheets = (
         definition.format === "quantitative-wide" ? 10 : undefined
       );
       const difficultyValue = difficultyIndex === undefined ? Number.NaN : Number(row[difficultyIndex]);
-      const difficulty = Number.isInteger(difficultyValue) && difficultyValue >= 1 && difficultyValue <= 10
+      const hasDifficultyValue = difficultyIndex !== undefined && text(row[difficultyIndex]) !== "";
+      const hasValidDifficulty = Number.isInteger(difficultyValue) &&
+        difficultyValue >= questionDifficultyMin &&
+        difficultyValue <= questionDifficultyMax;
+      const difficulty = hasValidDifficulty
         ? difficultyValue
         : 1;
+      if (hasDifficultyValue && !hasValidDifficulty) {
+        rowIssues.push(issue(
+          "invalid_difficulty",
+          `درجة صعوبة السؤال ${questionNumber} يجب أن تكون بين 1 و4.`,
+          { questionNumber, rowNumber, sheetName }
+        ));
+      }
       const sourceIdentifierValues = definition.sourceIdentifierIndexes
         ? definition.sourceIdentifierIndexes.map((index) => text(row[index]) || null)
         : null;

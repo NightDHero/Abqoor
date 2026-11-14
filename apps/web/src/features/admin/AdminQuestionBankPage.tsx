@@ -20,6 +20,7 @@ type QuestionSource = "excel" | "manual" | "pdf";
 type QuestionSubject = "quantitative" | "verbal";
 
 const pageSize = 50;
+const difficultyMax = 4;
 const emptyResult: AdminQuestionBankResponse = {
   banks: [],
   mode: "general",
@@ -41,6 +42,10 @@ const sourceLabel = (source: QuestionSource) => ({
 })[source];
 
 const optionLabels = ["أ", "ب", "ج", "د"];
+const difficultyLabel = (value: number) =>
+  value >= 1 && value <= difficultyMax
+    ? `${value.toLocaleString("ar-SA")} / ${difficultyMax.toLocaleString("ar-SA")}`
+    : "قيمة قديمة غير متوافقة";
 
 export function AdminQuestionBankPage() {
   const initialRequest = {
@@ -61,6 +66,16 @@ export function AdminQuestionBankPage() {
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<"asc" | "desc">("asc");
   const [result, setResult] = useState(initialCache?.data ?? emptyResult);
+  const [filterCatalogs, setFilterCatalogs] = useState<
+    Record<string, AdminQuestionBankResponse["questionCounts"]["subjects"]>
+  >(() => {
+    const catalogs: Record<
+      string,
+      AdminQuestionBankResponse["questionCounts"]["subjects"]
+    > = {};
+    if (initialCache) catalogs["general:all"] = initialCache.data.questionCounts.subjects;
+    return catalogs;
+  });
   const [isLoading, setIsLoading] = useState(!initialCache);
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState<{
@@ -89,6 +104,7 @@ export function AdminQuestionBankPage() {
     subtopic: subtopic || undefined,
     topic: topic || undefined
   }), [bankId, difficulty, mode, page, query, sort, source, subject, subtopic, topic]);
+  const filterScopeKey = `${mode}:${bankId || "all"}`;
 
   useEffect(() => {
     const requestVersion = ++requestVersionRef.current;
@@ -100,7 +116,12 @@ export function AdminQuestionBankPage() {
     const timer = window.setTimeout(() => {
       void adminService.getQuestionBank(request)
         .then((response) => {
-          if (requestVersionRef.current === requestVersion) setResult(response);
+          if (requestVersionRef.current !== requestVersion) return;
+          setResult(response);
+          setFilterCatalogs((current) => ({
+            ...current,
+            [filterScopeKey]: response.questionCounts.subjects
+          }));
         })
         .catch((requestError) => {
           if (requestVersionRef.current !== requestVersion) return;
@@ -119,7 +140,7 @@ export function AdminQuestionBankPage() {
       window.clearTimeout(timer);
       if (requestVersionRef.current === requestVersion) requestVersionRef.current += 1;
     };
-  }, [request, reloadVersion]);
+  }, [filterScopeKey, request, reloadVersion]);
 
   const pageCount = getQuestionBankPageCount(result.total, result.pageSize);
   const showEmptyState = shouldShowQuestionBankEmptyState({
@@ -192,7 +213,7 @@ export function AdminQuestionBankPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [archiveTarget, selectedQuestionId]);
 
-  const availableSubjects = result.questionCounts.subjects;
+  const availableSubjects = filterCatalogs[filterScopeKey] ?? [];
   const availableTopics = useMemo(() => {
     const relevantSubjects = availableSubjects.filter((item) =>
       !subject || item.subjectId === (subject === "quantitative" ? "math" : "arabic")
@@ -201,11 +222,15 @@ export function AdminQuestionBankPage() {
   }, [availableSubjects, subject]);
   const availableSubtopics = useMemo(() => [
     ...new Set(
-      availableSubjects.flatMap((item) => item.topics)
+      availableSubjects
+        .filter((item) =>
+          !subject || item.subjectId === (subject === "quantitative" ? "math" : "arabic")
+        )
+        .flatMap((item) => item.topics)
         .filter((item) => !topic || item.topicLabel === topic)
         .flatMap((item) => item.subtopics.map((entry) => entry.subtopicLabel))
     )
-  ], [availableSubjects, topic]);
+  ], [availableSubjects, subject, topic]);
 
   const activeFilterCount = [subject, topic, subtopic, difficulty, source, bankId]
     .filter(Boolean).length;
@@ -401,7 +426,7 @@ export function AdminQuestionBankPage() {
               setPage(1);
             }}>
               <option value="">كل المستويات</option>
-              {Array.from({ length: 10 }, (_, index) => index + 1).map((item) => (
+              {Array.from({ length: difficultyMax }, (_, index) => index + 1).map((item) => (
                 <option key={item} value={item}>المستوى {item.toLocaleString("ar-SA")}</option>
               ))}
             </select>
@@ -507,9 +532,9 @@ export function AdminQuestionBankPage() {
                       <small>{question.subtopic ?? "دون موضوع فرعي"}</small>
                     </td>
                     <td data-label="الصعوبة">
-                      <span className="admin-question-difficulty" aria-label={`الصعوبة ${question.difficulty} من 10`}>
-                        <b>{question.difficulty.toLocaleString("ar-SA")}</b>
-                        <span><i style={{ width: `${Math.min(100, question.difficulty * 10)}%` }} /></span>
+                      <span className="admin-question-difficulty" aria-label={`الصعوبة ${difficultyLabel(question.difficulty)}`}>
+                        <b>{question.difficulty >= 1 && question.difficulty <= difficultyMax ? question.difficulty.toLocaleString("ar-SA") : "—"}</b>
+                        <span><i style={{ width: `${question.difficulty >= 1 && question.difficulty <= difficultyMax ? question.difficulty / difficultyMax * 100 : 0}%` }} /></span>
                       </span>
                     </td>
                     <td data-label="المصدر">
@@ -598,7 +623,7 @@ export function AdminQuestionBankPage() {
                   <div><dt>القسم</dt><dd>{sectionLabel(detail.subject)}</dd></div>
                   <div><dt>الموضوع</dt><dd>{detail.topic}</dd></div>
                   <div><dt>الموضوع الفرعي</dt><dd>{detail.subtopic ?? "غير معيّن"}</dd></div>
-                  <div><dt>الصعوبة</dt><dd>{detail.difficulty.toLocaleString("ar-SA")} / ١٠</dd></div>
+                  <div><dt>الصعوبة</dt><dd>{difficultyLabel(detail.difficulty)}</dd></div>
                   <div><dt>الإجابة الصحيحة</dt><dd>{answerLabel(detail.correctAnswer)}</dd></div>
                   <div><dt>المصدر</dt><dd>{sourceLabel(detail.source)}</dd></div>
                   <div><dt>البنك</dt><dd>{detail.bankName ?? "الأسئلة العامة"}</dd></div>

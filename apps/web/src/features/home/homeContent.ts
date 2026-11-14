@@ -6,7 +6,7 @@ export const homeContent = {
     { id: "home-systems", label: "أنظمة عبقور" },
     { id: "home-advice", label: "نصيحة" }
   ],
-  loginLabel: "تسجيل الدخول",
+  loginLabel: "ادخل البرنامج",
   stages: {
     "home-hero": "١ / البداية",
     "home-program": "٢ / رحلتك",
