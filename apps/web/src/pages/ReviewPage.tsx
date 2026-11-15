@@ -1,17 +1,24 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { PageContainer } from "../components/layout/PageContainer";
 import { SummaryMetric } from "../components/ui/SummaryMetric";
+import { SystemIcon } from "../components/ui/SystemIcon";
+import { toQuestionNumber } from "../features/browser/browserUtils";
 import { HttpError } from "../services/http";
 import {
   emptyReviewBank,
   reviewBankService,
   type ReviewBankResponse,
-  type ReviewItem
+  type ReviewItem,
+  type ReviewSource
 } from "../services/reviewBankService";
-import { toQuestionNumber } from "../features/browser/browserUtils";
 import { navigateTo } from "../utils/router";
+import {
+  buildReviewDisplayItems,
+  type ReviewDisplayItem,
+  type ReviewFilter
+} from "./reviewDisplay";
 
-const sourceLabels = {
+const sourceLabels: Record<ReviewSource, string> = {
   manual: "حفظ يدوي",
   wrong_answer: "إجابة خاطئة"
 };
@@ -19,9 +26,7 @@ const sourceLabels = {
 const formatDate = (value: string) => {
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
+  if (Number.isNaN(date.getTime())) return value;
 
   return date.toLocaleString("ar-SA", {
     day: "2-digit",
@@ -35,8 +40,11 @@ const formatDate = (value: string) => {
 const getQuestionPath = (item: ReviewItem) => {
   const questionParam = `?question=${encodeURIComponent(item.questionId)}`;
 
-  if (item.subjectId === "math" && item.topicId && item.subtopicId) {
-    return `/browse/math/${item.topicId}/${item.subtopicId}${questionParam}`;
+  if (item.subjectId === "math" && item.topicId) {
+    const destination = item.subtopicId
+      ? `/browse/math/${item.topicId}/${item.subtopicId}`
+      : `/browse/math/${item.topicId}`;
+    return `${destination}${questionParam}`;
   }
 
   if (item.subjectId === "arabic" && item.topicId) {
@@ -47,24 +55,43 @@ const getQuestionPath = (item: ReviewItem) => {
     return `/browse/arabic/verbal-analogy${questionParam}`;
   }
 
-  return `/career`;
+  return "/career";
+};
+
+const stopEntryNavigation = (event: MouseEvent<HTMLElement>) => {
+  event.stopPropagation();
 };
 
 function ReviewQuestionList({
   emptyMessage,
   items,
   onRemove,
-  removingItemId,
+  removingItemKey,
   sectionId,
   title
 }: {
   emptyMessage: string;
-  items: ReviewItem[];
-  onRemove: (reviewItemId: string) => void;
-  removingItemId?: string;
+  items: ReviewDisplayItem[];
+  onRemove: (item: ReviewDisplayItem) => void;
+  removingItemKey?: string;
   sectionId: string;
   title: string;
 }) {
+  const [confirmingItemKey, setConfirmingItemKey] = useState("");
+  const [openInfoKey, setOpenInfoKey] = useState("");
+
+  const openQuestion = (item: ReviewItem) => navigateTo(getQuestionPath(item));
+  const handleEntryKeyDown = (
+    event: KeyboardEvent<HTMLElement>,
+    item: ReviewItem
+  ) => {
+    if (event.currentTarget !== event.target) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openQuestion(item);
+    }
+  };
+
   return (
     <section className="review-section" aria-labelledby={`${sectionId}-title`}>
       <div className="section-heading">
@@ -76,53 +103,124 @@ function ReviewQuestionList({
         <p className="status-message">{emptyMessage}</p>
       ) : (
         <div className="review-list">
-          {items.map((item) => {
-            const questionNumber = toQuestionNumber(item.questionId);
+          {items.map((displayItem) => {
+            const { item } = displayItem;
+            const questionNumber =
+              item.sourceQuestionNumber ?? toQuestionNumber(item.questionId);
+            const itemKey = item.questionId;
+            const questionPath = getQuestionPath(item);
+            const tooltipId = `review-date-${item.id}`;
+            const isConfirming = confirmingItemKey === itemKey;
+            const isRemoving = removingItemKey === itemKey;
 
             return (
-              <article className="review-item" key={item.id}>
+              <article
+                aria-label={`فتح السؤال ${questionNumber ?? ""}`.trim()}
+                className="review-item review-item-interactive"
+                data-prefetch-route={questionPath}
+                key={itemKey}
+                role="link"
+                tabIndex={0}
+                onClick={() => openQuestion(item)}
+                onKeyDown={(event) => handleEntryKeyDown(event, item)}
+              >
                 <header className="review-item-heading">
-                  <div>
-                    <span>السؤال {questionNumber ?? item.questionId}</span>
-                    <strong dir="ltr">{item.questionId}</strong>
-                  </div>
-                  <span className={`review-source review-source-${item.source}`}>
-                    {sourceLabels[item.source]}
+                  <strong>
+                    {questionNumber === null || questionNumber === undefined
+                      ? "السؤال"
+                      : `السؤال ${questionNumber.toLocaleString("ar-SA")}`}
+                  </strong>
+                  <span className="review-source-list">
+                    {displayItem.sources.map((source) => (
+                      <span className={`review-source review-source-${source}`} key={source}>
+                        {sourceLabels[source]}
+                      </span>
+                    ))}
                   </span>
                 </header>
+
                 <dl className="review-item-meta">
                   <div>
-                    <dt>الموضوع</dt>
+                    <dt>الموضوع:</dt>
                     <dd>{item.topic}</dd>
                   </div>
                   {item.subtopic ? (
                     <div>
-                      <dt>المهارة</dt>
+                      <dt>المهارة:</dt>
                       <dd>{item.subtopic}</dd>
                     </div>
                   ) : null}
-                  <div>
-                    <dt>آخر تفاعل</dt>
-                    <dd>{formatDate(item.updatedAt)}</dd>
-                  </div>
                 </dl>
-                <div className="review-item-actions">
+
+                <div className="review-item-controls" onClick={stopEntryNavigation}>
+                  <span className="review-info-control">
+                    <button
+                      aria-describedby={openInfoKey === itemKey ? tooltipId : undefined}
+                      aria-expanded={openInfoKey === itemKey}
+                      aria-label="عرض تاريخ آخر تفاعل"
+                      className="review-icon-button review-info-button"
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setOpenInfoKey((current) => current === itemKey ? "" : itemKey);
+                      }}
+                    >
+                      <SystemIcon name="info" />
+                    </button>
+                    <span
+                      className="review-date-tooltip"
+                      data-open={openInfoKey === itemKey}
+                      id={tooltipId}
+                      role="tooltip"
+                    >
+                      آخر تفاعل: {formatDate(displayItem.updatedAt)}
+                    </span>
+                  </span>
                   <button
-                    data-prefetch-route={getQuestionPath(item)}
+                    aria-label="إزالة السؤال من المراجعة"
+                    className="review-icon-button review-delete-button"
+                    disabled={isRemoving}
                     type="button"
-                    onClick={() => navigateTo(getQuestionPath(item))}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setConfirmingItemKey(itemKey);
+                    }}
                   >
-                    فتح السؤال
-                  </button>
-                  <button
-                    className="secondary"
-                    disabled={removingItemId === item.id}
-                    type="button"
-                    onClick={() => onRemove(item.id)}
-                  >
-                    {removingItemId === item.id ? "جاري الإزالة..." : "إزالة من المراجعة"}
+                    <SystemIcon name="trash" />
                   </button>
                 </div>
+
+                {isConfirming ? (
+                  <div
+                    className="review-removal-confirmation"
+                    role="alertdialog"
+                    aria-label="تأكيد إزالة السؤال"
+                    onClick={stopEntryNavigation}
+                  >
+                    <span>إزالة السؤال من قائمة المراجعة؟</span>
+                    <button
+                      className="secondary"
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setConfirmingItemKey("");
+                      }}
+                    >
+                      إلغاء
+                    </button>
+                    <button
+                      disabled={isRemoving}
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onRemove(displayItem);
+                        setConfirmingItemKey("");
+                      }}
+                    >
+                      {isRemoving ? "جاري الإزالة..." : "تأكيد الإزالة"}
+                    </button>
+                  </div>
+                ) : null}
               </article>
             );
           })}
@@ -138,8 +236,9 @@ export function ReviewPage() {
     useState<ReviewBankResponse>(initialCache?.data ?? emptyReviewBank);
   const [isLoading, setIsLoading] = useState(!initialCache);
   const [error, setError] = useState("");
-  const [activeFilter, setActiveFilter] = useState<"all" | "saved" | "wrong">("wrong");
-  const [removingItemId, setRemovingItemId] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [activeFilter, setActiveFilter] = useState<ReviewFilter>("all");
+  const [removingItemKey, setRemovingItemKey] = useState("");
 
   const loadReviewBank = async () => {
     const cached = reviewBankService.getCachedReviewBank();
@@ -163,36 +262,38 @@ export function ReviewPage() {
     void loadReviewBank();
   }, []);
 
-  const removeReviewItem = async (reviewItemId: string) => {
-    setRemovingItemId(reviewItemId);
+  const removeReviewItem = async (displayItem: ReviewDisplayItem) => {
+    setRemovingItemKey(displayItem.item.questionId);
+    setError("");
+    setFeedback("");
     try {
-      await reviewBankService.removeQuestion(reviewItemId);
+      for (const reviewItemId of displayItem.reviewItemIds) {
+        await reviewBankService.removeQuestion(reviewItemId);
+      }
       const cached = reviewBankService.getCachedReviewBank();
       if (cached) setReviewBank(cached.data);
+      setFeedback("تمت إزالة السؤال من قائمة المراجعة.");
     } catch (caughtError) {
+      const cached = reviewBankService.getCachedReviewBank();
+      if (cached) setReviewBank(cached.data);
       setError(
         caughtError instanceof HttpError
           ? caughtError.message
           : "تعذر إزالة السؤال من بنك المراجعة."
       );
     } finally {
-      setRemovingItemId("");
+      setRemovingItemKey("");
     }
   };
 
-  const visibleItems = useMemo(() => {
-    const items = activeFilter === "saved"
-      ? reviewBank.savedQuestions
-      : activeFilter === "wrong"
-        ? reviewBank.wrongQuestions
-        : [...reviewBank.wrongQuestions, ...reviewBank.savedQuestions];
-
-    return [...items].sort((first, second) =>
-      second.priority - first.priority ||
-      Date.parse(second.updatedAt) - Date.parse(first.updatedAt)
-    );
-  }, [activeFilter, reviewBank]);
-
+  const allReviewItems = useMemo(
+    () => buildReviewDisplayItems(reviewBank, "all"),
+    [reviewBank]
+  );
+  const visibleItems = useMemo(
+    () => buildReviewDisplayItems(reviewBank, activeFilter),
+    [activeFilter, reviewBank]
+  );
   const activeFilterLabel = activeFilter === "saved"
     ? "الأسئلة المحفوظة"
     : activeFilter === "wrong"
@@ -225,25 +326,29 @@ export function ReviewPage() {
           </button>
         </div>
       ) : null}
+      {feedback ? <p className="review-feedback" role="status">{feedback}</p> : null}
 
       {!isLoading ? <section className="review-overview" aria-label="ملخص بنك المراجعة">
-        <SummaryMetric
-          label="محفوظة يدويًا"
-          value={reviewBank.savedQuestions.length}
-        />
+        <SummaryMetric label="محفوظة يدويًا" value={reviewBank.savedQuestions.length} />
         <SummaryMetric
           label="إجابات خاطئة"
           tone="attention"
           value={reviewBank.wrongQuestions.length}
         />
-        <SummaryMetric
-          label="إجمالي المراجعة"
-          value={reviewBank.savedQuestions.length + reviewBank.wrongQuestions.length}
-        />
+        <SummaryMetric label="إجمالي المراجعة" value={allReviewItems.length} />
       </section> : null}
 
       {!isLoading ? <div className="review-workspace">
         <div className="review-filters" role="group" aria-label="تصفية أسئلة المراجعة">
+          <button
+            aria-pressed={activeFilter === "all"}
+            className={activeFilter === "all" ? "selected" : undefined}
+            type="button"
+            onClick={() => setActiveFilter("all")}
+          >
+            <span>كل أسئلة المراجعة</span>
+            <strong>{allReviewItems.length}</strong>
+          </button>
           <button
             aria-pressed={activeFilter === "wrong"}
             className={activeFilter === "wrong" ? "selected" : undefined}
@@ -262,24 +367,13 @@ export function ReviewPage() {
             <span>محفوظة يدويًا</span>
             <strong>{reviewBank.savedQuestions.length}</strong>
           </button>
-          <button
-            aria-pressed={activeFilter === "all"}
-            className={activeFilter === "all" ? "selected" : undefined}
-            type="button"
-            onClick={() => setActiveFilter("all")}
-          >
-            <span>الكل</span>
-            <strong>{reviewBank.savedQuestions.length + reviewBank.wrongQuestions.length}</strong>
-          </button>
         </div>
 
         <ReviewQuestionList
           emptyMessage={emptyMessage}
           items={visibleItems}
-          onRemove={(reviewItemId) => {
-            void removeReviewItem(reviewItemId);
-          }}
-          removingItemId={removingItemId}
+          onRemove={(item) => void removeReviewItem(item)}
+          removingItemKey={removingItemKey}
           sectionId="review-questions"
           title={activeFilterLabel}
         />

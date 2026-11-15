@@ -22,7 +22,16 @@ const reviewItemSelect = `
     questions.subtopic,
     questions.subtopic_id,
     questions.difficulty,
-    questions.difficulty_score
+    questions.difficulty_score,
+    COALESCE(
+      questions.bank_question_number,
+      (
+        SELECT MIN(import_job_items.question_number)
+        FROM import_job_items
+        WHERE import_job_items.import_job_id = questions.import_job_id
+          AND import_job_items.question_id = questions.id
+      )
+    ) AS source_question_number
   FROM review_items
   INNER JOIN questions ON questions.id = review_items.question_id
 `;

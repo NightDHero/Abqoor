@@ -533,17 +533,17 @@ test("summarizes real session activity into study progress windows", async () =>
   assert.equal(invalidMonthResponse.status, 400);
 });
 
-test("returns a bounded backlog from persisted daily-plan sessions", async () => {
+test("returns every unfinished scheduled day until its persisted plan is complete", async () => {
   const user = await registerUser("past-plans@example.com", password);
   const todayDate = new Date().toISOString().slice(0, 10);
-  const studyPlanStartDate = addUtcDays(todayDate, -14);
+  const studyPlanStartDate = addUtcDays(todayDate, -120);
   await completeProfile({
     studyPlanStartDate,
     userId: user.id,
     username: "past_plans_user"
   });
 
-  const pastStudyDays = Array.from({ length: 14 }, (_value, index) => {
+  const pastStudyDays = Array.from({ length: 120 }, (_value, index) => {
     const date = addUtcDays(todayDate, -(index + 1));
     return getStudyScheduleDay({
       date,
@@ -637,10 +637,14 @@ test("returns a bounded backlog from persisted daily-plan sessions", async () =>
     payload.pastUnfinishedDays.some((day) => !day.hasStarted),
     true
   );
-  assert.equal(payload.pastUnfinishedDays.length <= 24, true);
+  assert.equal(payload.pastUnfinishedDays.length > 24, true);
+  assert.equal(
+    payload.pastUnfinishedDays.some((day) => day.date < addUtcDays(todayDate, -84)),
+    true
+  );
   assert.equal(payload.today.date, todayDate);
   assert.equal(payload.today.planAnsweredQuestions, 0);
-  assert.equal(typeof payload.pastUnfinishedHasMore, "boolean");
+  assert.equal(payload.pastUnfinishedHasMore, false);
 });
 
 test("anchors current streak to today and ignores future-dated activity", async () => {

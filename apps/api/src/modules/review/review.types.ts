@@ -24,6 +24,7 @@ export type ReviewItemRecord = {
   subtopic_id: string | null;
   difficulty: number;
   difficulty_score: number | null;
+  source_question_number: number | null;
 };
 
 export type ReviewItem = {
@@ -45,6 +46,7 @@ export type ReviewItem = {
   subtopicId?: string;
   difficulty: number;
   difficultyScore?: number;
+  sourceQuestionNumber?: number;
 };
 
 export type ReviewBank = {
@@ -74,5 +76,6 @@ export const toReviewItem = (record: ReviewItemRecord): ReviewItem => ({
   subtopic: record.subtopic ?? undefined,
   subtopicId: record.subtopic_id ?? undefined,
   difficulty: record.difficulty,
-  difficultyScore: record.difficulty_score ?? undefined
+  difficultyScore: record.difficulty_score ?? undefined,
+  sourceQuestionNumber: record.source_question_number ?? undefined
 });

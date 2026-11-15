@@ -272,36 +272,124 @@
   white-space: nowrap;
 }
 
-.question-finder select {
+.question-finder-control {
+  position: relative;
+  min-width: 0;
+}
+
+.product-app-shell .question-finder-trigger {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
   min-height: 38px;
   border: 1px solid var(--abq-line-strong);
-  border-radius: 999px;
+  border-radius: 12px;
   background: #0b2635;
-  padding: 6px 30px 6px 12px;
+  padding: 6px 12px;
   color: #f4fbfd;
-  color-scheme: dark;
   font-size: 0.82rem;
   font-weight: 850;
   text-align: start;
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 7%);
+  transform: none;
 }
 
-.question-finder select:hover,
-.question-finder select:focus-visible {
+.product-app-shell .question-finder-trigger:hover:not(:disabled),
+.product-app-shell .question-finder-trigger:focus-visible,
+.product-app-shell .question-finder-trigger[aria-expanded="true"] {
   border-color: var(--abq-cyan);
   background: #0d2d3e;
+  box-shadow: 0 0 0 3px rgb(85 207 224 / 10%);
+  transform: none;
 }
 
-.question-finder select option {
-  background: #0b2635;
-  color: #f4fbfd;
+.question-finder-chevron {
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  opacity: 0.72;
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform 160ms ease;
 }
 
-:root[data-theme="light"] .question-finder select,
-:root[data-theme="light"] .question-finder select option {
+.question-finder-trigger[aria-expanded="true"] .question-finder-chevron {
+  transform: rotate(225deg) translate(-2px, -1px);
+}
+
+.question-finder-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 7px);
+  inset-inline-end: 0;
+  display: grid;
+  width: min(260px, calc(100vw - 24px));
+  max-height: min(360px, 55svh);
+  overflow-y: auto;
+  border: 1px solid rgb(103 220 231 / 24%);
+  border-radius: 14px;
+  background: #08202e;
+  padding: 6px;
+  box-shadow: 0 18px 48px rgb(0 7 12 / 42%);
+  scrollbar-color: rgb(103 220 231 / 35%) transparent;
+  scrollbar-width: thin;
+}
+
+.product-app-shell .question-finder-menu button {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  padding: 8px 10px;
+  color: #dcecf1;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-align: start;
+  box-shadow: none;
+  transform: none;
+}
+
+.product-app-shell .question-finder-menu button:hover:not(:disabled),
+.product-app-shell .question-finder-menu button:focus-visible {
+  background: rgb(103 220 231 / 10%);
+  color: #fff;
+  box-shadow: none;
+  transform: none;
+}
+
+.product-app-shell .question-finder-menu button.selected {
+  background: rgb(85 207 224 / 16%);
+  color: var(--abq-cyan-soft);
+}
+
+:root[data-theme="light"] .product-app-shell .question-finder-trigger,
+:root[data-theme="light"] .question-finder-menu {
   background: #fff;
   color: #173449;
-  color-scheme: light;
+}
+
+:root[data-theme="light"] .question-finder-menu {
+  border-color: rgb(20 142 166 / 22%);
+  box-shadow: 0 18px 44px rgb(27 68 82 / 18%);
+}
+
+:root[data-theme="light"] .product-app-shell .question-finder-menu button {
+  color: #25495c;
+}
+
+:root[data-theme="light"] .product-app-shell .question-finder-menu button:hover:not(:disabled),
+:root[data-theme="light"] .product-app-shell .question-finder-menu button:focus-visible,
+:root[data-theme="light"] .product-app-shell .question-finder-menu button.selected {
+  background: rgb(20 142 166 / 10%);
+  color: #086c7f;
 }
 
 .product-app-shell .solving-workspace {
@@ -532,6 +620,16 @@
   background: rgb(239 92 92 / 35%);
   color: #fff1f1;
   box-shadow: none;
+}
+
+.product-app-shell .solving-answer-dock .answer-option.has-outcome {
+  padding-inline-end: clamp(48px, 4vw, 62px);
+}
+
+.product-app-shell .solving-answer-dock .answer-option > span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
 }
 
 .product-app-shell .solving-answer-dock .answer-image {
@@ -1223,6 +1321,24 @@
   .product-app-shell .solving-answer-dock .answer-option {
     min-height: 72px;
     padding: 14px;
+  }
+
+  .product-app-shell .solving-answer-dock .answer-option.is-locked {
+    border-color: var(--abq-line);
+    background: rgb(0 7 12 / 28%);
+    color: color-mix(in srgb, var(--abq-text) 58%, transparent);
+    filter: saturate(0.72) brightness(0.8);
+  }
+
+  .product-app-shell .solving-answer-dock .answer-option.is-locked.answer-correct,
+  .product-app-shell .solving-answer-dock .answer-option.is-locked.answer-wrong,
+  .product-app-shell .solving-answer-dock .answer-option.is-locked.selected {
+    color: var(--abq-text);
+    filter: none;
+  }
+
+  .product-app-shell .solving-answer-dock .answer-option.has-outcome {
+    padding-inline-end: 48px;
   }
 
   .product-app-shell .solving-answer-dock .browser-navigation-row {

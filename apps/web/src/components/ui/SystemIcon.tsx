@@ -10,6 +10,7 @@ export type SystemIconName =
   | "eye"
   | "filter"
   | "history"
+  | "info"
   | "lock"
   | "more"
   | "play"
@@ -86,6 +87,13 @@ const iconPaths: Record<SystemIconName, ReactNode> = {
       <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3" />
       <path d="M4.5 5.5v4h4" />
       <path d="M12 8v4l2.5 1.5" />
+    </>
+  ),
+  info: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 11v5" />
+      <path d="M12 8h.01" />
     </>
   ),
   lock: (

@@ -27,6 +27,7 @@ const baseUrl = `http://127.0.0.1:${address.port}`;
 
 const questionId = "Q-SECURITY-001";
 await saveQuestion({
+  bankQuestionNumber: 25,
   correctAnswer: "C",
   difficulty: 3,
   difficultyScore: 3,
@@ -156,9 +157,12 @@ test("ordinary practice exposes its answer key without storage metadata", async 
     headers: { cookie }
   });
   assert.equal(reviewResponse.status, 200);
-  const reviewPayload = await reviewResponse.json();
+  const reviewPayload = await reviewResponse.json() as {
+    savedQuestions: Array<{ sourceQuestionNumber?: number }>;
+  };
   assertNoPrivateMetadata(reviewPayload);
   assertNoAnswerKey(reviewPayload);
+  assert.equal(reviewPayload.savedQuestions[0]?.sourceQuestionNumber, 25);
 });
 
 test("server still validates submitted practice answers authoritatively", async () => {

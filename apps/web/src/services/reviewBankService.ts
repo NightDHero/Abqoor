@@ -27,6 +27,7 @@ export type ReviewItem = {
   subtopicId?: string;
   difficulty: number;
   difficultyScore?: number;
+  sourceQuestionNumber?: number;
 };
 
 export type ReviewBankResponse = {

@@ -94,8 +94,6 @@ export class SessionProgressError extends Error {
 
 const defaultTimeZone = "Asia/Riyadh";
 const monthKeyPattern = /^\d{4}-\d{2}$/;
-const pastPlanLookbackDays = 84;
-const pastPlanResultLimit = 24;
 
 const normalizeTimeZone = (value: unknown) => {
   if (value === undefined) {
@@ -410,13 +408,9 @@ export const getStudyProgress = async (
       startDate: studyPlanStartDate,
       verbalStudyDays: scheduleSettings.verbalStudyDays
     });
-  const pastPlanStartDate = [
-    studyPlanStartDate,
-    addDays(todayDate, -pastPlanLookbackDays)
-  ].sort().at(-1) ?? studyPlanStartDate;
   const dailyPlanProgress = await findDailyPlanProgress({
     endDate: todayDate,
-    startDate: pastPlanStartDate,
+    startDate: studyPlanStartDate,
     userId
   });
   const dailyPlanProgressByDate = new Map(
@@ -471,7 +465,7 @@ export const getStudyProgress = async (
 
   for (
     let date = addDays(todayDate, -1);
-    date >= pastPlanStartDate;
+    date >= studyPlanStartDate;
     date = addDays(date, -1)
   ) {
     const schedule = getSchedule(date);
@@ -522,9 +516,8 @@ export const getStudyProgress = async (
     generatedAt: new Date().toISOString(),
     month: buildRange(displayedMonthDates),
     monthWeeks: getCalendarWeeksForMonth(displayedMonthDates).map(buildRange),
-    pastUnfinishedDays: pastUnfinishedCandidates.slice(0, pastPlanResultLimit),
-    pastUnfinishedHasMore:
-      pastUnfinishedCandidates.length > pastPlanResultLimit,
+    pastUnfinishedDays: pastUnfinishedCandidates,
+    pastUnfinishedHasMore: false,
     streak: calculateStreaks(activityByDate, todayDate),
     timeZone,
     today,

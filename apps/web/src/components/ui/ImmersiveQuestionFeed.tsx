@@ -18,6 +18,7 @@ const gestureCooldownMs = 330;
 const minWheelDistance = 36;
 const minTouchDistance = 48;
 const scrollTransitionMs = 240;
+type MoveDirection = "next" | "previous" | null;
 
 const prefersReducedMotion = () =>
   typeof window !== "undefined" &&
@@ -72,6 +73,7 @@ export function ImmersiveQuestionFeed({
   const visualIndexRef = useRef(activeIndex);
   const [slideHeight, setSlideHeight] = useState(0);
   const [visualIndex, setVisualIndex] = useState(activeIndex);
+  const [moveDirection, setMoveDirection] = useState<MoveDirection>(null);
 
   useEffect(() => {
     activeIndexRef.current = activeIndex;
@@ -80,6 +82,7 @@ export function ImmersiveQuestionFeed({
       pendingIndexRef.current === null &&
       activeIndex !== visualIndexRef.current
     ) {
+      setMoveDirection(activeIndex > visualIndexRef.current ? "next" : "previous");
       visualIndexRef.current = activeIndex;
       setVisualIndex(activeIndex);
     }
@@ -166,6 +169,7 @@ export function ImmersiveQuestionFeed({
     }
 
     pendingIndexRef.current = nextIndex;
+    setMoveDirection(nextIndex > visualIndexRef.current ? "next" : "previous");
     visualIndexRef.current = nextIndex;
     setVisualIndex(nextIndex);
 
@@ -284,6 +288,7 @@ export function ImmersiveQuestionFeed({
       ref={feedRef}
       aria-label="سحب الأسئلة"
       className={`immersive-question-feed immersive-question-feed-${variant}`}
+      data-motion-direction={moveDirection ?? undefined}
       role="region"
       style={
         {
@@ -313,6 +318,7 @@ export function ImmersiveQuestionFeed({
             <section
               aria-label={`السؤال ${index + 1} من ${questions.length}`}
               className="immersive-question-slide"
+              data-visual-active={index === visualIndex}
               data-question-id={question.id}
               key={question.id}
             >
@@ -355,7 +361,9 @@ export function ImmersiveQuestionFeed({
                             "immersive-answer-option",
                             isSelected ? "selected" : "",
                             isCorrect ? "answer-correct" : "",
-                            isWrong ? "answer-wrong" : ""
+                            isWrong ? "answer-wrong" : "",
+                            isAnswered || answerState.isSubmitting ? "is-locked" : "",
+                            isCorrect || isWrong ? "has-outcome" : ""
                           ]
                             .filter(Boolean)
                             .join(" ")}

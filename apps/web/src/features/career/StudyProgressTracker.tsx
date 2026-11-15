@@ -23,6 +23,7 @@ import {
 type ProgressView = "today" | "week" | "month";
 type CalendarCellVariant = "month" | "today" | "week";
 const studyProgressTimeZone = "Asia/Riyadh";
+const initialPastPlanCount = 24;
 
 const progressViews: Array<{ label: string; value: ProgressView }> = [
   { label: "اليوم", value: "today" },
@@ -406,6 +407,9 @@ function LearningResourceActions() {
 
 function PastUnfinishedPlans({ progress }: { progress: StudyProgressResponse }) {
   const days = progress.pastUnfinishedDays ?? [];
+  const [showOlderPlans, setShowOlderPlans] = useState(false);
+  const olderPlanCount = Math.max(days.length - initialPastPlanCount, 0);
+  const visibleDays = showOlderPlans ? days : days.slice(0, initialPastPlanCount);
 
   return (
     <section
@@ -428,13 +432,20 @@ function PastUnfinishedPlans({ progress }: { progress: StudyProgressResponse }) 
           className="study-progress-past-plans-list"
           tabIndex={0}
         >
-          {days.map((day) => (
+          {visibleDays.map((day) => (
             <PastUnfinishedPlan key={`${day.date}:${day.planSubjectId}`} day={day} />
           ))}
-          {progress.pastUnfinishedHasMore ? (
-            <p className="study-progress-past-plans-more">
-              توجد أقسام أقدم أيضاً
-            </p>
+          {olderPlanCount > 0 ? (
+            <button
+              aria-expanded={showOlderPlans}
+              className="study-progress-past-plans-more"
+              type="button"
+              onClick={() => setShowOlderPlans((current) => !current)}
+            >
+              {showOlderPlans
+                ? "إخفاء الأقسام الأقدم"
+                : `عرض ${toArabicNumber(olderPlanCount)} قسم أقدم`}
+            </button>
           ) : null}
         </div>
       )}

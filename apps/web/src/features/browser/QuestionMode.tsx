@@ -98,6 +98,11 @@ export function QuestionMode({
                     isAnswered && answer === correctAnswer ? "answer-correct" : "",
                     isAnswered && isSelected && answer !== correctAnswer
                       ? "answer-wrong"
+                      : "",
+                    isAnswered ? "is-locked" : "",
+                    isAnswered &&
+                    (answer === correctAnswer || (isSelected && answer !== correctAnswer))
+                      ? "has-outcome"
                       : ""
                   ]
                     .filter(Boolean)

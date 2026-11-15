@@ -34,9 +34,15 @@ export const getLandingProgramDestination = (user: User | null) => user
     : user.profileCompleted
       ? "/career"
       : "/setup-profile"
-  : "/register";
+  : "/login";
 
-export function LandingPage({ user: _user }: { user: User | null }) {
+export function LandingPage({
+  isAuthLoading = false,
+  user
+}: {
+  isAuthLoading?: boolean;
+  user: User | null;
+}) {
   const pageRef = useRef<HTMLElement>(null);
   const navigationRef = useRef<HTMLElement>(null);
   const navigationHeightRef = useRef(64);
@@ -424,12 +430,14 @@ export function LandingPage({ user: _user }: { user: User | null }) {
           </nav>
 
           <button
+            aria-busy={isAuthLoading || undefined}
             className="home-login-link"
+            disabled={isAuthLoading}
             type="button"
-            onClick={() => navigateTo("/login")}
+            onClick={() => navigateTo(getLandingProgramDestination(user))}
           >
             <span>{homeContent.loginLabel}</span>
-            <small>مسجل</small>
+            {user ? <small>مسجل</small> : null}
           </button>
         </div>
         <div className="home-scroll-progress-frame" aria-hidden="true">

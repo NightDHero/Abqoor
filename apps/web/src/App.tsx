@@ -153,7 +153,7 @@ export default function App() {
   }
 
   if (path === "/") {
-    return <LandingPage user={auth.user} />;
+    return <LandingPage isAuthLoading={auth.isLoading} user={auth.user} />;
   }
 
   if (path === "/setup-profile") {

@@ -26,7 +26,7 @@ const user = (overrides: Partial<User> = {}): User => ({
 });
 
 test("landing destinations preserve authenticated and onboarding behavior", () => {
-  assert.equal(getLandingProgramDestination(null), "/register");
+  assert.equal(getLandingProgramDestination(null), "/login");
   assert.equal(getLandingProgramDestination(user()), "/career");
   assert.equal(
     getLandingProgramDestination(user({ profileCompleted: false })),
@@ -36,6 +36,29 @@ test("landing destinations preserve authenticated and onboarding behavior", () =
     getLandingProgramDestination(user({ mustChangePassword: true })),
     "/change-password"
   );
+});
+
+test("landing program CTA only shows its registered badge for an authenticated session", () => {
+  const signedOutMarkup = renderToStaticMarkup(
+    createElement(LandingPage, { isAuthLoading: false, user: null })
+  );
+  const signedInMarkup = renderToStaticMarkup(
+    createElement(LandingPage, { isAuthLoading: false, user: user() })
+  );
+  const loadingMarkup = renderToStaticMarkup(
+    createElement(LandingPage, { isAuthLoading: true, user: null })
+  );
+  const signedOutCta = signedOutMarkup.match(
+    /<button[^>]+class="home-login-link"[\s\S]*?<\/button>/
+  )?.[0] ?? "";
+  const signedInCta = signedInMarkup.match(
+    /<button[^>]+class="home-login-link"[\s\S]*?<\/button>/
+  )?.[0] ?? "";
+
+  assert.doesNotMatch(signedOutCta, /مسجل/);
+  assert.match(signedInCta, /مسجل/);
+  assert.match(loadingMarkup, /aria-busy="true"/);
+  assert.match(loadingMarkup, /disabled=""/);
 });
 
 test("landing entry buttons render immediately without a disabled bootstrap state", () => {

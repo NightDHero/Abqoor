@@ -1307,11 +1307,29 @@
 }
 
 .study-progress-past-plans-more {
+  width: 100%;
+  min-height: 38px;
   margin: 3px 0 0;
+  border: 0;
+  border-top: 1px solid var(--world-panel-border);
+  border-radius: 0;
+  background: transparent;
+  padding: 9px 8px 4px;
   color: var(--world-muted);
-  font-size: 0.66rem;
+  font: inherit;
+  font-size: 0.7rem;
   font-weight: 800;
   text-align: center;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.career-app-shell .study-progress-past-plans-more:hover:not(:disabled),
+.career-app-shell .study-progress-past-plans-more:focus-visible {
+  border-color: var(--world-cyan);
+  background: rgb(103 220 231 / 7%);
+  color: var(--world-cyan);
+  transform: none;
 }
 
 @container study-progress-overview (min-width: 760px) {
