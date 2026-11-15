@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { QuestionPosition } from "../../components/ui/QuestionPosition";
 import type {
   CorrectAnswer,
   SessionQuestion,
@@ -43,9 +44,7 @@ export function StudyQuestion({
     >
       <header className="solving-workspace-toolbar">
         <div className="solving-workspace-toolbar-main">
-          <p className="question-progress">
-            السؤال {currentIndex + 1} / {totalQuestions}
-          </p>
+          <QuestionPosition currentIndex={currentIndex} totalQuestions={totalQuestions} />
           <h2 id="study-question-title">سائل</h2>
           <span dir="ltr">{question.id}</span>
         </div>

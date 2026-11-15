@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
+import { QuestionPosition } from "../../components/ui/QuestionPosition";
 import { markPerformanceStage } from "../../services/performanceTelemetry";
 import type { CorrectAnswer, Question } from "../../types/question";
 import { toArabicAnswerLabel } from "../../utils/answerLabels";
@@ -59,9 +60,7 @@ export function QuestionMode({
       {showToolbar ? (
         <header className="solving-workspace-toolbar">
           <div>
-            <p className="question-progress">
-              السؤال {currentIndex + 1} / {totalQuestions}
-            </p>
+            <QuestionPosition currentIndex={currentIndex} totalQuestions={totalQuestions} />
             <h2>
               {questionNumber ? `سؤال ${questionNumber}` : question.id}
             </h2>

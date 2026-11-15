@@ -21,6 +21,10 @@ type QuestionSubject = "quantitative" | "verbal";
 
 const pageSize = 50;
 const difficultyMax = 4;
+const difficultyLevels = Array.from(
+  { length: difficultyMax },
+  (_, index) => index + 1
+);
 const emptyResult: AdminQuestionBankResponse = {
   banks: [],
   mode: "general",
@@ -47,6 +51,26 @@ const difficultyLabel = (value: number) =>
     ? `${value.toLocaleString("ar-SA")} / ${difficultyMax.toLocaleString("ar-SA")}`
     : "قيمة قديمة غير متوافقة";
 
+function DifficultyRating({ value }: { value: number }) {
+  const normalizedValue = value >= 1 && value <= difficultyMax ? value : 0;
+
+  return (
+    <span
+      aria-label={`الصعوبة ${difficultyLabel(value)}`}
+      className="admin-question-difficulty"
+    >
+      <span aria-hidden="true" className="admin-question-difficulty-stars">
+        {difficultyLevels.map((level) => (
+          <i data-filled={level <= normalizedValue} key={level}>★</i>
+        ))}
+      </span>
+      <span aria-hidden="true" className="admin-question-difficulty-track">
+        <i style={{ width: `${normalizedValue / difficultyMax * 100}%` }} />
+      </span>
+    </span>
+  );
+}
+
 export function AdminQuestionBankPage() {
   const initialRequest = {
     mode: "general" as const,
@@ -61,7 +85,7 @@ export function AdminQuestionBankPage() {
   const [subject, setSubject] = useState<QuestionSubject | "">("");
   const [topic, setTopic] = useState("");
   const [subtopic, setSubtopic] = useState("");
-  const [difficulty, setDifficulty] = useState("");
+  const [difficultyMaxFilter, setDifficultyMaxFilter] = useState<number | null>(null);
   const [source, setSource] = useState<QuestionSource | "">("");
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<"asc" | "desc">("asc");
@@ -93,7 +117,7 @@ export function AdminQuestionBankPage() {
 
   const request = useMemo(() => ({
     bankId: bankId || undefined,
-    difficulty: difficulty ? Number(difficulty) : undefined,
+    difficultyMax: difficultyMaxFilter ?? undefined,
     mode,
     page,
     pageSize,
@@ -103,7 +127,7 @@ export function AdminQuestionBankPage() {
     subject: subject || undefined,
     subtopic: subtopic || undefined,
     topic: topic || undefined
-  }), [bankId, difficulty, mode, page, query, sort, source, subject, subtopic, topic]);
+  }), [bankId, difficultyMaxFilter, mode, page, query, sort, source, subject, subtopic, topic]);
   const filterScopeKey = `${mode}:${bankId || "all"}`;
 
   useEffect(() => {
@@ -156,7 +180,7 @@ export function AdminQuestionBankPage() {
 
   useEffect(() => {
     const hasFilters = Boolean(
-      query.trim() || bankId || subject || topic || subtopic || difficulty || source
+      query.trim() || bankId || subject || topic || subtopic || difficultyMaxFilter || source
     );
     if (
       isLoading || error || page !== 1 || hasFilters || shouldAvoidSpeculativePreloading()
@@ -168,7 +192,7 @@ export function AdminQuestionBankPage() {
       pageSize,
       sort
     }).catch(() => undefined);
-  }, [bankId, difficulty, error, isLoading, mode, page, query, sort, source, subject, subtopic, topic]);
+  }, [bankId, difficultyMaxFilter, error, isLoading, mode, page, query, sort, source, subject, subtopic, topic]);
 
   useEffect(() => {
     if (!selectedQuestionId) {
@@ -232,7 +256,7 @@ export function AdminQuestionBankPage() {
     )
   ], [availableSubjects, subject, topic]);
 
-  const activeFilterCount = [subject, topic, subtopic, difficulty, source, bankId]
+  const activeFilterCount = [subject, topic, subtopic, difficultyMaxFilter, source, bankId]
     .filter(Boolean).length;
 
   const clearFilters = () => {
@@ -240,7 +264,7 @@ export function AdminQuestionBankPage() {
     setSubject("");
     setTopic("");
     setSubtopic("");
-    setDifficulty("");
+    setDifficultyMaxFilter(null);
     setSource("");
     setBankId("");
     setPage(1);
@@ -419,18 +443,26 @@ export function AdminQuestionBankPage() {
               {availableSubtopics.map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
           </label>
-          <label>
-            <span>الصعوبة</span>
-            <select value={difficulty} onChange={(event) => {
-              setDifficulty(event.target.value);
-              setPage(1);
-            }}>
-              <option value="">كل المستويات</option>
-              {Array.from({ length: difficultyMax }, (_, index) => index + 1).map((item) => (
-                <option key={item} value={item}>المستوى {item.toLocaleString("ar-SA")}</option>
+          <fieldset className="admin-question-difficulty-filter">
+            <legend>الحد الأقصى للصعوبة</legend>
+            <div role="group" aria-label="تصفية حسب الحد الأقصى للصعوبة">
+              {difficultyLevels.map((level) => (
+                <button
+                  aria-label={`حتى صعوبة ${level.toLocaleString("ar-SA")} من ${difficultyMax.toLocaleString("ar-SA")}`}
+                  aria-pressed={difficultyMaxFilter === level}
+                  className={difficultyMaxFilter === level ? "selected" : undefined}
+                  key={level}
+                  type="button"
+                  onClick={() => {
+                    setDifficultyMaxFilter(level);
+                    setPage(1);
+                  }}
+                >
+                  <span aria-hidden="true">{"★".repeat(level)}</span>
+                </button>
               ))}
-            </select>
-          </label>
+            </div>
+          </fieldset>
           <label>
             <span>المصدر</span>
             <select value={source} onChange={(event) => {
@@ -492,75 +524,60 @@ export function AdminQuestionBankPage() {
         ) : null}
 
         {!error && result.questions.length > 0 ? (
-          <div className="admin-table-wrap admin-question-table-wrap" aria-busy={isLoading}>
-            <table className="admin-table admin-question-table">
-              <thead>
-                <tr>
-                  <th>السؤال</th>
-                  <th>التصنيف</th>
-                  <th>الصعوبة</th>
-                  <th>المصدر</th>
-                  <th>الحالة</th>
-                  <th>الإجراءات</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.questions.map((question) => (
-                  <tr key={question.id}>
-                    <td data-label="السؤال">
-                      <button
-                        className="admin-question-identity"
-                        type="button"
-                        onClick={() => setSelectedQuestionId(question.id)}
-                      >
-                        <span className="admin-question-thumbnail">
-                          {question.imageExists ? (
-                            <img alt="" loading="lazy" src={`${env.apiUrl}${question.questionImageUrl}`} />
-                          ) : <SystemIcon name="question" />}
-                        </span>
-                        <span>
-                          <strong>سؤال {question.questionNumber.toLocaleString("ar-SA")}</strong>
-                          <small dir="ltr">{question.id}</small>
-                        </span>
+          <div
+            aria-busy={isLoading}
+            aria-label="قائمة الأسئلة النشطة"
+            className="admin-question-list"
+            role="list"
+          >
+            {result.questions.map((question) => (
+              <article className="admin-question-row" key={question.id} role="listitem">
+                <div className="admin-question-primary">
+                  <button
+                    className="admin-question-identity"
+                    type="button"
+                    onClick={() => setSelectedQuestionId(question.id)}
+                  >
+                    <span className="admin-question-thumbnail">
+                      {question.imageExists ? (
+                        <img alt="" loading="lazy" src={`${env.apiUrl}${question.questionImageUrl}`} />
+                      ) : <SystemIcon name="question" />}
+                    </span>
+                    <span>
+                      <strong>سؤال {question.questionNumber.toLocaleString("ar-SA")}</strong>
+                      <small className="admin-question-source">
+                        <span>{sourceLabel(question.source)}</span>
+                        <span>{question.bankName ?? (question.questionScope === "general" ? "الأسئلة العامة" : "بنك أقسام")}</span>
+                      </small>
+                      <small dir="ltr">{question.id}</small>
+                    </span>
+                  </button>
+                  <details className="admin-question-actions">
+                    <summary aria-label={`إجراءات السؤال ${question.questionNumber.toLocaleString("ar-SA")}`} title="إجراءات السؤال">
+                      <SystemIcon name="more" />
+                    </summary>
+                    <div>
+                      <button className="secondary" type="button" onClick={() => setSelectedQuestionId(question.id)}>
+                        <SystemIcon name="eye" /> عرض التفاصيل
                       </button>
-                    </td>
-                    <td data-label="التصنيف">
-                      <span className={`admin-question-subject admin-question-subject-${question.subject}`}>
-                        {sectionLabel(question.subject)}
-                      </span>
-                      <strong>{question.topic}</strong>
-                      <small>{question.subtopic ?? "دون موضوع فرعي"}</small>
-                    </td>
-                    <td data-label="الصعوبة">
-                      <span className="admin-question-difficulty" aria-label={`الصعوبة ${difficultyLabel(question.difficulty)}`}>
-                        <b>{question.difficulty >= 1 && question.difficulty <= difficultyMax ? question.difficulty.toLocaleString("ar-SA") : "—"}</b>
-                        <span><i style={{ width: `${question.difficulty >= 1 && question.difficulty <= difficultyMax ? question.difficulty / difficultyMax * 100 : 0}%` }} /></span>
-                      </span>
-                    </td>
-                    <td data-label="المصدر">
-                      <strong>{sourceLabel(question.source)}</strong>
-                      <small>{question.bankName ?? (question.questionScope === "general" ? "الأسئلة العامة" : "بنك أقسام")}</small>
-                    </td>
-                    <td data-label="الحالة">
-                      <span className="admin-question-active-status">نشط</span>
-                    </td>
-                    <td data-label="الإجراءات">
-                      <details className="admin-question-actions">
-                        <summary><SystemIcon name="more" /><span>الإجراءات</span></summary>
-                        <div>
-                          <button className="secondary" type="button" onClick={() => setSelectedQuestionId(question.id)}>
-                            <SystemIcon name="eye" /> عرض التفاصيل
-                          </button>
-                          <button className="admin-question-archive-action" type="button" onClick={() => setArchiveTarget(question)}>
-                            <SystemIcon name="trash" /> إزالة من البنك
-                          </button>
-                        </div>
-                      </details>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      <button className="admin-question-archive-action" type="button" onClick={() => setArchiveTarget(question)}>
+                        <SystemIcon name="trash" /> إزالة من البنك
+                      </button>
+                    </div>
+                  </details>
+                </div>
+
+                <div className="admin-question-classification-summary">
+                  <span className={`admin-question-subject admin-question-subject-${question.subject}`}>
+                    {sectionLabel(question.subject)}
+                  </span>
+                  <strong>{question.topic}</strong>
+                  <small>{question.subtopic ?? "دون موضوع فرعي"}</small>
+                </div>
+
+                <DifficultyRating value={question.difficulty} />
+              </article>
+            ))}
           </div>
         ) : null}
 
@@ -623,7 +640,7 @@ export function AdminQuestionBankPage() {
                   <div><dt>القسم</dt><dd>{sectionLabel(detail.subject)}</dd></div>
                   <div><dt>الموضوع</dt><dd>{detail.topic}</dd></div>
                   <div><dt>الموضوع الفرعي</dt><dd>{detail.subtopic ?? "غير معيّن"}</dd></div>
-                  <div><dt>الصعوبة</dt><dd>{difficultyLabel(detail.difficulty)}</dd></div>
+                  <div><dt>الصعوبة</dt><dd><DifficultyRating value={detail.difficulty} /></dd></div>
                   <div><dt>الإجابة الصحيحة</dt><dd>{answerLabel(detail.correctAnswer)}</dd></div>
                   <div><dt>المصدر</dt><dd>{sourceLabel(detail.source)}</dd></div>
                   <div><dt>البنك</dt><dd>{detail.bankName ?? "الأسئلة العامة"}</dd></div>

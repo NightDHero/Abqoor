@@ -5,6 +5,7 @@ import {
   useState,
   type KeyboardEvent
 } from "react";
+import { QuestionPosition } from "../../components/ui/QuestionPosition";
 import type { Question } from "../../types/question";
 const toArabicNumber = (value: number) => value.toLocaleString("ar-SA");
 
@@ -95,9 +96,9 @@ export function QuestionNavigator({
       dir="rtl"
       ref={rootRef}
     >
-      <span className="question-finder-current">السؤال</span>
       <div className="question-finder-control">
         <button
+          aria-label={`السؤال ${toArabicNumber(currentIndex + 1)} من ${toArabicNumber(questions.length)}، فتح قائمة الأسئلة`}
           aria-controls={listboxId}
           aria-expanded={isOpen}
           aria-haspopup="listbox"
@@ -113,9 +114,11 @@ export function QuestionNavigator({
             }
           }}
         >
-          <span>
-            {toArabicNumber(currentIndex + 1)} / {toArabicNumber(questions.length)}
-          </span>
+          <QuestionPosition
+            ariaHidden
+            currentIndex={currentIndex}
+            totalQuestions={questions.length}
+          />
           <span aria-hidden="true" className="question-finder-chevron" />
         </button>
 

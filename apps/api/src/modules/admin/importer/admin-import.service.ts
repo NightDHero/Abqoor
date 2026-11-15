@@ -1155,6 +1155,7 @@ const toQuestionCountOverview = async (
 export const getAdminQuestionBank = async (input: {
   bankId?: string;
   difficulty?: number;
+  difficultyMax?: number;
   mode?: "general" | "aqsam";
   query?: string;
   page: number;

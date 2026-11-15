@@ -258,18 +258,10 @@
 
 .question-finder {
   display: inline-grid;
-  grid-template-columns: auto minmax(112px, 150px);
-  gap: 7px;
+  grid-template-columns: minmax(156px, 190px);
   align-items: center;
   border: 0;
   padding: 0;
-}
-
-.question-finder-current {
-  color: var(--abq-cyan-soft);
-  font-size: 0.82rem;
-  font-weight: 900;
-  white-space: nowrap;
 }
 
 .question-finder-control {
@@ -283,11 +275,11 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  min-height: 38px;
+  min-height: 48px;
   border: 1px solid var(--abq-line-strong);
   border-radius: 12px;
   background: #0b2635;
-  padding: 6px 12px;
+  padding: 5px 10px;
   color: #f4fbfd;
   font-size: 0.82rem;
   font-weight: 850;
@@ -317,6 +309,13 @@
 
 .question-finder-trigger[aria-expanded="true"] .question-finder-chevron {
   transform: rotate(225deg) translate(-2px, -1px);
+}
+
+.question-finder-trigger .question-position {
+  flex: 1;
+  min-height: 34px;
+  border-inline-start: 0;
+  padding-inline-start: 0;
 }
 
 .question-finder-menu {
@@ -451,6 +450,38 @@
   font-weight: 850;
 }
 
+.question-position {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  min-height: 36px;
+  border-inline-start: 2px solid var(--abq-cyan);
+  padding-inline-start: 9px;
+  white-space: nowrap;
+}
+
+.question-position > span {
+  color: var(--abq-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.question-position strong {
+  color: var(--abq-cyan-soft);
+  font-family: var(--font-arabic-display);
+  font-size: clamp(1.35rem, 2vw, 1.72rem);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.question-position small {
+  align-self: end;
+  padding-bottom: 3px;
+  color: var(--abq-muted);
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
 .solving-workspace-toolbar-actions .study-view-switch {
   flex: 0 1 auto;
   grid-template-columns: repeat(2, minmax(64px, 1fr));
@@ -562,7 +593,7 @@
   align-items: center;
   border-top: 1px solid var(--abq-line);
   background: transparent;
-  padding: clamp(18px, 2vw, 28px) clamp(2px, 1vw, 14px) 0;
+  padding: clamp(12px, 1.4vw, 20px) clamp(2px, 1vw, 14px) 0;
 }
 
 .product-app-shell .solving-answer-dock .answer-options {
@@ -669,8 +700,9 @@
   filter: invert(93%) sepia(8%) saturate(233%) hue-rotate(156deg) brightness(106%);
 }
 
-.product-app-shell .solving-answer-dock .question-next-button {
+.product-app-shell .solving-answer-dock button.question-next-button {
   width: 100%;
+  min-height: clamp(58px, 5vw, 64px);
   border-color: rgb(85 207 224 / 38%);
   background: rgb(85 207 224 / 13%);
 }
@@ -772,6 +804,12 @@
     width: 54px;
     border-radius: 15px;
     padding: 13px;
+  }
+
+  .product-app-shell
+    .study-mode.study-mode-active:not(.study-mode-immersive)
+    .question-next-button {
+    min-height: 58px;
   }
 }
 
@@ -1311,7 +1349,7 @@
   .solving-answer-dock {
     grid-template-columns: 1fr;
     gap: 12px;
-    padding: 16px 0 0;
+    padding: 10px 0 0;
   }
 
   .product-app-shell .solving-answer-dock .answer-options {

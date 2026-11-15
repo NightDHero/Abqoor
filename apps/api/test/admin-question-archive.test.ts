@@ -84,6 +84,24 @@ test("question archive is authorized, reversible, and preserves historical recor
   await importConfiguredAdminEmails();
   const adminCookie = await login("archive-admin@example.com");
   await saveQuestion(questionInput);
+  await saveQuestion({
+    ...questionInput,
+    bankQuestionNumber: 2,
+    difficulty: 1,
+    difficultyScore: 1,
+    id: "Q-ARCHIVE-EASY",
+    imageStorageKey: "questions/Q-ARCHIVE-EASY/question.webp",
+    questionImageUrl: "/question-images/Q-ARCHIVE-EASY.webp"
+  });
+  await saveQuestion({
+    ...questionInput,
+    bankQuestionNumber: 3,
+    difficulty: 3,
+    difficultyScore: 3,
+    id: "Q-ARCHIVE-MEDIUM",
+    imageStorageKey: "questions/Q-ARCHIVE-MEDIUM/question.webp",
+    questionImageUrl: "/question-images/Q-ARCHIVE-MEDIUM.webp"
+  });
 
   const student = await db.prepare<string, { id: string }>(
     "SELECT id FROM users WHERE email = ?"
@@ -132,6 +150,28 @@ test("question archive is authorized, reversible, and preserves historical recor
     now
   );
 
+  const cumulativeThreeResponse = await fetch(
+    `${baseUrl}/admin/import/questions?mode=general&page=1&pageSize=10&difficultyMax=3`,
+    { headers: { cookie: adminCookie } }
+  );
+  assert.equal(cumulativeThreeResponse.status, 200);
+  assert.deepEqual(
+    (await cumulativeThreeResponse.json() as { questions: Array<{ id: string }> })
+      .questions.map((question) => question.id),
+    ["Q-ARCHIVE-EASY", "Q-ARCHIVE-MEDIUM"]
+  );
+
+  const cumulativeOneResponse = await fetch(
+    `${baseUrl}/admin/import/questions?mode=general&page=1&pageSize=10&difficultyMax=1`,
+    { headers: { cookie: adminCookie } }
+  );
+  assert.equal(cumulativeOneResponse.status, 200);
+  assert.deepEqual(
+    (await cumulativeOneResponse.json() as { questions: Array<{ id: string }> })
+      .questions.map((question) => question.id),
+    ["Q-ARCHIVE-EASY"]
+  );
+
   const filteredList = await fetch(
     `${baseUrl}/admin/import/questions?mode=general&page=1&pageSize=10&subject=quantitative&topic=${encodeURIComponent("الحساب")}&subtopic=${encodeURIComponent("العمليات الأساسية")}&difficulty=4&source=excel`,
     { headers: { cookie: adminCookie } }
@@ -142,8 +182,8 @@ test("question archive is authorized, reversible, and preserves historical recor
     summary: { quantitative: number; total: number };
   };
   assert.deepEqual(filteredPayload.questions.map((question) => question.id), [questionId]);
-  assert.equal(filteredPayload.summary.total, 1);
-  assert.equal(filteredPayload.summary.quantitative, 1);
+  assert.equal(filteredPayload.summary.total, 3);
+  assert.equal(filteredPayload.summary.quantitative, 3);
 
   const detailResponse = await fetch(
     `${baseUrl}/admin/import/questions/${encodeURIComponent(questionId)}`,

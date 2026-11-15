@@ -523,6 +523,7 @@ export const listAdminQuestionTopicCounts = async (
 export const listAdminQuestions = async (input: {
   bankId?: string;
   difficulty?: number;
+  difficultyMax?: number;
   mode: "general" | "aqsam";
   query?: string;
   page: number;
@@ -545,6 +546,7 @@ export const listAdminQuestions = async (input: {
   if (input.topic) conditions.push("questions.topic = @topic");
   if (input.subtopic) conditions.push("questions.subtopic = @subtopic");
   if (input.difficulty) conditions.push("questions.difficulty = @difficulty");
+  if (input.difficultyMax) conditions.push("questions.difficulty <= @difficultyMax");
   if (input.source) conditions.push("questions.source = @source");
   if (numericQuery) {
     conditions.push(
@@ -562,6 +564,7 @@ export const listAdminQuestions = async (input: {
   const params = {
     bankId: input.bankId ?? null,
     difficulty: input.difficulty ?? null,
+    difficultyMax: input.difficultyMax ?? null,
     mode: input.mode,
     source: input.source ?? null,
     subject: input.subject ?? null,

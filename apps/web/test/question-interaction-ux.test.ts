@@ -7,6 +7,8 @@ const readSource = (path: string) =>
 
 const navigatorSource = readSource("../src/features/browser/QuestionNavigator.tsx");
 const questionModeSource = readSource("../src/features/browser/QuestionMode.tsx");
+const studyQuestionSource = readSource("../src/features/study/StudyQuestion.tsx");
+const positionSource = readSource("../src/components/ui/QuestionPosition.tsx");
 const solvingStyles = readSource("../src/features/browser/solving-workspace.css");
 const immersiveSource = readSource("../src/components/ui/ImmersiveQuestionFeed.tsx");
 const immersiveStyles = readSource("../src/components/ui/immersive-question-feed.css");
@@ -38,5 +40,26 @@ test("answered options reserve outcome space and mobile navigation uses equal in
   assert.match(
     solvingStyles,
     /--mobile-navigation-inset:[^;]+;[\s\S]*margin:\s*0 var\(--mobile-navigation-inset\) var\(--mobile-navigation-inset\);/
+  );
+});
+
+test("normal question modes share a compact current-first position indicator", () => {
+  assert.match(navigatorSource, /<QuestionPosition[\s\S]*totalQuestions=\{questions\.length\}/);
+  assert.doesNotMatch(navigatorSource, /\{toArabicNumber\(currentIndex \+ 1\)\} \/ \{toArabicNumber\(questions\.length\)\}/);
+  assert.match(questionModeSource, /<QuestionPosition currentIndex=\{currentIndex\} totalQuestions=\{totalQuestions\} \/>/);
+  assert.match(studyQuestionSource, /<QuestionPosition currentIndex=\{currentIndex\} totalQuestions=\{totalQuestions\} \/>/);
+  assert.match(positionSource, /<strong>\{toArabicNumber\(currentQuestion\)\}<\/strong>/);
+  assert.match(positionSource, /<small>من \{toArabicNumber\(totalQuestions\)\}<\/small>/);
+  assert.match(solvingStyles, /\.question-position strong\s*\{[^}]*font-size:\s*clamp\(1\.35rem,/s);
+});
+
+test("answer dock gives the primary next action more room without crowding options", () => {
+  assert.match(
+    solvingStyles,
+    /\.solving-answer-dock\s*\{[^}]*padding:\s*clamp\(12px, 1\.4vw, 20px\)/s
+  );
+  assert.match(
+    solvingStyles,
+    /button\.question-next-button\s*\{[^}]*min-height:\s*clamp\(58px, 5vw, 64px\);/s
   );
 });

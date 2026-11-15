@@ -315,6 +315,7 @@ importerRouter.get("/questions", async (request, response) => {
       ? request.query.subtopic.trim()
       : undefined;
     const difficulty = toPositiveInteger(request.query.difficulty) ?? undefined;
+    const difficultyMax = toPositiveInteger(request.query.difficultyMax) ?? undefined;
     const source = request.query.source === "excel" ||
       request.query.source === "manual" ||
       request.query.source === "pdf"
@@ -324,11 +325,15 @@ importerRouter.get("/questions", async (request, response) => {
     if (difficulty !== undefined && difficulty > questionDifficultyMax) {
       throw new AdminImportError("درجة الصعوبة يجب أن تكون بين 1 و4.");
     }
+    if (difficultyMax !== undefined && difficultyMax > questionDifficultyMax) {
+      throw new AdminImportError("الحد الأقصى للصعوبة يجب أن يكون بين 1 و4.");
+    }
 
     response.status(200).json(
       await getAdminQuestionBank({
         bankId,
         difficulty,
+        difficultyMax,
         mode,
         page,
         pageSize,

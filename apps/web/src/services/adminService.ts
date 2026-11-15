@@ -36,6 +36,7 @@ const importDetailCacheKey = (jobId: string) => `admin:imports:detail:${jobId}`;
 
 const questionBankRequest = (input: {
   difficulty?: number;
+  difficultyMax?: number;
   page: number;
   pageSize?: number;
   query?: string;
@@ -59,6 +60,7 @@ const questionBankRequest = (input: {
   if (input.topic) params.set("topic", input.topic);
   if (input.subtopic) params.set("subtopic", input.subtopic);
   if (input.difficulty) params.set("difficulty", String(input.difficulty));
+  if (input.difficultyMax) params.set("difficultyMax", String(input.difficultyMax));
   if (input.source) params.set("source", input.source);
 
   const query = params.toString();
@@ -222,6 +224,7 @@ export const adminService = {
     }).then(recordImportMutation),
   getCachedQuestionBank: (input: {
     difficulty?: number;
+    difficultyMax?: number;
     page: number;
     pageSize?: number;
     query?: string;
@@ -238,6 +241,7 @@ export const adminService = {
   ),
   getQuestionBank: (input: {
     difficulty?: number;
+    difficultyMax?: number;
     page: number;
     pageSize?: number;
     query?: string;
