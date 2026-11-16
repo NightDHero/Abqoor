@@ -17,6 +17,7 @@ import {
 
 type QuestionMode = "general" | "aqsam";
 type QuestionSource = "excel" | "manual" | "pdf";
+type QuestionStatus = "active" | "archived" | "all";
 type QuestionSubject = "quantitative" | "verbal";
 
 const pageSize = 50;
@@ -76,7 +77,8 @@ export function AdminQuestionBankPage() {
     mode: "general" as const,
     page: 1,
     pageSize,
-    sort: "asc" as const
+    sort: "asc" as const,
+    status: "active" as const
   };
   const initialCache = adminService.getCachedQuestionBank(initialRequest);
   const [mode, setMode] = useState<QuestionMode>("general");
@@ -87,6 +89,7 @@ export function AdminQuestionBankPage() {
   const [subtopic, setSubtopic] = useState("");
   const [difficultyMaxFilter, setDifficultyMaxFilter] = useState<number | null>(null);
   const [source, setSource] = useState<QuestionSource | "">("");
+  const [status, setStatus] = useState<QuestionStatus>("active");
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<"asc" | "desc">("asc");
   const [result, setResult] = useState(initialCache?.data ?? emptyResult);
@@ -97,7 +100,7 @@ export function AdminQuestionBankPage() {
       string,
       AdminQuestionBankResponse["questionCounts"]["subjects"]
     > = {};
-    if (initialCache) catalogs["general:all"] = initialCache.data.questionCounts.subjects;
+    if (initialCache) catalogs["general:all:active"] = initialCache.data.questionCounts.subjects;
     return catalogs;
   });
   const [isLoading, setIsLoading] = useState(!initialCache);
@@ -124,11 +127,12 @@ export function AdminQuestionBankPage() {
     query,
     sort,
     source: source || undefined,
+    status,
     subject: subject || undefined,
     subtopic: subtopic || undefined,
     topic: topic || undefined
-  }), [bankId, difficultyMaxFilter, mode, page, query, sort, source, subject, subtopic, topic]);
-  const filterScopeKey = `${mode}:${bankId || "all"}`;
+  }), [bankId, difficultyMaxFilter, mode, page, query, sort, source, status, subject, subtopic, topic]);
+  const filterScopeKey = `${mode}:${bankId || "all"}:${status}`;
 
   useEffect(() => {
     const requestVersion = ++requestVersionRef.current;
@@ -180,7 +184,7 @@ export function AdminQuestionBankPage() {
 
   useEffect(() => {
     const hasFilters = Boolean(
-      query.trim() || bankId || subject || topic || subtopic || difficultyMaxFilter || source
+      query.trim() || bankId || subject || topic || subtopic || difficultyMaxFilter || source || status !== "active"
     );
     if (
       isLoading || error || page !== 1 || hasFilters || shouldAvoidSpeculativePreloading()
@@ -192,7 +196,7 @@ export function AdminQuestionBankPage() {
       pageSize,
       sort
     }).catch(() => undefined);
-  }, [bankId, difficultyMaxFilter, error, isLoading, mode, page, query, sort, source, subject, subtopic, topic]);
+  }, [bankId, difficultyMaxFilter, error, isLoading, mode, page, query, sort, source, status, subject, subtopic, topic]);
 
   useEffect(() => {
     if (!selectedQuestionId) {
@@ -256,8 +260,66 @@ export function AdminQuestionBankPage() {
     )
   ], [availableSubjects, subject, topic]);
 
-  const activeFilterCount = [subject, topic, subtopic, difficultyMaxFilter, source, bankId]
+  const activeFilterCount = [
+    subject,
+    topic,
+    subtopic,
+    difficultyMaxFilter,
+    source,
+    bankId,
+    status === "active" ? "" : status
+  ]
     .filter(Boolean).length;
+
+  const activeFilterChips = [
+    query.trim() ? {
+      key: "query",
+      label: `البحث: ${query.trim()}`,
+      onClear: () => setQuery("")
+    } : null,
+    subject ? {
+      key: "subject",
+      label: `القسم: ${sectionLabel(subject)}`,
+      onClear: () => {
+        setSubject("");
+        setTopic("");
+        setSubtopic("");
+      }
+    } : null,
+    topic ? {
+      key: "topic",
+      label: `الموضوع: ${topic}`,
+      onClear: () => {
+        setTopic("");
+        setSubtopic("");
+      }
+    } : null,
+    subtopic ? {
+      key: "subtopic",
+      label: `الموضوع الفرعي: ${subtopic}`,
+      onClear: () => setSubtopic("")
+    } : null,
+    difficultyMaxFilter ? {
+      key: "difficulty",
+      label: `الصعوبة: حتى ${"★".repeat(difficultyMaxFilter)}`,
+      onClear: () => setDifficultyMaxFilter(null)
+    } : null,
+    source ? {
+      key: "source",
+      label: `المصدر: ${sourceLabel(source)}`,
+      onClear: () => setSource("")
+    } : null,
+    status !== "active" ? {
+      key: "status",
+      label: `الحالة: ${status === "archived" ? "مؤرشف" : "الكل"}`,
+      onClear: () => setStatus("active")
+    } : null,
+    bankId ? {
+      key: "bank",
+      label: `البنك: ${result.banks.find((bank) => bank.id === bankId)?.name ?? bankId}`,
+      onClear: () => setBankId("")
+    } : null
+  ].filter((chip): chip is { key: string; label: string; onClear: () => void } => Boolean(chip));
 
   const clearFilters = () => {
     setQuery("");
@@ -266,6 +328,7 @@ export function AdminQuestionBankPage() {
     setSubtopic("");
     setDifficultyMaxFilter(null);
     setSource("");
+    setStatus("active");
     setBankId("");
     setPage(1);
   };
@@ -282,11 +345,15 @@ export function AdminQuestionBankPage() {
     setArchivingId(target.id);
     setFeedback(null);
     try {
-      await adminService.archiveQuestion(target.id);
+      const archived = await adminService.archiveQuestion(target.id);
       setResult((current) => ({
         ...current,
-        questions: current.questions.filter((question) => question.id !== target.id),
-        total: Math.max(0, current.total - 1)
+        questions: status === "all"
+          ? current.questions.map((question) => question.id === target.id
+            ? { ...question, archivedAt: archived.archivedAt, status: "archived" }
+            : question)
+          : current.questions.filter((question) => question.id !== target.id),
+        total: status === "all" ? current.total : Math.max(0, current.total - 1)
       }));
       setArchiveTarget(null);
       setSelectedQuestionId((current) => current === target.id ? null : current);
@@ -294,8 +361,11 @@ export function AdminQuestionBankPage() {
         message: `تمت إزالة السؤال ${target.questionNumber.toLocaleString("ar-SA")} من البنك النشط.`,
         tone: "success"
       });
-      if (result.questions.length === 1 && page > 1) setPage((current) => current - 1);
-      else setReloadVersion((current) => current + 1);
+      if (status !== "all" && result.questions.length === 1 && page > 1) {
+        setPage((current) => current - 1);
+      } else {
+        setReloadVersion((current) => current + 1);
+      }
     } catch (requestError) {
       setArchiveTarget(null);
       setFeedback({
@@ -317,7 +387,7 @@ export function AdminQuestionBankPage() {
     >
       <section className="admin-question-summary" aria-label="ملخص بنك الأسئلة">
         <article>
-          <span>إجمالي الأسئلة النشطة</span>
+          <span>{status === "active" ? "إجمالي الأسئلة النشطة" : status === "archived" ? "إجمالي الأسئلة المؤرشفة" : "إجمالي الأسئلة"}</span>
           <strong>{result.summary.total.toLocaleString("ar-SA")}</strong>
         </article>
         <article data-subject="quantitative">
@@ -386,7 +456,7 @@ export function AdminQuestionBankPage() {
             <span className="admin-question-bank-eyebrow">
               <SystemIcon name="filter" /> البحث والتصفية
             </span>
-            <h2>الأسئلة النشطة</h2>
+            <h2>{status === "active" ? "الأسئلة النشطة" : status === "archived" ? "الأسئلة المؤرشفة" : "كل الأسئلة"}</h2>
           </div>
           <span className="admin-question-result-count">
             {error ? "العدد غير متاح" : `${result.total.toLocaleString("ar-SA")} سؤال مطابق`}
@@ -394,7 +464,7 @@ export function AdminQuestionBankPage() {
         </header>
 
         <div className="admin-question-filters">
-          <label className="admin-question-search">
+          <label className="admin-question-search" data-active={Boolean(query.trim())}>
             <span>ابحث في الأسئلة</span>
             <span className="admin-question-search-control">
               <SystemIcon name="search" />
@@ -409,7 +479,7 @@ export function AdminQuestionBankPage() {
               />
             </span>
           </label>
-          <label>
+          <label data-active={Boolean(subject)}>
             <span>القسم</span>
             <select value={subject} onChange={(event) => {
               setSubject(event.target.value as QuestionSubject | "");
@@ -422,7 +492,7 @@ export function AdminQuestionBankPage() {
               <option value="verbal">اللفظي</option>
             </select>
           </label>
-          <label>
+          <label data-active={Boolean(topic)}>
             <span>الموضوع</span>
             <select value={topic} onChange={(event) => {
               setTopic(event.target.value);
@@ -433,7 +503,7 @@ export function AdminQuestionBankPage() {
               {availableTopics.map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
           </label>
-          <label>
+          <label data-active={Boolean(subtopic)}>
             <span>الموضوع الفرعي</span>
             <select value={subtopic} onChange={(event) => {
               setSubtopic(event.target.value);
@@ -443,7 +513,7 @@ export function AdminQuestionBankPage() {
               {availableSubtopics.map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
           </label>
-          <fieldset className="admin-question-difficulty-filter">
+          <fieldset className="admin-question-difficulty-filter" data-active={Boolean(difficultyMaxFilter)}>
             <legend>الحد الأقصى للصعوبة</legend>
             <div role="group" aria-label="تصفية حسب الحد الأقصى للصعوبة">
               {difficultyLevels.map((level) => (
@@ -454,7 +524,7 @@ export function AdminQuestionBankPage() {
                   key={level}
                   type="button"
                   onClick={() => {
-                    setDifficultyMaxFilter(level);
+                    setDifficultyMaxFilter((current) => current === level ? null : level);
                     setPage(1);
                   }}
                 >
@@ -463,7 +533,7 @@ export function AdminQuestionBankPage() {
               ))}
             </div>
           </fieldset>
-          <label>
+          <label data-active={Boolean(source)}>
             <span>المصدر</span>
             <select value={source} onChange={(event) => {
               setSource(event.target.value as QuestionSource | "");
@@ -473,6 +543,17 @@ export function AdminQuestionBankPage() {
               <option value="excel">Excel</option>
               <option value="pdf">PDF</option>
               <option value="manual">رفع صور</option>
+            </select>
+          </label>
+          <label data-active={status !== "active"}>
+            <span>الحالة</span>
+            <select value={status} onChange={(event) => {
+              setStatus(event.target.value as QuestionStatus);
+              setPage(1);
+            }}>
+              <option value="active">نشط</option>
+              <option value="archived">مؤرشف</option>
+              <option value="all">الكل</option>
             </select>
           </label>
           <label>
@@ -485,16 +566,29 @@ export function AdminQuestionBankPage() {
               <option value="desc">رقم السؤال تنازلياً</option>
             </select>
           </label>
-          <button
-            className="secondary admin-question-clear-filters"
-            disabled={activeFilterCount === 0 && !query}
-            type="button"
-            onClick={clearFilters}
-          >
-            <SystemIcon name="x" />
-            مسح الفلاتر {activeFilterCount > 0 ? `(${activeFilterCount.toLocaleString("ar-SA")})` : ""}
-          </button>
         </div>
+
+        {activeFilterChips.length > 0 ? (
+          <div className="admin-question-active-filters" aria-label="الفلاتر النشطة">
+            <span>الفلاتر النشطة</span>
+            {activeFilterChips.map((chip) => (
+              <button
+                aria-label={`مسح فلتر ${chip.label}`}
+                key={chip.key}
+                type="button"
+                onClick={() => {
+                  chip.onClear();
+                  setPage(1);
+                }}
+              >
+                {chip.label} <SystemIcon name="x" />
+              </button>
+            ))}
+            <button className="admin-question-clear-filters" type="button" onClick={clearFilters}>
+              مسح الكل ({(activeFilterCount + (query.trim() ? 1 : 0)).toLocaleString("ar-SA")})
+            </button>
+          </div>
+        ) : null}
 
         {feedback ? (
           <p
@@ -526,7 +620,7 @@ export function AdminQuestionBankPage() {
         {!error && result.questions.length > 0 ? (
           <div
             aria-busy={isLoading}
-            aria-label="قائمة الأسئلة النشطة"
+            aria-label={status === "active" ? "قائمة الأسئلة النشطة" : status === "archived" ? "قائمة الأسئلة المؤرشفة" : "قائمة كل الأسئلة"}
             className="admin-question-list"
             role="list"
           >
@@ -548,6 +642,7 @@ export function AdminQuestionBankPage() {
                       <small className="admin-question-source">
                         <span>{sourceLabel(question.source)}</span>
                         <span>{question.bankName ?? (question.questionScope === "general" ? "الأسئلة العامة" : "بنك أقسام")}</span>
+                        {question.status === "archived" ? <span className="admin-question-archived-status">مؤرشف</span> : null}
                       </small>
                       <small dir="ltr">{question.id}</small>
                     </span>
@@ -560,9 +655,11 @@ export function AdminQuestionBankPage() {
                       <button className="secondary" type="button" onClick={() => setSelectedQuestionId(question.id)}>
                         <SystemIcon name="eye" /> عرض التفاصيل
                       </button>
-                      <button className="admin-question-archive-action" type="button" onClick={() => setArchiveTarget(question)}>
-                        <SystemIcon name="trash" /> إزالة من البنك
-                      </button>
+                      {question.status === "active" ? (
+                        <button className="admin-question-archive-action" type="button" onClick={() => setArchiveTarget(question)}>
+                          <SystemIcon name="trash" /> إزالة من البنك
+                        </button>
+                      ) : null}
                     </div>
                   </details>
                 </div>
@@ -645,12 +742,15 @@ export function AdminQuestionBankPage() {
                   <div><dt>المصدر</dt><dd>{sourceLabel(detail.source)}</dd></div>
                   <div><dt>البنك</dt><dd>{detail.bankName ?? "الأسئلة العامة"}</dd></div>
                   <div><dt>آخر رفع</dt><dd>{detail.importedAt ? formatAdminDate(detail.importedAt) : "قديم / يدوي"}</dd></div>
+                  <div><dt>الحالة</dt><dd>{detail.status === "active" ? "نشط" : "مؤرشف"}</dd></div>
                 </dl>
                 <footer>
-                  <span>السؤال نشط ومتاح حالياً ضمن نطاقه الدراسي.</span>
-                  <button className="danger" type="button" onClick={() => setArchiveTarget(detail)}>
-                    <SystemIcon name="trash" /> إزالة من البنك النشط
-                  </button>
+                  <span>{detail.status === "active" ? "السؤال نشط ومتاح حالياً ضمن نطاقه الدراسي." : "السؤال مؤرشف وغير متاح حالياً للتدريب أو الاختبارات الجديدة."}</span>
+                  {detail.status === "active" ? (
+                    <button className="danger" type="button" onClick={() => setArchiveTarget(detail)}>
+                      <SystemIcon name="trash" /> إزالة من البنك النشط
+                    </button>
+                  ) : null}
                 </footer>
               </div>
             ) : null}

@@ -230,11 +230,40 @@ test("question archive is authorized, reversible, and preserves historical recor
     []
   );
 
+  const archivedList = await fetch(
+    `${baseUrl}/admin/import/questions?mode=general&page=1&pageSize=10&status=archived&query=${encodeURIComponent(questionId)}`,
+    { headers: { cookie: adminCookie } }
+  );
+  assert.equal(archivedList.status, 200);
+  const archivedPayload = await archivedList.json() as {
+    questions: Array<{ id: string; status: string }>;
+    summary: { total: number };
+  };
+  assert.equal(archivedPayload.questions.length, 1);
+  assert.equal(archivedPayload.questions[0]?.id, questionId);
+  assert.equal(archivedPayload.questions[0]?.status, "archived");
+  assert.equal(archivedPayload.summary.total, 1);
+
+  const allStatusList = await fetch(
+    `${baseUrl}/admin/import/questions?mode=general&page=1&pageSize=10&status=all&query=${encodeURIComponent(questionId)}`,
+    { headers: { cookie: adminCookie } }
+  );
+  assert.equal(allStatusList.status, 200);
+  assert.deepEqual(
+    (await allStatusList.json() as { questions: Array<{ id: string }> })
+      .questions.map((question) => question.id),
+    [questionId]
+  );
+
   const detailAfterArchive = await fetch(
     `${baseUrl}/admin/import/questions/${encodeURIComponent(questionId)}`,
     { headers: { cookie: adminCookie } }
   );
-  assert.equal(detailAfterArchive.status, 404);
+  assert.equal(detailAfterArchive.status, 200);
+  assert.equal(
+    (await detailAfterArchive.json() as { question: { status: string } }).question.status,
+    "archived"
+  );
 
   const sessionReference = await db.prepare<string, { count: number }>(`
     SELECT CAST(COUNT(*) AS INTEGER) AS count

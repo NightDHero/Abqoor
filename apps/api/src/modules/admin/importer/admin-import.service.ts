@@ -1042,7 +1042,8 @@ const normalizeTopicCountKey = (
 
 const toQuestionCountOverview = async (
   mode: "general" | "aqsam",
-  bankId?: string
+  bankId?: string,
+  status: "active" | "archived" | "all" = "active"
 ) => {
   const topicMaps = new Map<
     LearningSubject,
@@ -1076,7 +1077,7 @@ const toQuestionCountOverview = async (
     topicMaps.set(subjectId, topics);
   }
 
-  for (const row of await listAdminQuestionTopicCounts(mode, bankId)) {
+  for (const row of await listAdminQuestionTopicCounts(mode, bankId, status)) {
     const subjectId = row.subject_id ?? legacySubjectToSubject[row.subject];
     const topics = topicMaps.get(subjectId);
 
@@ -1162,6 +1163,7 @@ export const getAdminQuestionBank = async (input: {
   pageSize: number;
   source?: "excel" | "manual" | "pdf";
   sort: "asc" | "desc";
+  status?: "active" | "archived" | "all";
   subject?: "quantitative" | "verbal";
   subtopic?: string;
   topic?: string;
@@ -1175,7 +1177,8 @@ export const getAdminQuestionBank = async (input: {
       Record<string, unknown> & { id: string; imageStorageKey?: string | null }
     >;
   };
-  const questionCounts = await toQuestionCountOverview(mode, input.bankId);
+  const status = input.status ?? "active";
+  const questionCounts = await toQuestionCountOverview(mode, input.bankId, status);
   const summaryBySubject = new Map(
     questionCounts.subjects.map((subject) => [subject.subjectId, subject.total])
   );
@@ -1202,6 +1205,7 @@ export const getAdminQuestionBank = async (input: {
     },
     questions: result.questions.map((question) => ({
       ...question,
+      status: question.archivedAt ? "archived" as const : "active" as const,
       imageExists: Boolean(question.imageStorageKey) || questionImageExists(question.id),
       questionImageUrl: getAuthorizedQuestionImageUrl(question.id),
       questionNumber: typeof question.bankQuestionNumber === "number"
@@ -1222,9 +1226,7 @@ const toAdminQuestionNumber = (question: {
 
 export const getAdminQuestionDetail = async (id: string) => {
   const question = await findAdminQuestionDetail(id.trim());
-  if (!question) {
-    throw new AdminImportError("السؤال غير موجود أو تمت إزالته من البنك النشط.", 404);
-  }
+  if (!question) throw new AdminImportError("السؤال غير موجود.", 404);
 
   let options: string[] = [];
   if (question.optionsJson) {
@@ -1244,7 +1246,7 @@ export const getAdminQuestionDetail = async (id: string) => {
     options,
     questionImageUrl: getAuthorizedQuestionImageUrl(question.id),
     questionNumber: toAdminQuestionNumber(question),
-    status: "active" as const
+    status: question.archivedAt ? "archived" as const : "active" as const
   };
 };
 

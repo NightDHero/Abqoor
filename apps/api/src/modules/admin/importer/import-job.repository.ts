@@ -510,9 +510,10 @@ export const runImportTransaction = <T>(operation: () => T | Promise<T>) =>
 
 export const listAdminQuestionTopicCounts = async (
   questionScope: "general" | "aqsam" = "general",
-  bankId?: string
+  bankId?: string,
+  status: "active" | "archived" | "all" = "active"
 ) => {
-  const query = buildAdminQuestionTopicCountQuery({ bankId, questionScope });
+  const query = buildAdminQuestionTopicCountQuery({ bankId, questionScope, status });
 
   return await db.prepare<
     { bankId?: string; questionScope: "general" | "aqsam" },
@@ -530,6 +531,7 @@ export const listAdminQuestions = async (input: {
   pageSize: number;
   source?: "excel" | "manual" | "pdf";
   sort: "asc" | "desc";
+  status?: "active" | "archived" | "all";
   subject?: "quantitative" | "verbal";
   subtopic?: string;
   topic?: string;
@@ -537,10 +539,12 @@ export const listAdminQuestions = async (input: {
   const normalizedQuery = input.query?.trim() ?? "";
   const numericQuery = /^Q-?(\d+)$/i.exec(normalizedQuery)?.[1] ??
     (/^\d+$/.test(normalizedQuery) ? normalizedQuery : null);
-  const conditions = [
-    "questions.question_scope = @mode",
-    "questions.archived_at IS NULL"
-  ];
+  const conditions = ["questions.question_scope = @mode"];
+  if (input.status === "archived") {
+    conditions.push("questions.archived_at IS NOT NULL");
+  } else if (input.status !== "all") {
+    conditions.push("questions.archived_at IS NULL");
+  }
   if (input.bankId) conditions.push("questions.bank_id = @bankId");
   if (input.subject) conditions.push("questions.subject = @subject");
   if (input.topic) conditions.push("questions.topic = @topic");
@@ -595,6 +599,7 @@ export const listAdminQuestions = async (input: {
       questions.subtopic,
       questions.subtopic_id AS "subtopicId",
       questions.difficulty,
+      questions.archived_at AS "archivedAt",
       questions.import_job_id AS "importJobId",
       import_jobs.created_at AS "importedAt",
       import_jobs.created_by AS "importedBy"
@@ -651,6 +656,7 @@ export const findAdminQuestionDetail = async (id: string) => {
     subtopic: string | null;
     subtopicId: string | null;
     difficulty: number;
+    archivedAt: string | null;
     source: "excel" | "manual" | "pdf";
     importJobId: string | null;
     importedAt: string | null;
@@ -672,6 +678,7 @@ export const findAdminQuestionDetail = async (id: string) => {
       questions.subtopic,
       questions.subtopic_id AS "subtopicId",
       questions.difficulty,
+      questions.archived_at AS "archivedAt",
       questions.source,
       questions.import_job_id AS "importJobId",
       import_jobs.created_at AS "importedAt",
@@ -685,7 +692,6 @@ export const findAdminQuestionDetail = async (id: string) => {
       AND import_job_items.question_id = questions.id
     LEFT JOIN question_banks ON question_banks.id = questions.bank_id
     WHERE questions.id = ?
-      AND questions.archived_at IS NULL
     LIMIT 1
   `).get(id) ?? null;
 };

@@ -226,13 +226,14 @@ export type AdminQuestion = {
   bankId: string | null;
   bankName: string | null;
   bankQuestionNumber: number | null;
+  archivedAt: string | null;
+  status: "active" | "archived";
 };
 
 export type AdminQuestionDetail = AdminQuestion & {
   imageExists: boolean;
   options: string[];
   questionText: string | null;
-  status: "active";
 };
 
 export type AdminQuestionSubtopicCount = {

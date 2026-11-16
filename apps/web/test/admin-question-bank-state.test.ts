@@ -62,6 +62,16 @@ test("question bank exposes cumulative star difficulty filtering", () => {
   assert.match(questionBankSource, /aria-pressed=\{difficultyMaxFilter === level\}/);
   assert.match(adminServiceSource, /params\.set\("difficultyMax", String\(input\.difficultyMax\)\)/);
   assert.match(questionBankStyles, /\.admin-question-difficulty-track/);
+  assert.match(questionBankSource, /current === level \? null : level/);
+});
+
+test("question bank keeps dependent filters visible and individually clearable", () => {
+  assert.match(questionBankSource, /setTopic\(""\);[\s\S]*setSubtopic\(""\);/);
+  assert.match(questionBankSource, /className="admin-question-active-filters"/);
+  assert.match(questionBankSource, /aria-label={`مسح فلتر \$\{chip\.label\}`}/);
+  assert.match(questionBankSource, /<option value="archived">مؤرشف<\/option>/);
+  assert.match(adminServiceSource, /params\.set\("status", input\.status\)/);
+  assert.match(questionBankStyles, /label\[data-active="true"\]/);
 });
 
 test("RTL search icon stays inside and vertically centered in the field", () => {

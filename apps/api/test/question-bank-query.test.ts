@@ -9,6 +9,7 @@ test("omits the optional bank parameter when listing all question counts", () =>
 
   assert.deepEqual(query.params, { questionScope: "general" });
   assert.doesNotMatch(query.sql, /@bankId/);
+  assert.match(query.sql, /archived_at IS NULL/);
 });
 
 test("adds a typed bank equality only when a bank is selected", () => {
@@ -23,4 +24,18 @@ test("adds a typed bank equality only when a bank is selected", () => {
   });
   assert.match(query.sql, /AND bank_id = @bankId/);
   assert.doesNotMatch(query.sql, /@bankId\s+IS\s+NULL/i);
+});
+
+test("builds explicit archived and all-status question count queries", () => {
+  const archived = buildAdminQuestionTopicCountQuery({
+    questionScope: "general",
+    status: "archived"
+  });
+  const all = buildAdminQuestionTopicCountQuery({
+    questionScope: "general",
+    status: "all"
+  });
+
+  assert.match(archived.sql, /archived_at IS NOT NULL/);
+  assert.doesNotMatch(all.sql, /archived_at IS (?:NOT )?NULL/);
 });

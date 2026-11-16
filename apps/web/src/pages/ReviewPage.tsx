@@ -117,6 +117,7 @@ function ReviewQuestionList({
               <article
                 aria-label={`فتح السؤال ${questionNumber ?? ""}`.trim()}
                 className="review-item review-item-interactive"
+                data-info-open={openInfoKey === itemKey}
                 data-prefetch-route={questionPath}
                 key={itemKey}
                 role="link"

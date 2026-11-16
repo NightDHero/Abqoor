@@ -44,6 +44,7 @@ const questionBankRequest = (input: {
   mode?: "general" | "aqsam";
   bankId?: string;
   source?: "excel" | "manual" | "pdf";
+  status?: "active" | "archived" | "all";
   subject?: "quantitative" | "verbal";
   subtopic?: string;
   topic?: string;
@@ -62,6 +63,7 @@ const questionBankRequest = (input: {
   if (input.difficulty) params.set("difficulty", String(input.difficulty));
   if (input.difficultyMax) params.set("difficultyMax", String(input.difficultyMax));
   if (input.source) params.set("source", input.source);
+  if (input.status && input.status !== "active") params.set("status", input.status);
 
   const query = params.toString();
   return {
@@ -232,6 +234,7 @@ export const adminService = {
     mode?: "general" | "aqsam";
     bankId?: string;
     source?: "excel" | "manual" | "pdf";
+    status?: "active" | "archived" | "all";
     subject?: "quantitative" | "verbal";
     subtopic?: string;
     topic?: string;
@@ -249,6 +252,7 @@ export const adminService = {
     mode?: "general" | "aqsam";
     bankId?: string;
     source?: "excel" | "manual" | "pdf";
+    status?: "active" | "archived" | "all";
     subject?: "quantitative" | "verbal";
     subtopic?: string;
     topic?: string;

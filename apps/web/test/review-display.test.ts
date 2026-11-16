@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import type { ReviewBankResponse, ReviewItem } from "../src/services/reviewBankService.js";
 import { buildReviewDisplayItems } from "../src/pages/reviewDisplay.js";
+
+const readSource = (path: string) =>
+  readFileSync(new URL(path, import.meta.url), "utf8");
+
+const reviewPageSource = readSource("../src/pages/ReviewPage.tsx");
+const reviewStyles = readSource("../src/readiness-polish.css");
 
 const item = (overrides: Partial<ReviewItem>): ReviewItem => ({
   addedAt: "2026-11-15T06:00:00.000Z",
@@ -43,4 +50,24 @@ test("review display keeps distinct questions and sorts priority before recency"
 
   assert.equal(combined.length, 2);
   assert.equal(combined[0]?.item.questionId, "question-26");
+});
+
+test("review information popover escapes row clipping with readable theme colors", () => {
+  assert.match(reviewPageSource, /data-info-open=\{openInfoKey === itemKey\}/);
+  assert.match(
+    reviewStyles,
+    /\.review-page \.review-section\s*\{[^}]*overflow:\s*visible;/s
+  );
+  assert.match(
+    reviewStyles,
+    /\.review-item\.review-item-interactive\s*\{[^}]*overflow:\s*visible;/s
+  );
+  assert.match(
+    reviewStyles,
+    /\.review-page \.review-date-tooltip\s*\{[^}]*background:\s*#092332;[^}]*color:\s*#f0f8fa;/s
+  );
+  assert.match(
+    reviewStyles,
+    /data-theme="light"[^}]*\.review-date-tooltip\s*\{[^}]*background:\s*#fff;[^}]*color:\s*#173449;/s
+  );
 });

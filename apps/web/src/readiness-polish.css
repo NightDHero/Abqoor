@@ -117,6 +117,7 @@
 
 .product-app-shell .review-page .review-section {
   min-width: 0;
+  overflow: visible;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -152,12 +153,18 @@
 }
 
 .product-app-shell .review-page .review-item.review-item-interactive {
+  position: relative;
   grid-template-columns: minmax(190px, 0.72fr) minmax(220px, 1fr) auto;
   gap: 12px 20px;
   border-radius: 10px;
   padding: 14px 12px;
   cursor: pointer;
   transition: background-color 160ms ease, border-color 160ms ease;
+  overflow: visible;
+}
+
+.product-app-shell .review-page .review-item.review-item-interactive[data-info-open="true"] {
+  z-index: 4;
 }
 
 .product-app-shell .review-page .review-item.review-item-interactive:hover,
@@ -262,7 +269,7 @@
   display: inline-flex;
 }
 
-.review-date-tooltip {
+.product-app-shell .review-page .review-date-tooltip {
   position: absolute;
   z-index: 10;
   inset-inline-end: 0;
@@ -277,6 +284,9 @@
   color: #f0f8fa;
   font-size: 0.72rem;
   font-weight: 750;
+  line-height: 1.6;
+  text-align: start;
+  white-space: nowrap;
   opacity: 0;
   box-shadow: 0 12px 30px rgb(0 7 12 / 34%);
   pointer-events: none;
@@ -284,7 +294,7 @@
   transition: opacity 140ms ease, transform 140ms ease, visibility 140ms ease;
 }
 
-:root[data-theme="light"] .review-date-tooltip {
+:root[data-theme="light"] .product-app-shell .review-page .review-date-tooltip {
   background: #fff;
   color: #173449;
 }
@@ -544,6 +554,11 @@
     grid-row: 1 / span 2;
     align-self: center;
     flex-direction: column;
+  }
+
+  .product-app-shell .review-page .review-date-tooltip {
+    width: min(230px, calc(100vw - 32px));
+    white-space: normal;
   }
 
   .review-removal-confirmation {

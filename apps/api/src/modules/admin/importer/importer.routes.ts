@@ -321,6 +321,9 @@ importerRouter.get("/questions", async (request, response) => {
       request.query.source === "pdf"
       ? request.query.source
       : undefined;
+    const status = request.query.status === "archived" || request.query.status === "all"
+      ? request.query.status
+      : "active";
 
     if (difficulty !== undefined && difficulty > questionDifficultyMax) {
       throw new AdminImportError("درجة الصعوبة يجب أن تكون بين 1 و4.");
@@ -340,6 +343,7 @@ importerRouter.get("/questions", async (request, response) => {
         query,
         sort,
         source,
+        status,
         subject,
         subtopic,
         topic
