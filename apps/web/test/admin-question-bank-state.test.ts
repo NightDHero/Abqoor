@@ -70,6 +70,7 @@ test("question bank keeps dependent filters visible and individually clearable",
   assert.match(questionBankSource, /className="admin-question-active-filters"/);
   assert.match(questionBankSource, /aria-label={`مسح فلتر \$\{chip\.label\}`}/);
   assert.match(questionBankSource, /<option value="archived">مؤرشف<\/option>/);
+  assert.match(questionBankSource, /aria-live="polite" className="admin-question-result-count"/);
   assert.match(adminServiceSource, /params\.set\("status", input\.status\)/);
   assert.match(questionBankStyles, /label\[data-active="true"\]/);
 });

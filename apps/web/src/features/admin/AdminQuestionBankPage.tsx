@@ -458,7 +458,7 @@ export function AdminQuestionBankPage() {
             </span>
             <h2>{status === "active" ? "الأسئلة النشطة" : status === "archived" ? "الأسئلة المؤرشفة" : "كل الأسئلة"}</h2>
           </div>
-          <span className="admin-question-result-count">
+          <span aria-live="polite" className="admin-question-result-count">
             {error ? "العدد غير متاح" : `${result.total.toLocaleString("ar-SA")} سؤال مطابق`}
           </span>
         </header>

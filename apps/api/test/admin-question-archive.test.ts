@@ -255,6 +255,12 @@ test("question archive is authorized, reversible, and preserves historical recor
     [questionId]
   );
 
+  const invalidStatusList = await fetch(
+    `${baseUrl}/admin/import/questions?mode=general&page=1&pageSize=10&status=removed`,
+    { headers: { cookie: adminCookie } }
+  );
+  assert.equal(invalidStatusList.status, 400);
+
   const detailAfterArchive = await fetch(
     `${baseUrl}/admin/import/questions/${encodeURIComponent(questionId)}`,
     { headers: { cookie: adminCookie } }
