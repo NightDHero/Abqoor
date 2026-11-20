@@ -281,5 +281,19 @@ export const adminService = {
       evictQueries("review:");
       invalidateQueries("admin:validation:");
       return response;
+    }),
+  archiveQuestions: (questionIds: string[]) =>
+    apiRequest<{
+      archivedCount: number;
+      questions: Array<{ archivedAt: string; questionId: string }>;
+    }>("/admin/import/questions/archive", {
+      body: JSON.stringify({ questionIds }),
+      method: "POST"
+    }).then((response) => {
+      evictQueries("admin:questions:");
+      questionService.evict();
+      evictQueries("review:");
+      invalidateQueries("admin:validation:");
+      return response;
     })
 };

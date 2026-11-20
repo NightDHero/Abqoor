@@ -1,6 +1,7 @@
 import { useCallback, useState, type CSSProperties } from "react";
 import type { StudyProgressResponse } from "../../types/session";
 import { navigateTo } from "../../utils/router";
+import { getCareerDayTheme, type CareerDayTheme } from "./careerDayTheme";
 import { StudyProgressTracker } from "./StudyProgressTracker";
 
 const careerElements = [
@@ -139,12 +140,20 @@ const energyStreaks = [
 
 export function CareerDashboard({ userId, username }: { userId: string; username?: string | null }) {
   const [careerProgress, setCareerProgress] = useState(emptyCareerProgress);
+  const [dayTheme, setDayTheme] = useState<CareerDayTheme>("neutral");
   const handleCareerProgressLoaded = useCallback((progress: CareerProgress) => {
     setCareerProgress(progress);
   }, []);
+  const handleTodayPlanLoaded = useCallback((today: StudyProgressResponse["today"]) => {
+    setDayTheme(getCareerDayTheme(today));
+  }, []);
 
   return (
-    <section className="hub-world-map" aria-labelledby="hub-world-title">
+    <section
+      className="hub-world-map"
+      aria-labelledby="hub-world-title"
+      data-today-theme={dayTheme}
+    >
       <h1 className="career-visually-hidden" id="hub-world-title">
         مركز عبقور
       </h1>
@@ -183,9 +192,18 @@ export function CareerDashboard({ userId, username }: { userId: string; username
         ))}
       </div>
 
+      <div aria-hidden="true" className="hub-day-atmosphere">
+        <span className="hub-day-edge hub-day-edge-start" />
+        <span className="hub-day-edge hub-day-edge-end" />
+        {Array.from({ length: 8 }, (_value, index) => (
+          <i className="hub-day-star" key={index} />
+        ))}
+      </div>
+
       <div className="hub-home-stage">
         <StudyProgressTracker
           onCareerProgressLoaded={handleCareerProgressLoaded}
+          onTodayPlanLoaded={handleTodayPlanLoaded}
           userId={userId}
           username={username}
         />

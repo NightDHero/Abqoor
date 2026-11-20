@@ -51,18 +51,32 @@ test("question bank uses a compact contextual list without a permanent actions c
   assert.doesNotMatch(questionBankSource, /admin-question-active-status/);
   assert.match(
     questionBankStyles,
-    /\.admin-question-row\s*\{[^}]*grid-template-columns:\s*minmax\(300px, 1\.5fr\)/s
+    /\.admin-question-row\s*\{[^}]*grid-template-columns:\s*auto minmax\(300px, 1\.5fr\)/s
   );
 });
 
-test("question bank exposes cumulative star difficulty filtering", () => {
+test("question bank exposes exact star difficulty filtering without rating tracks", () => {
   assert.match(questionBankSource, /function DifficultyRating/);
-  assert.match(questionBankSource, /difficultyMaxFilter/);
+  assert.match(questionBankSource, /difficultyFilter/);
   assert.match(questionBankSource, /"★"\.repeat\(level\)/);
-  assert.match(questionBankSource, /aria-pressed=\{difficultyMaxFilter === level\}/);
-  assert.match(adminServiceSource, /params\.set\("difficultyMax", String\(input\.difficultyMax\)\)/);
-  assert.match(questionBankStyles, /\.admin-question-difficulty-track/);
+  assert.match(questionBankSource, /aria-pressed=\{difficultyFilter === level\}/);
+  assert.match(adminServiceSource, /params\.set\("difficulty", String\(input\.difficulty\)\)/);
+  assert.doesNotMatch(questionBankSource, /admin-question-difficulty-track/);
+  assert.doesNotMatch(questionBankStyles, /\.admin-question-difficulty-track/);
+  assert.doesNotMatch(questionBankSource, /الصعوبة: حتى/);
   assert.match(questionBankSource, /current === level \? null : level/);
+});
+
+test("question bank bulk selection archives only explicit active question ids", () => {
+  assert.match(questionBankSource, /className="admin-question-select"/);
+  assert.match(questionBankSource, /تحديد الكل/);
+  assert.match(questionBankSource, /مسح التحديد/);
+  assert.match(questionBankSource, /حذف المحدد/);
+  assert.match(questionBankSource, /archiveQuestions\(selectedIds\)/);
+  assert.match(questionBankSource, /setSelectedQuestionIds\(new Set\(\)\)/);
+  assert.match(adminServiceSource, /JSON\.stringify\(\{ questionIds \}\)/);
+  assert.match(adminServiceSource, /\/admin\/import\/questions\/archive/);
+  assert.match(questionBankStyles, /\.admin-question-row\[data-selected="true"\]/);
 });
 
 test("question bank keeps dependent filters visible and individually clearable", () => {

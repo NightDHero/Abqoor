@@ -24,6 +24,7 @@ import {
   AdminImportError,
   analyzeQuestionImport,
   archiveAdminQuestion,
+  archiveAdminQuestions,
   cancelQuestionImport,
   confirmQuestionImport,
   getAdminQuestionBank,
@@ -359,6 +360,33 @@ importerRouter.get("/questions", async (request, response) => {
     handleRouteError(error, response, "تعذر تحميل بنك الأسئلة.");
   }
 });
+
+importerRouter.post(
+  "/questions/archive",
+  requireRecentAuthentication,
+  async (request, response) => {
+    try {
+      const questionIds = (request.body as { questionIds?: unknown } | undefined)
+        ?.questionIds;
+      if (!Array.isArray(questionIds) || questionIds.some((id) => typeof id !== "string")) {
+        throw new AdminImportError("قائمة الأسئلة المحددة غير صالحة.");
+      }
+
+      const result = await archiveAdminQuestions(
+        questionIds,
+        request.user?.id ?? ""
+      );
+      response.status(200).json(result);
+      writeSecurityEvent(request, "admin.questions_archived", {
+        actorUserId: request.user?.id,
+        detail: { selectedCount: result.archivedCount },
+        outcome: "success",
+      });
+    } catch (error) {
+      handleRouteError(error, response, "تعذر أرشفة الأسئلة المحددة.");
+    }
+  }
+);
 
 importerRouter.get("/questions/:id", async (request, response) => {
   try {

@@ -1271,3 +1271,30 @@ export const archiveAdminQuestion = async (id: string, archivedBy: string) => {
 
   return { archivedAt, questionId };
 };
+
+export const archiveAdminQuestions = async (
+  questionIds: string[],
+  archivedBy: string
+) => {
+  const uniqueQuestionIds = [...new Set(questionIds.map((id) => id.trim()))]
+    .filter(Boolean);
+  if (uniqueQuestionIds.length === 0) {
+    throw new AdminImportError("يجب تحديد سؤال واحد على الأقل.");
+  }
+  if (uniqueQuestionIds.length > 100) {
+    throw new AdminImportError("يمكن أرشفة 100 سؤال كحد أقصى في العملية الواحدة.");
+  }
+
+  const questions = await runImportTransaction(async () => {
+    const archived: Array<{ archivedAt: string; questionId: string }> = [];
+    for (const questionId of uniqueQuestionIds) {
+      archived.push(await archiveAdminQuestion(questionId, archivedBy));
+    }
+    return archived;
+  });
+
+  return {
+    archivedCount: questions.length,
+    questions
+  };
+};

@@ -293,6 +293,50 @@ test("question archive is authorized, reversible, and preserves historical recor
     { headers: { cookie: adminCookie }, method: "DELETE" }
   );
   assert.equal(repeatedArchive.status, 200);
+
+  const forbiddenBulkArchive = await fetch(
+    `${baseUrl}/admin/import/questions/archive`,
+    {
+      body: JSON.stringify({ questionIds: ["Q-ARCHIVE-EASY"] }),
+      headers: { "content-type": "application/json", cookie: studentCookie },
+      method: "POST"
+    }
+  );
+  assert.equal(forbiddenBulkArchive.status, 403);
+
+  const failedBulkArchive = await fetch(
+    `${baseUrl}/admin/import/questions/archive`,
+    {
+      body: JSON.stringify({
+        questionIds: ["Q-ARCHIVE-MEDIUM", "Q-ARCHIVE-MISSING"]
+      }),
+      headers: { "content-type": "application/json", cookie: adminCookie },
+      method: "POST"
+    }
+  );
+  assert.equal(failedBulkArchive.status, 404);
+  assert.equal((await findQuestionById("Q-ARCHIVE-MEDIUM"))?.archived_at, null);
+
+  const bulkArchive = await fetch(
+    `${baseUrl}/admin/import/questions/archive`,
+    {
+      body: JSON.stringify({ questionIds: ["Q-ARCHIVE-EASY"] }),
+      headers: { "content-type": "application/json", cookie: adminCookie },
+      method: "POST"
+    }
+  );
+  assert.equal(bulkArchive.status, 200);
+  const bulkArchivePayload = await bulkArchive.json() as {
+    archivedCount: number;
+    questions: Array<{ questionId: string }>;
+  };
+  assert.equal(bulkArchivePayload.archivedCount, 1);
+  assert.deepEqual(
+    bulkArchivePayload.questions.map((question) => question.questionId),
+    ["Q-ARCHIVE-EASY"]
+  );
+  assert.ok((await findQuestionById("Q-ARCHIVE-EASY"))?.archived_at);
+  assert.equal((await findQuestionById("Q-ARCHIVE-MEDIUM"))?.archived_at, null);
 });
 
 after(async () => {

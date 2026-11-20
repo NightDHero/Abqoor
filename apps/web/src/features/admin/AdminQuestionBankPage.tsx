@@ -65,9 +65,6 @@ function DifficultyRating({ value }: { value: number }) {
           <i data-filled={level <= normalizedValue} key={level}>★</i>
         ))}
       </span>
-      <span aria-hidden="true" className="admin-question-difficulty-track">
-        <i style={{ width: `${normalizedValue / difficultyMax * 100}%` }} />
-      </span>
     </span>
   );
 }
@@ -87,7 +84,7 @@ export function AdminQuestionBankPage() {
   const [subject, setSubject] = useState<QuestionSubject | "">("");
   const [topic, setTopic] = useState("");
   const [subtopic, setSubtopic] = useState("");
-  const [difficultyMaxFilter, setDifficultyMaxFilter] = useState<number | null>(null);
+  const [difficultyFilter, setDifficultyFilter] = useState<number | null>(null);
   const [source, setSource] = useState<QuestionSource | "">("");
   const [status, setStatus] = useState<QuestionStatus>("active");
   const [page, setPage] = useState(1);
@@ -116,11 +113,17 @@ export function AdminQuestionBankPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<AdminQuestion | null>(null);
   const [archivingId, setArchivingId] = useState<string | null>(null);
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [bulkArchiveIds, setBulkArchiveIds] = useState<string[] | null>(null);
+  const [isBulkArchiving, setIsBulkArchiving] = useState(false);
+  const selectAllRef = useRef<HTMLInputElement>(null);
   const requestVersionRef = useRef(0);
 
   const request = useMemo(() => ({
     bankId: bankId || undefined,
-    difficultyMax: difficultyMaxFilter ?? undefined,
+    difficulty: difficultyFilter ?? undefined,
     mode,
     page,
     pageSize,
@@ -131,8 +134,9 @@ export function AdminQuestionBankPage() {
     subject: subject || undefined,
     subtopic: subtopic || undefined,
     topic: topic || undefined
-  }), [bankId, difficultyMaxFilter, mode, page, query, sort, source, status, subject, subtopic, topic]);
+  }), [bankId, difficultyFilter, mode, page, query, sort, source, status, subject, subtopic, topic]);
   const filterScopeKey = `${mode}:${bankId || "all"}:${status}`;
+  const selectionScopeKey = JSON.stringify(request);
 
   useEffect(() => {
     const requestVersion = ++requestVersionRef.current;
@@ -184,7 +188,7 @@ export function AdminQuestionBankPage() {
 
   useEffect(() => {
     const hasFilters = Boolean(
-      query.trim() || bankId || subject || topic || subtopic || difficultyMaxFilter || source || status !== "active"
+      query.trim() || bankId || subject || topic || subtopic || difficultyFilter || source || status !== "active"
     );
     if (
       isLoading || error || page !== 1 || hasFilters || shouldAvoidSpeculativePreloading()
@@ -196,7 +200,11 @@ export function AdminQuestionBankPage() {
       pageSize,
       sort
     }).catch(() => undefined);
-  }, [bankId, difficultyMaxFilter, error, isLoading, mode, page, query, sort, source, status, subject, subtopic, topic]);
+  }, [bankId, difficultyFilter, error, isLoading, mode, page, query, sort, source, status, subject, subtopic, topic]);
+
+  useEffect(() => {
+    setSelectedQuestionIds(new Set());
+  }, [selectionScopeKey]);
 
   useEffect(() => {
     if (!selectedQuestionId) {
@@ -231,15 +239,16 @@ export function AdminQuestionBankPage() {
   }, [selectedQuestionId]);
 
   useEffect(() => {
-    if (!selectedQuestionId && !archiveTarget) return;
+    if (!selectedQuestionId && !archiveTarget && !bulkArchiveIds) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (archiveTarget) setArchiveTarget(null);
+      if (bulkArchiveIds) setBulkArchiveIds(null);
+      else if (archiveTarget) setArchiveTarget(null);
       else setSelectedQuestionId(null);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [archiveTarget, selectedQuestionId]);
+  }, [archiveTarget, bulkArchiveIds, selectedQuestionId]);
 
   const availableSubjects = filterCatalogs[filterScopeKey] ?? [];
   const availableTopics = useMemo(() => {
@@ -264,7 +273,7 @@ export function AdminQuestionBankPage() {
     subject,
     topic,
     subtopic,
-    difficultyMaxFilter,
+    difficultyFilter,
     source,
     bankId,
     status === "active" ? "" : status
@@ -299,10 +308,10 @@ export function AdminQuestionBankPage() {
       label: `الموضوع الفرعي: ${subtopic}`,
       onClear: () => setSubtopic("")
     } : null,
-    difficultyMaxFilter ? {
+    difficultyFilter ? {
       key: "difficulty",
-      label: `الصعوبة: حتى ${"★".repeat(difficultyMaxFilter)}`,
-      onClear: () => setDifficultyMaxFilter(null)
+      label: `الصعوبة: ${"★".repeat(difficultyFilter)}`,
+      onClear: () => setDifficultyFilter(null)
     } : null,
     source ? {
       key: "source",
@@ -326,7 +335,7 @@ export function AdminQuestionBankPage() {
     setSubject("");
     setTopic("");
     setSubtopic("");
-    setDifficultyMaxFilter(null);
+    setDifficultyFilter(null);
     setSource("");
     setStatus("active");
     setBankId("");
@@ -376,6 +385,82 @@ export function AdminQuestionBankPage() {
       });
     } finally {
       setArchivingId(null);
+    }
+  };
+
+  const selectableQuestionIds = result.questions
+    .filter((question) => question.status === "active")
+    .map((question) => question.id);
+  const selectedCount = selectedQuestionIds.size;
+  const allVisibleSelected = selectableQuestionIds.length > 0 &&
+    selectableQuestionIds.every((id) => selectedQuestionIds.has(id));
+
+  useEffect(() => {
+    if (!selectAllRef.current) return;
+    selectAllRef.current.indeterminate = selectedCount > 0 && !allVisibleSelected;
+  }, [allVisibleSelected, selectedCount]);
+
+  const toggleQuestionSelection = (questionId: string) => {
+    setSelectedQuestionIds((current) => {
+      const next = new Set(current);
+      if (next.has(questionId)) next.delete(questionId);
+      else next.add(questionId);
+      return next;
+    });
+  };
+
+  const toggleAllVisibleQuestions = () => {
+    setSelectedQuestionIds(
+      allVisibleSelected ? new Set() : new Set(selectableQuestionIds)
+    );
+  };
+
+  const archiveSelectedQuestions = async () => {
+    if (!bulkArchiveIds?.length || isBulkArchiving) return;
+    const selectedIds = [...bulkArchiveIds];
+    setIsBulkArchiving(true);
+    setFeedback(null);
+    try {
+      const archived = await adminService.archiveQuestions(selectedIds);
+      const archivedById = new Map(
+        archived.questions.map((question) => [question.questionId, question.archivedAt])
+      );
+      setResult((current) => ({
+        ...current,
+        questions: status === "all"
+          ? current.questions.map((question) => archivedById.has(question.id)
+            ? {
+              ...question,
+              archivedAt: archivedById.get(question.id) ?? question.archivedAt,
+              status: "archived" as const
+            }
+            : question)
+          : current.questions.filter((question) => !archivedById.has(question.id)),
+        total: status === "all"
+          ? current.total
+          : Math.max(0, current.total - archivedById.size)
+      }));
+      setBulkArchiveIds(null);
+      setSelectedQuestionIds(new Set());
+      setFeedback({
+        message: `تمت أرشفة ${archivedById.size.toLocaleString("ar-SA")} سؤال محدد مع الحفاظ على سجلاتها التاريخية.`,
+        tone: "success"
+      });
+      if (status !== "all" && result.questions.length === archivedById.size && page > 1) {
+        setPage((current) => current - 1);
+      } else {
+        setReloadVersion((current) => current + 1);
+      }
+    } catch (requestError) {
+      setBulkArchiveIds(null);
+      setFeedback({
+        message: requestError instanceof Error && requestError.message
+          ? requestError.message
+          : "تعذر أرشفة الأسئلة المحددة. حاول مرة أخرى.",
+        tone: "error"
+      });
+    } finally {
+      setIsBulkArchiving(false);
     }
   };
 
@@ -513,18 +598,18 @@ export function AdminQuestionBankPage() {
               {availableSubtopics.map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
           </label>
-          <fieldset className="admin-question-difficulty-filter" data-active={Boolean(difficultyMaxFilter)}>
-            <legend>الحد الأقصى للصعوبة</legend>
-            <div role="group" aria-label="تصفية حسب الحد الأقصى للصعوبة">
+          <fieldset className="admin-question-difficulty-filter" data-active={Boolean(difficultyFilter)}>
+            <legend>الصعوبة</legend>
+            <div role="group" aria-label="تصفية حسب الصعوبة الدقيقة">
               {difficultyLevels.map((level) => (
                 <button
-                  aria-label={`حتى صعوبة ${level.toLocaleString("ar-SA")} من ${difficultyMax.toLocaleString("ar-SA")}`}
-                  aria-pressed={difficultyMaxFilter === level}
-                  className={difficultyMaxFilter === level ? "selected" : undefined}
+                  aria-label={`الصعوبة ${level.toLocaleString("ar-SA")} من ${difficultyMax.toLocaleString("ar-SA")}`}
+                  aria-pressed={difficultyFilter === level}
+                  className={difficultyFilter === level ? "selected" : undefined}
                   key={level}
                   type="button"
                   onClick={() => {
-                    setDifficultyMaxFilter((current) => current === level ? null : level);
+                    setDifficultyFilter((current) => current === level ? null : level);
                     setPage(1);
                   }}
                 >
@@ -618,14 +703,63 @@ export function AdminQuestionBankPage() {
         ) : null}
 
         {!error && result.questions.length > 0 ? (
-          <div
-            aria-busy={isLoading}
-            aria-label={status === "active" ? "قائمة الأسئلة النشطة" : status === "archived" ? "قائمة الأسئلة المؤرشفة" : "قائمة كل الأسئلة"}
-            className="admin-question-list"
-            role="list"
-          >
+          <>
+            {selectableQuestionIds.length > 0 ? (
+              <div className="admin-question-selection-toolbar" data-has-selection={selectedCount > 0}>
+                <label>
+                  <input
+                    aria-label="تحديد كل الأسئلة النشطة الظاهرة"
+                    checked={allVisibleSelected}
+                    ref={selectAllRef}
+                    type="checkbox"
+                    onChange={toggleAllVisibleQuestions}
+                  />
+                  <span>تحديد الكل</span>
+                </label>
+                <span aria-live="polite">
+                  {selectedCount > 0
+                    ? `${selectedCount.toLocaleString("ar-SA")} محدد`
+                    : "لم يتم تحديد أسئلة"}
+                </span>
+                {selectedCount > 0 ? (
+                  <>
+                    <button className="secondary" type="button" onClick={() => setSelectedQuestionIds(new Set())}>
+                      مسح التحديد
+                    </button>
+                    <button
+                      className="danger admin-question-bulk-archive"
+                      type="button"
+                      onClick={() => setBulkArchiveIds([...selectedQuestionIds])}
+                    >
+                      <SystemIcon name="trash" /> حذف المحدد ({selectedCount.toLocaleString("ar-SA")})
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+            <div
+              aria-busy={isLoading}
+              aria-label={status === "active" ? "قائمة الأسئلة النشطة" : status === "archived" ? "قائمة الأسئلة المؤرشفة" : "قائمة كل الأسئلة"}
+              className="admin-question-list"
+              role="list"
+            >
             {result.questions.map((question) => (
-              <article className="admin-question-row" key={question.id} role="listitem">
+              <article
+                className="admin-question-row"
+                data-selected={selectedQuestionIds.has(question.id)}
+                key={question.id}
+                role="listitem"
+              >
+                <input
+                  aria-label={question.status === "active"
+                    ? `تحديد السؤال ${question.questionNumber.toLocaleString("ar-SA")}`
+                    : `السؤال ${question.questionNumber.toLocaleString("ar-SA")} مؤرشف`}
+                  checked={selectedQuestionIds.has(question.id)}
+                  className="admin-question-select"
+                  disabled={question.status !== "active"}
+                  type="checkbox"
+                  onChange={() => toggleQuestionSelection(question.id)}
+                />
                 <div className="admin-question-primary">
                   <button
                     className="admin-question-identity"
@@ -675,7 +809,8 @@ export function AdminQuestionBankPage() {
                 <DifficultyRating value={question.difficulty} />
               </article>
             ))}
-          </div>
+            </div>
+          </>
         ) : null}
 
         {!error && result.total > 0 ? (
@@ -771,6 +906,25 @@ export function AdminQuestionBankPage() {
               <button className="secondary" disabled={Boolean(archivingId)} type="button" onClick={() => setArchiveTarget(null)}>إلغاء</button>
               <button className="danger" disabled={Boolean(archivingId)} type="button" onClick={() => void archiveQuestion()}>
                 {archivingId ? "جاري الإزالة..." : "تأكيد الإزالة"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {bulkArchiveIds ? (
+        <div className="admin-confirmation" role="presentation">
+          <div aria-labelledby="bulk-archive-question-title" aria-modal="true" role="alertdialog">
+            <span className="admin-question-confirm-icon"><SystemIcon name="trash" /></span>
+            <div>
+              <h2 id="bulk-archive-question-title">أرشفة الأسئلة المحددة؟</h2>
+              <p>سيتم حذف {bulkArchiveIds.length.toLocaleString("ar-SA")} سؤال محدد من البنك النشط.</p>
+              <p className="admin-question-preservation-note">ستبقى الصور والسجلات والإجابات التاريخية محفوظة، ولن تتأثر أي أسئلة غير محددة.</p>
+            </div>
+            <div className="admin-confirm-actions">
+              <button className="secondary" disabled={isBulkArchiving} type="button" onClick={() => setBulkArchiveIds(null)}>إلغاء</button>
+              <button className="danger" disabled={isBulkArchiving} type="button" onClick={() => void archiveSelectedQuestions()}>
+                {isBulkArchiving ? "جاري الأرشفة..." : `تأكيد أرشفة ${bulkArchiveIds.length.toLocaleString("ar-SA")} سؤال`}
               </button>
             </div>
           </div>

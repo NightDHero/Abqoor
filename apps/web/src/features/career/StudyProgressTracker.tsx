@@ -600,10 +600,12 @@ function MonthView({
 
 export function StudyProgressTracker({
   onCareerProgressLoaded,
+  onTodayPlanLoaded,
   userId,
   username
 }: {
   onCareerProgressLoaded?: (progress: StudyProgressResponse["career"]) => void;
+  onTodayPlanLoaded?: (today: StudyProgressDay) => void;
   userId: string;
   username?: string | null;
 }) {
@@ -639,6 +641,7 @@ export function StudyProgressTracker({
       setIsLoading(false);
       setError("");
       onCareerProgressLoaded?.(cached.data.career);
+      onTodayPlanLoaded?.(cached.data.today);
     } else {
       setProgress(null);
       setIsLoading(true);
@@ -664,6 +667,7 @@ export function StudyProgressTracker({
         if (isMounted) {
           setProgress(response);
           onCareerProgressLoaded?.(response.career);
+          onTodayPlanLoaded?.(response.today);
           if (!cached) setActiveView(getDefaultProgressView(response));
         }
       })
@@ -685,7 +689,7 @@ export function StudyProgressTracker({
     return () => {
       isMounted = false;
     };
-  }, [currentCacheKey, onCareerProgressLoaded, reloadVersion, timeZone, userId]);
+  }, [currentCacheKey, onCareerProgressLoaded, onTodayPlanLoaded, reloadVersion, timeZone, userId]);
 
   const loadDisplayedMonth = async (monthKey: string) => {
     const requestVersion = ++monthRequestVersionRef.current;
@@ -698,6 +702,7 @@ export function StudyProgressTracker({
     if (cached) {
       setProgress(cached.data);
       onCareerProgressLoaded?.(cached.data.career);
+      onTodayPlanLoaded?.(cached.data.today);
       setIsMonthLoading(false);
       if (!cached.isStale) return;
     } else {
@@ -714,6 +719,7 @@ export function StudyProgressTracker({
       if (isCurrentRequest()) {
         setProgress(response);
         onCareerProgressLoaded?.(response.career);
+        onTodayPlanLoaded?.(response.today);
       }
     } catch (caughtError) {
       if (!cached && isCurrentRequest()) {

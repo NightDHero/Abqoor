@@ -70,6 +70,121 @@
   pointer-events: none;
 }
 
+.hub-day-atmosphere {
+  position: fixed;
+  z-index: 1;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 500ms ease;
+}
+
+.hub-world-map[data-today-theme="math"] .hub-day-atmosphere {
+  background:
+    radial-gradient(ellipse at 100% 38%, rgb(255 145 54 / 24%), transparent 38%),
+    radial-gradient(ellipse at 0 78%, rgb(224 104 31 / 12%), transparent 32%);
+  opacity: 1;
+}
+
+.hub-world-map[data-today-theme="verbal"] .hub-day-atmosphere {
+  background:
+    radial-gradient(ellipse at 0 34%, rgb(39 203 231 / 24%), transparent 38%),
+    radial-gradient(ellipse at 100% 80%, rgb(37 139 226 / 13%), transparent 32%);
+  opacity: 1;
+}
+
+.hub-world-map[data-today-theme="rest"] .hub-day-atmosphere {
+  background:
+    radial-gradient(ellipse at 0 25%, rgb(54 203 231 / 22%), transparent 36%),
+    radial-gradient(ellipse at 100% 28%, rgb(122 91 229 / 24%), transparent 38%),
+    radial-gradient(ellipse at 100% 88%, rgb(44 135 220 / 17%), transparent 34%),
+    linear-gradient(90deg, rgb(18 160 210 / 6%), transparent 18% 82%, rgb(111 75 220 / 7%));
+  opacity: 1;
+}
+
+.hub-day-edge {
+  position: absolute;
+  top: 8%;
+  bottom: 8%;
+  width: min(25vw, 360px);
+  border: 1px solid transparent;
+  border-radius: 50%;
+  opacity: 0;
+}
+
+.hub-day-edge-start {
+  inset-inline-start: -15%;
+}
+
+.hub-day-edge-end {
+  inset-inline-end: -15%;
+}
+
+.hub-world-map[data-today-theme="rest"] .hub-day-edge {
+  border-color: rgb(111 215 240 / 15%);
+  box-shadow:
+    0 0 60px rgb(42 188 225 / 10%),
+    inset 0 0 54px rgb(115 90 226 / 8%);
+  opacity: 1;
+  animation: hub-rest-orbit-drift 14s ease-in-out infinite alternate;
+}
+
+.hub-world-map[data-today-theme="rest"] .hub-day-edge-end {
+  border-color: rgb(139 112 240 / 16%);
+  animation-delay: -7s;
+}
+
+.hub-day-star {
+  position: absolute;
+  display: none;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #dffaff;
+  box-shadow: 0 0 10px rgb(130 225 245 / 72%);
+  opacity: 0.42;
+}
+
+.hub-world-map[data-today-theme="rest"] .hub-day-star {
+  display: block;
+  animation: hub-rest-star-drift 10s ease-in-out infinite alternate;
+}
+
+.hub-day-star:nth-of-type(1) { top: 13%; inset-inline-start: 4%; }
+.hub-day-star:nth-of-type(2) { top: 31%; inset-inline-end: 5%; animation-delay: -2s; }
+.hub-day-star:nth-of-type(3) { top: 52%; inset-inline-start: 2%; animation-delay: -6s; }
+.hub-day-star:nth-of-type(4) { top: 71%; inset-inline-end: 4%; animation-delay: -4s; }
+.hub-day-star:nth-of-type(5) { top: 86%; inset-inline-start: 7%; animation-delay: -8s; }
+.hub-day-star:nth-of-type(6) { top: 8%; inset-inline-end: 12%; animation-delay: -3s; }
+.hub-day-star:nth-of-type(7) { top: 63%; inset-inline-start: 9%; animation-delay: -5s; }
+.hub-day-star:nth-of-type(8) { top: 92%; inset-inline-end: 10%; animation-delay: -1s; }
+
+.hub-world-map[data-today-theme="math"] .study-progress-plan-intro {
+  border-inline-start-color: #f59b45;
+  background:
+    linear-gradient(90deg, rgb(245 155 69 / 9%), transparent 34%),
+    color-mix(in srgb, var(--world-destination-bg) 72%, transparent);
+}
+
+.hub-world-map[data-today-theme="math"] .study-progress-welcome-kicker {
+  color: #ffb264;
+}
+
+.hub-world-map[data-today-theme="verbal"] .study-progress-plan-intro {
+  border-inline-start-color: #50d6ee;
+  background:
+    linear-gradient(90deg, rgb(80 214 238 / 10%), transparent 34%),
+    color-mix(in srgb, var(--world-destination-bg) 72%, transparent);
+}
+
+.hub-world-map[data-today-theme="rest"] .study-progress-plan-intro {
+  border-inline-start-color: #8ecff1;
+  background:
+    linear-gradient(90deg, rgb(112 103 223 / 10%), transparent 34%),
+    color-mix(in srgb, var(--world-destination-bg) 72%, transparent);
+}
+
 .hub-atmosphere-verbal,
 .hub-atmosphere-math,
 .hub-atmosphere-bridge {
@@ -1932,6 +2047,30 @@
   }
 }
 
+@keyframes hub-rest-orbit-drift {
+  from {
+    opacity: 0.55;
+    transform: translateY(-2%) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(2%) scale(1.04);
+  }
+}
+
+@keyframes hub-rest-star-drift {
+  from {
+    opacity: 0.22;
+    transform: translate3d(0, 8px, 0) scale(0.85);
+  }
+
+  to {
+    opacity: 0.72;
+    transform: translate3d(8px, -9px, 0) scale(1.12);
+  }
+}
+
 @keyframes hub-profile-menu-in {
   from {
     opacity: 0;
@@ -2319,6 +2458,8 @@
   .hub-atmosphere-bridge,
   .hub-world-particle,
   .hub-world-energy-streak,
+  .hub-day-edge,
+  .hub-day-star,
   .hub-world-collision::before,
   .hub-world-collision::after,
   .study-progress-body {
